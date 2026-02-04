@@ -729,23 +729,13 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-top: 20px;
-    padding-top: 12px;
+    padding-top: 10px;
     border-top: 1px solid var(--border-color);
 }
 
 .footer-org {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-}
-
-.footer-org span:first-child {
-    font-weight: 500;
-    color: var(--text-primary);
-}
-
-.footer-org-en {
-    margin-left: 5px;
     font-size: 0.75rem;
+    color: var(--text-secondary);
 }
 
 .footer-doc {
