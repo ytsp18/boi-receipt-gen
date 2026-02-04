@@ -508,6 +508,77 @@ CREATE TABLE activity_logs (
 
 ---
 
+## Phase 13: UI Rebranding & Form Layout (v5.1)
+
+**Session Date:** 5 February 2026
+
+### ความต้องการ
+1. เปลี่ยน Header/Title จาก BOI เป็น EWP Service Center
+2. ปรับหัวแบบฟอร์มให้เรียบง่าย
+3. ย้ายชื่อหน่วยงานไป Footer
+
+### การเปลี่ยนแปลง
+
+**Receipt Form Header:**
+```
+แบบรับใบอนุญาตทำงาน e-WorkPermit
+(e-WorkPermit Card Receipt)
+─────────────────────────────────
+```
+
+**Receipt Form Footer:**
+```
+────────────────────────────────────────────────
+ศูนย์บริการ EWP อาคาร One Bangkok    Doc No.: 20260205-001
+```
+
+**System Header:**
+- จาก: "ระบบออกใบรับบัตร Work Permit / สำนักงานคณะกรรมการส่งเสริมการลงทุน (BOI)"
+- เป็น: "ระบบสร้างแบบฟอร์มรับบัตร / ศูนย์บริการ EWP อาคาร One Bangkok"
+
+**Table Header:**
+- จาก: "ข้อมูลคุมทะเบียน"
+- เป็น: "รายการเอกสารแบบรับใบอนุญาตทำงาน e-WorkPermit"
+
+---
+
+## Git Version Control (Rollback Guide)
+
+**วิธี Rollback กลับไป Version ก่อนหน้า:**
+
+```bash
+# ดู commits ทั้งหมด
+git log --oneline -20
+
+# Rollback ไป commit ที่ต้องการ (ใช้ commit hash)
+git checkout <commit-hash> -- <file>
+
+# หรือ Rollback ทั้ง project
+git reset --hard <commit-hash>
+
+# Push force (ระวัง! จะลบ commits หลังจากนั้น)
+git push origin main --force
+```
+
+**Commit History สำคัญ:**
+
+| Commit | Description | Date |
+|--------|-------------|------|
+| `4e422ad` | v5.1 - Simplified footer (current) | 5 Feb 2026 |
+| `91db333` | v5.1.0 - UI updates, sorting, sync toggle | 5 Feb 2026 |
+| `72fea0d` | v5.0 - SESSION_LOG update | 5 Feb 2026 |
+| `9f3ddbd` | v5.0 - Custom domain added | 5 Feb 2026 |
+| `4b04e5b` | v5.0 - Initial Supabase integration | 5 Feb 2026 |
+
+---
+
+## Session End (v5.1)
+- **Status:** UI Rebranding เรียบร้อย
+- **Current Version:** 5.1.0
+- **Live URL:** https://receipt.fts-internal.com
+
+---
+
 ## Version Summary (Updated)
 
 | Version | Features |
@@ -519,4 +590,5 @@ CREATE TABLE activity_logs (
 | 4.0.0 | Login System + User Management + Role-based Permissions |
 | 4.1.0 | Google Sheets Integration + Print Layout Improvements |
 | 4.1.1 | Print Layout Optimization (Full A4 page) |
-| **5.0.0** | **Supabase Cloud + GitHub Pages + Custom Domain** |
+| 5.0.0 | Supabase Cloud + GitHub Pages + Custom Domain |
+| **5.1.0** | **UI Rebranding - EWP Service Center** |

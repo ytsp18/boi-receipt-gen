@@ -1,5 +1,30 @@
 # Change Log - Work Permit Receipt System
 
+## [5.1.0] - 2026-02-05
+
+### Changed
+- **Receipt Form Header**
+  - เปลี่ยนหัวเรื่องเป็น "แบบรับใบอนุญาตทำงาน e-WorkPermit"
+  - เพิ่ม subtitle "(e-WorkPermit Card Receipt)"
+  - ใช้รูปแบบเรียบง่าย มีเส้นขีดใต้สีน้ำเงิน
+
+- **Receipt Form Footer**
+  - ย้ายชื่อหน่วยงาน "ศูนย์บริการ EWP อาคาร One Bangkok" ไป footer
+  - แสดงชื่อหน่วยงานซ้าย และ Doc No. ขวา ในแถวเดียวกัน
+
+- **System Header**
+  - เปลี่ยนจาก "ระบบออกใบรับบัตร Work Permit" เป็น "ระบบสร้างแบบฟอร์มรับบัตร"
+  - เปลี่ยนชื่อหน่วยงานเป็น "ศูนย์บริการ EWP อาคาร One Bangkok"
+
+- **Registry Table Header**
+  - เปลี่ยนจาก "ข้อมูลคุมทะเบียน" เป็น "รายการเอกสารแบบรับใบอนุญาตทำงาน e-WorkPermit"
+
+### Technical
+- Added CSS version query for cache busting
+- Updated print layout to match preview
+
+---
+
 ## [5.0.0] - 2026-02-05
 
 ### Added
