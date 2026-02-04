@@ -1,5 +1,54 @@
 # Change Log - Work Permit Receipt System
 
+## [5.0.0] - 2026-02-05
+
+### Added
+- **Supabase Cloud Integration**
+  - PostgreSQL database for receipts, profiles, activity_logs
+  - Supabase Storage for Work Permit card images
+  - Real-time data sync across devices
+  - Secure authentication with Supabase Auth
+
+- **Cloud Deployment**
+  - GitHub Pages hosting
+  - Custom domain: `receipt.fts-internal.com`
+  - Auto SSL certificate provisioning
+
+- **New Files**
+  - `js/supabase-config.js` - Supabase client configuration
+  - `js/supabase-adapter.js` - Adapter layer for Supabase operations
+  - `js/app-supabase.js` - Main app v5.0 with cloud integration
+  - `CNAME` - Custom domain configuration
+
+### Changed
+- **Data Storage**
+  - Migrated from LocalStorage to Supabase PostgreSQL
+  - Images stored in Supabase Storage bucket
+  - Activity logs stored in database
+
+- **Authentication**
+  - Changed from LocalStorage sessions to Supabase Auth
+  - Email/password authentication
+  - Profile data from `profiles` table
+
+- **Auto-reload after save**
+  - Table automatically updates after saving data
+  - No need to manually refresh page
+
+### Fixed
+- **406 Error** - Changed `.single()` to `.maybeSingle()` when checking existing receipts
+- **Table not updating** - Added auto-reload from Supabase after save
+- **Supabase library loading** - Added inline initialization with retry mechanism
+- **Login redirect loop** - Removed auto-redirect on login page
+
+### Technical
+- Supabase Project: `pyyltrcqeyfhidpcdtvc`
+- Database: PostgreSQL with Row Level Security (RLS)
+- Storage: `card-images` public bucket
+- Hosting: GitHub Pages + Custom Domain
+
+---
+
 ## [4.1.1] - 2026-02-05
 
 ### Changed
@@ -223,7 +272,11 @@
 ## Roadmap (Future)
 
 - [x] ~~เชื่อมต่อ Google Sheets API~~ (v4.1.0)
-- [ ] บันทึกรูปไป Google Drive
+- [x] ~~บันทึกรูปไป Cloud~~ (v5.0.0 - Supabase Storage)
 - [x] ~~Batch Print (พิมพ์หลายใบพร้อมกัน)~~ (v3.0.0)
 - [x] ~~รายงานสรุปรายเดือน~~ (v3.0.0)
 - [x] ~~Activity Log (ประวัติการทำงาน)~~ (v3.0.0)
+- [x] ~~Cloud Deployment~~ (v5.0.0 - GitHub Pages + Custom Domain)
+- [ ] Multi-device real-time sync
+- [ ] Mobile responsive improvements
+- [ ] QR Code verification integration
