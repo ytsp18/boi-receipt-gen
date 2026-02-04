@@ -708,10 +708,68 @@ body {
 .receipt-header {
     text-align: center;
     margin-bottom: 25px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid var(--primary-color);
+    padding: 20px 15px;
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    position: relative;
 }
 
+.receipt-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color), #3b82f6);
+    border-radius: 0 0 4px 4px;
+}
+
+/* Main Title - Thai */
+.receipt-title-main {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    margin-top: 5px;
+}
+
+/* Sub Title - English */
+.receipt-title-sub {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #64748b;
+    margin-bottom: 14px;
+}
+
+/* Divider line between title and org */
+.receipt-org-divider {
+    width: 50px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #cbd5e1, transparent);
+    margin: 0 auto 14px auto;
+}
+
+/* Organization Name - Thai */
+.receipt-org-th {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 3px;
+}
+
+/* Organization Name - English */
+.receipt-org-en {
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: #94a3b8;
+    letter-spacing: 0.3px;
+}
+
+/* Legacy support for h3 and p if used */
 .receipt-header h3 {
     font-size: 1.3rem;
     color: var(--primary-color);
