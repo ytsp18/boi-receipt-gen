@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เข้าสู่ระบบ - Work Permit Receipt System</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        }
+
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: #2563eb;
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+
+        .login-header p {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .login-form .form-group {
+            margin-bottom: 20px;
+        }
+
+        .login-form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .login-form input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .login-form input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .login-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .login-error {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .login-error.show {
+            display: block;
+        }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #9ca3af;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>🔐 เข้าสู่ระบบ</h1>
+            <p>ระบบออกใบรับบัตร Work Permit - BOI</p>
+        </div>
+
+        <div class="login-error" id="loginError">
+            ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง
+        </div>
+
+        <form class="login-form" id="loginForm">
+            <div class="form-group">
+                <label for="email">อีเมล (Email)</label>
+                <input type="email" id="email" placeholder="กรอกอีเมล" required autofocus>
+            </div>
+
+            <div class="form-group">
+                <label for="password">รหัสผ่าน (Password)</label>
+                <input type="password" id="password" placeholder="กรอกรหัสผ่าน" required>
+            </div>
+
+            <button type="submit" class="login-btn">เข้าสู่ระบบ</button>
+        </form>
+
+        <div class="login-footer">
+            <p>© 2026 Board of Investment of Thailand</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Wait for Supabase to load, then initialize
+        function initSupabase() {
+            const SUPABASE_URL = 'https://pyyltrcqeyfhidpcdtvc.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5eWx0cmNxZXlmaGlkcGNkdHZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMjE0MzcsImV4cCI6MjA4NTc5NzQzN30.vRJk8x6Kmo2rFYrJ6ZGqPWf3LSjLmb41COLJAP5glYo';
+
+            if (window.supabase && window.supabase.createClient) {
+                window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('✅ Supabase initialized');
+                return true;
+            }
+            return false;
+        }
+
+        // Try to init immediately
+        if (!initSupabase()) {
+            // If not ready, wait and retry
+            setTimeout(initSupabase, 100);
+        }
+    </script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบออกใบรับบัตร Work Permit - BOI</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>ระบบออกใบรับบัตร Work Permit</h1>
+                <p class="subtitle">สำนักงานคณะกรรมการส่งเสริมการลงทุน (BOI)</p>
+            </div>
+            <div class="header-right">
+                <div class="user-info" id="userInfo">
+                    <span class="user-name" id="currentUserName">-</span>
+                    <span class="user-role" id="currentUserRole">-</span>
+                </div>
+                <button class="btn btn-outline btn-sm" id="userManagementBtn" style="display: none;">👥 จัดการผู้ใช้</button>
+                <button class="btn btn-outline-danger btn-sm" id="logoutBtn">🚪 ออกจากระบบ</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left Panel - Form -->
+            <section class="form-panel">
+                <div class="form-panel-header">
+                    <h2 id="formTitle">เพิ่มข้อมูลใหม่</h2>
+                    <span class="form-mode-badge" id="formModeBadge">โหมด: เพิ่มใหม่</span>
+                </div>
+
+                <!-- Import from Sheet Button -->
+                <div class="import-sheet-section">
+                    <button type="button" class="btn btn-secondary btn-sm" id="importFromSheetBtn">
+                        📥 ดึงข้อมูลจาก Google Sheet
+                    </button>
+                    <span class="sheet-status" id="sheetStatus"></span>
+                </div>
+
+                <form id="receiptForm">
+                    <!-- Hidden field for auto-generated receipt number -->
+                    <input type="hidden" id="receiptNo">
+
+                    <!-- Row 1: Date (Auto-generated) -->
+                    <div class="form-group">
+                        <label for="receiptDate">วันที่รับบัตร (Date) <span class="auto-badge">อัตโนมัติ</span></label>
+                        <input type="date" id="receiptDate" required readonly class="readonly-field">
+                    </div>
+
+                    <!-- Row 2: Name -->
+                    <div class="form-group">
+                        <label for="foreignerName">ชื่อคนต่างด้าว (Name)</label>
+                        <input type="text" id="foreignerName" placeholder="RAFAEL MASSAYOSHI NIITSUMA" required>
+                    </div>
+
+                    <!-- Row 3: SN Card Number -->
+                    <div class="form-group">
+                        <label for="snNumber">หมายเลข SN บัตร (SN Number)</label>
+                        <input type="text" id="snNumber" placeholder="1234567890">
+                    </div>
+
+                    <!-- Row 4: Request No -->
+                    <div class="form-group">
+                        <label for="requestNo">เลขที่คำขอ (Request No.)</label>
+                        <input type="text" id="requestNo" placeholder="B69113800005272" required>
+                    </div>
+
+                    <!-- Row 5: Appointment No -->
+                    <div class="form-group">
+                        <label for="appointmentNo">เลขที่ใบนัดหมาย (Appointment No.)</label>
+                        <input type="text" id="appointmentNo" placeholder="1-BKK001022600639-SW" required>
+                    </div>
+
+                    <!-- Divider -->
+                    <hr class="divider">
+
+                    <!-- Image Upload Section -->
+                    <div class="form-group">
+                        <label>รูปบัตร Work Permit (หน้า-หลัง)</label>
+                        <div class="image-upload-single" id="cardImageUpload">
+                            <input type="file" id="cardImage" accept="image/*" hidden>
+                            <div class="upload-placeholder" id="cardPlaceholder">
+                                <span class="upload-icon">📷</span>
+                                <span>รูปบัตร Work Permit</span>
+                                <span class="upload-hint">คลิกเพื่อเลือกรูป, ลากไฟล์มาวาง หรือ Ctrl+V</span>
+                            </div>
+                            <img id="cardPreview" class="image-preview" alt="Card">
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline-danger" id="clearBtn">🗑️ ล้างข้อมูล</button>
+                        <button type="button" class="btn btn-primary" id="saveBtn">💾 บันทึกข้อมูล</button>
+                    </div>
+                    <div class="form-actions-secondary">
+                        <button type="button" class="btn btn-success" id="printBtn">🖨️ พิมพ์ใบรับ</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Right Panel - Preview -->
+            <section class="preview-panel">
+                <h2>ตัวอย่างใบรับ</h2>
+                <div class="receipt-preview" id="receiptPreview">
+                    <!-- Receipt Template -->
+                    <div class="receipt-document">
+                        <div class="receipt-header">
+                            <h3>ใบรับบัตรอนุญาตทำงาน</h3>
+                            <p>สำนักงานคณะกรรมการส่งเสริมการลงทุน</p>
+                        </div>
+
+                        <div class="receipt-body">
+                            <div class="receipt-row">
+                                <span class="label">
+                                    <span class="label-th">วันที่รับบัตร:</span>
+                                    <span class="label-en">(Date)</span>
+                                </span>
+                                <span class="value" id="previewDate">-</span>
+                            </div>
+                            <div class="receipt-row">
+                                <span class="label">
+                                    <span class="label-th">ชื่อ:</span>
+                                    <span class="label-en">(Name)</span>
+                                </span>
+                                <span class="value" id="previewName">-</span>
+                            </div>
+                            <div class="receipt-row">
+                                <span class="label">
+                                    <span class="label-th">หมายเลข SN:</span>
+                                    <span class="label-en">(Serial No.)</span>
+                                </span>
+                                <span class="value" id="previewSN">-</span>
+                            </div>
+                            <div class="receipt-row">
+                                <span class="label">
+                                    <span class="label-th">เลขที่คำขอ:</span>
+                                    <span class="label-en">(Request No.)</span>
+                                </span>
+                                <span class="value" id="previewRequestNo">-</span>
+                            </div>
+                            <div class="receipt-row">
+                                <span class="label">
+                                    <span class="label-th">เลขที่ใบนัดหมาย:</span>
+                                    <span class="label-en">(Appointment No.)</span>
+                                </span>
+                                <span class="value" id="previewAppointmentNo">-</span>
+                            </div>
+                        </div>
+                        <!-- Hidden element for receipt number -->
+                        <span id="previewReceiptNo" style="display:none;"></span>
+
+                        <div class="receipt-images-single">
+                            <div class="receipt-image-box-single" id="previewCardBox">
+                                <span class="image-label">รูปบัตร Work Permit</span>
+                                <img id="receiptCardImage" alt="Card">
+                            </div>
+                        </div>
+
+                        <div class="receipt-confirmation">
+                            <p class="confirmation-text-th">ข้าพเจ้าตรวจความถูกต้องของใบอนุญาตทำงานแล้ว และยืนยันว่าได้รับใบอนุญาตทำงาน ศูนย์บริการวีซ่าและใบอนุญาตทำงาน อาคาร One Bangkok.</p>
+                            <p class="confirmation-text-en">I have checked that all the information on the card is correct. and confirm that you received the card at One Stop Service Center at One Bangkok.</p>
+                        </div>
+
+                        <div class="receipt-footer">
+                            <div class="signature-box">
+                                <div class="signature-line"></div>
+                                <p>ลงชื่อผู้รับบัตร / Cardholder Signature</p>
+                                <p class="signer-name" id="previewSignerName">-</p>
+                            </div>
+                            <div class="signature-box">
+                                <div class="signature-line"></div>
+                                <p>ลงชื่อเจ้าหน้าที่ / Officer Signature</p>
+                                <p class="signer-name">&nbsp;</p>
+                            </div>
+                        </div>
+
+                        <!-- Doc Number Footer -->
+                        <div class="receipt-doc-number">
+                            <span>Doc No.: <span id="previewDocNo">-</span></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Daily Summary Panel -->
+        <section class="summary-panel">
+            <div class="summary-header">
+                <h2>📊 สรุปรายวัน</h2>
+                <div class="summary-controls">
+                    <input type="date" id="summaryDate" class="summary-date-input">
+                    <button class="btn btn-outline btn-sm" id="exportCsvBtn">📊 Export CSV</button>
+                    <button class="btn btn-outline btn-sm" id="exportPdfBtn">📄 Export PDF</button>
+                </div>
+            </div>
+            <div class="summary-cards" id="summaryCards">
+                <div class="summary-card">
+                    <div class="summary-icon">📝</div>
+                    <div class="summary-number" id="summaryTotal">0</div>
+                    <div class="summary-label">ผลิตบัตรทั้งหมด</div>
+                </div>
+                <div class="summary-card printed">
+                    <div class="summary-icon">✅</div>
+                    <div class="summary-number" id="summaryPrinted">0</div>
+                    <div class="summary-label">พิมพ์ใบรับแล้ว</div>
+                </div>
+                <div class="summary-card pending">
+                    <div class="summary-icon">⏳</div>
+                    <div class="summary-number" id="summaryPendingPrint">0</div>
+                    <div class="summary-label">รอพิมพ์ใบรับ</div>
+                </div>
+                <div class="summary-card received">
+                    <div class="summary-icon">🎫</div>
+                    <div class="summary-number" id="summaryReceived">0</div>
+                    <div class="summary-label">รับบัตรแล้ว</div>
+                </div>
+                <div class="summary-card waiting">
+                    <div class="summary-icon">📦</div>
+                    <div class="summary-number" id="summaryWaiting">0</div>
+                    <div class="summary-label">รอรับบัตร</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Panel - Registry List -->
+        <section class="data-panel">
+            <div class="data-header">
+                <h2>ข้อมูลคุมทะเบียน</h2>
+                <div class="data-controls">
+                    <!-- Add New Button -->
+                    <button class="btn btn-success btn-sm" id="addNewBtn">➕ เพิ่มข้อมูลใหม่</button>
+                    <!-- Batch Print Button -->
+                    <button class="btn btn-primary btn-sm" id="batchPrintBtn" disabled>🖨️ พิมพ์ที่เลือก (<span id="selectedCount">0</span>)</button>
+                    <!-- Search -->
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="🔍 ค้นหา เลขรับที่, SN, ชื่อ..." class="search-input">
+                    </div>
+                    <!-- Filter -->
+                    <select id="filterStatus" class="filter-select">
+                        <option value="all">ทั้งหมด</option>
+                        <option value="printed">✅ พิมพ์แล้ว</option>
+                        <option value="not-printed">⏳ รอพิมพ์</option>
+                        <option value="received">🎫 รับบัตรแล้ว</option>
+                        <option value="not-received">📦 รอรับบัตร</option>
+                    </select>
+                    <button class="btn btn-outline btn-sm" id="refreshDataBtn">🔄 รีเฟรช</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="registryTable">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAllCheckbox" title="เลือกทั้งหมด"></th>
+                            <th>ลำดับ</th>
+                            <th>เลขรับที่</th>
+                            <th>SN บัตร</th>
+                            <th>ชื่อ</th>
+                            <th>วันที่</th>
+                            <th>รูป</th>
+                            <th>สถานะพิมพ์</th>
+                            <th>รับบัตร</th>
+                            <th>การดำเนินการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="registryBody">
+                        <!-- Data will be loaded here -->
+                        <tr class="loading-row">
+                            <td colspan="10">กำลังโหลดข้อมูล...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+        <!-- Reports Tab Section -->
+        <section class="reports-section" id="reportsSection">
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+                <button class="tab-btn active" data-tab="monthlyReport" id="tabMonthlyReport">
+                    📅 รายงานรายเดือน
+                </button>
+                <button class="tab-btn" data-tab="activityLog" id="tabActivityLog">
+                    📋 Activity Log
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- Monthly Report Tab -->
+                <div class="tab-pane active" id="monthlyReportPane">
+                    <div class="monthly-header">
+                        <div class="monthly-controls">
+                            <select id="reportMonth" class="filter-select">
+                                <option value="">-- เลือกเดือน --</option>
+                            </select>
+                            <select id="reportYear" class="filter-select">
+                                <option value="">-- เลือกปี --</option>
+                            </select>
+                            <button class="btn btn-primary btn-sm" id="generateReportBtn">📊 สร้างรายงาน</button>
+                            <button class="btn btn-outline btn-sm" id="exportMonthlyPdfBtn">📄 Export PDF</button>
+                            <button class="btn btn-outline btn-sm" id="exportMonthlyCsvBtn">📊 Export CSV</button>
+                        </div>
+                    </div>
+                    <div class="monthly-summary" id="monthlySummary">
+                        <div class="monthly-stats">
+                            <div class="stat-card">
+                                <div class="stat-number" id="monthlyTotal">0</div>
+                                <div class="stat-label">ผลิตบัตรทั้งหมด</div>
+                            </div>
+                            <div class="stat-card success">
+                                <div class="stat-number" id="monthlyPrinted">0</div>
+                                <div class="stat-label">พิมพ์ใบรับแล้ว</div>
+                            </div>
+                            <div class="stat-card info">
+                                <div class="stat-number" id="monthlyReceived">0</div>
+                                <div class="stat-label">รับบัตรแล้ว</div>
+                            </div>
+                            <div class="stat-card warning">
+                                <div class="stat-number" id="monthlyPending">0</div>
+                                <div class="stat-label">รอดำเนินการ</div>
+                            </div>
+                        </div>
+                        <div class="daily-breakdown" id="dailyBreakdown">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Log Tab -->
+                <div class="tab-pane" id="activityLogPane">
+                    <div class="activity-header">
+                        <div class="activity-controls">
+                            <select id="activityFilter" class="filter-select">
+                                <option value="all">ทั้งหมด</option>
+                                <option value="add">เพิ่มข้อมูล</option>
+                                <option value="edit">แก้ไขข้อมูล</option>
+                                <option value="delete">ลบข้อมูล</option>
+                                <option value="print">พิมพ์ใบรับ</option>
+                                <option value="receive">รับบัตร</option>
+                            </select>
+                            <button class="btn btn-outline-danger btn-sm" id="clearLogBtn">🗑️ ล้าง Log</button>
+                        </div>
+                    </div>
+                    <div class="activity-list" id="activityList">
+                        <div class="activity-empty">ยังไม่มี Activity</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Print Template (Hidden) -->
+    <div id="printTemplate" class="print-only">
+        <!-- Will be populated by JavaScript -->
+    </div>
+
+    <!-- User Management Modal -->
+    <div class="modal-overlay" id="userModalOverlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="userModalTitle">จัดการผู้ใช้</h3>
+                <button class="modal-close" id="closeUserModal">&times;</button>
+            </div>
+            <div class="modal-body" id="userModalBody">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Import from Sheet Modal -->
+    <div class="modal-overlay" id="sheetModalOverlay" style="display: none;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>📥 ดึงข้อมูลจาก Google Sheet</h3>
+                <button class="modal-close" id="closeSheetModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Search Section -->
+                <div class="sheet-search-section">
+                    <div class="search-row">
+                        <input type="text" id="sheetSearchInput" placeholder="🔍 ค้นหาด้วย เลขคำขอ, ชื่อ, เลขนัดหมาย..." class="search-input-large">
+                        <button type="button" class="btn btn-primary" id="sheetSearchBtn">ค้นหา</button>
+                        <button type="button" class="btn btn-outline" id="sheetRefreshBtn">🔄 โหลดใหม่</button>
+                    </div>
+                    <div class="search-info">
+                        <span id="sheetDataInfo">กำลังโหลดข้อมูล...</span>
+                    </div>
+                </div>
+
+                <!-- Results Table -->
+                <div class="sheet-results-container">
+                    <table class="sheet-results-table" id="sheetResultsTable">
+                        <thead>
+                            <tr>
+                                <th>ลำดับ</th>
+                                <th>เลขรับที่</th>
+                                <th>วันที่</th>
+                                <th>เลขคำขอ</th>
+                                <th>เลขนัดหมาย</th>
+                                <th>ชื่อ</th>
+                                <th>เลือก</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sheetResultsBody">
+                            <tr><td colspan="7" class="loading-cell">กำลังโหลดข้อมูล...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Initialize Supabase before other scripts
+        function initSupabase() {
+            const SUPABASE_URL = 'https://pyyltrcqeyfhidpcdtvc.supabase.co';
+            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5eWx0cmNxZXlmaGlkcGNkdHZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMjE0MzcsImV4cCI6MjA4NTc5NzQzN30.vRJk8x6Kmo2rFYrJ6ZGqPWf3LSjLmb41COLJAP5glYo';
+
+            if (window.supabase && window.supabase.createClient && !window.supabaseClient) {
+                window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('✅ Supabase initialized');
+                return true;
+            }
+            return !!window.supabaseClient;
+        }
+
+        // Try to init immediately
+        if (!initSupabase()) {
+            setTimeout(initSupabase, 100);
+        }
+    </script>
+    <script src="js/supabase-config.js?v=2"></script>
+    <script src="js/supabase-adapter.js?v=2"></script>
+    <script src="js/auth.js?v=2"></script>
+    <script src="js/app-supabase.js?v=2"></script>
+</body>
+</html>

@@ -1,0 +1,432 @@
+/**
+ * Supabase Configuration
+ * ระบบเชื่อมต่อ Supabase - BOI Work Permit Receipt System
+ */
+
+// Supabase Configuration
+const SUPABASE_URL = 'https://pyyltrcqeyfhidpcdtvc.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5eWx0cmNxZXlmaGlkcGNkdHZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMjE0MzcsImV4cCI6MjA4NTc5NzQzN30.vRJk8x6Kmo2rFYrJ6ZGqPWf3LSjLmb41COLJAP5glYo';
+
+// Initialize Supabase Client - check if already initialized or library is loaded
+if (!window.supabaseClient) {
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+        window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('✅ Supabase client initialized from config');
+    } else {
+        console.error('❌ Supabase library not loaded');
+    }
+}
+
+// Helper function to get the client
+function getSupabase() {
+    return window.supabaseClient;
+}
+
+// ==================== //
+// Auth Functions
+// ==================== //
+
+const SupabaseAuth = {
+    // Login with email/password
+    async login(email, password) {
+        const client = getSupabase();
+        const { data, error } = await client.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Logout
+    async logout() {
+        const client = getSupabase();
+        const { error } = await client.auth.signOut();
+        if (error) throw error;
+    },
+
+    // Get current session
+    async getSession() {
+        const client = getSupabase();
+        const { data: { session } } = await client.auth.getSession();
+        return session;
+    },
+
+    // Get current user
+    async getUser() {
+        const client = getSupabase();
+        const { data: { user } } = await client.auth.getUser();
+        return user;
+    },
+
+    // Get user profile (including role)
+    async getProfile() {
+        const client = getSupabase();
+        const user = await this.getUser();
+        if (!user) return null;
+
+        const { data, error } = await client
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Listen to auth changes
+    onAuthStateChange(callback) {
+        const client = getSupabase();
+        return client.auth.onAuthStateChange(callback);
+    }
+};
+
+// ==================== //
+// Receipts Functions
+// ==================== //
+
+const SupabaseReceipts = {
+    // Get all receipts
+    async getAll() {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('receipts')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Get receipts by date
+    async getByDate(date) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('receipts')
+            .select('*')
+            .eq('receipt_date', date)
+            .order('receipt_no', { ascending: true });
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Get receipts by date range (for monthly report)
+    async getByDateRange(startDate, endDate) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('receipts')
+            .select('*')
+            .gte('receipt_date', startDate)
+            .lte('receipt_date', endDate)
+            .order('receipt_date', { ascending: true });
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Get single receipt by receipt_no
+    async getByReceiptNo(receiptNo) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('receipts')
+            .select('*')
+            .eq('receipt_no', receiptNo)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+        return data;
+    },
+
+    // Create new receipt
+    async create(receiptData) {
+        const client = getSupabase();
+        const user = await SupabaseAuth.getUser();
+
+        const { data, error } = await client
+            .from('receipts')
+            .insert({
+                ...receiptData,
+                created_by: user?.id
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Update receipt
+    async update(receiptNo, updates) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('receipts')
+            .update(updates)
+            .eq('receipt_no', receiptNo)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Delete receipt
+    async delete(receiptNo) {
+        const client = getSupabase();
+        const { error } = await client
+            .from('receipts')
+            .delete()
+            .eq('receipt_no', receiptNo);
+
+        if (error) throw error;
+    },
+
+    // Mark as printed
+    async markPrinted(receiptNo) {
+        return this.update(receiptNo, {
+            is_printed: true,
+            printed_at: new Date().toISOString()
+        });
+    },
+
+    // Mark as received
+    async markReceived(receiptNo) {
+        return this.update(receiptNo, {
+            is_received: true,
+            received_at: new Date().toISOString()
+        });
+    },
+
+    // Unmark received
+    async unmarkReceived(receiptNo) {
+        return this.update(receiptNo, {
+            is_received: false,
+            received_at: null
+        });
+    },
+
+    // Get next receipt number for today
+    async getNextReceiptNo() {
+        const client = getSupabase();
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = (today.getMonth() + 1).toString().padStart(2, '0');
+        const day = today.getDate().toString().padStart(2, '0');
+        const datePrefix = `${year}${month}${day}`;
+
+        const { data, error } = await client
+            .from('receipts')
+            .select('receipt_no')
+            .like('receipt_no', `${datePrefix}-%`)
+            .order('receipt_no', { ascending: false })
+            .limit(1);
+
+        if (error) throw error;
+
+        let nextNumber = 1;
+        if (data && data.length > 0) {
+            const lastNo = data[0].receipt_no;
+            const lastNumber = parseInt(lastNo.split('-')[1]);
+            nextNumber = lastNumber + 1;
+        }
+
+        return `${datePrefix}-${nextNumber.toString().padStart(3, '0')}`;
+    },
+
+    // Search receipts
+    async search(query) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('receipts')
+            .select('*')
+            .or(`foreigner_name.ilike.%${query}%,receipt_no.ilike.%${query}%,request_no.ilike.%${query}%`)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data;
+    }
+};
+
+// ==================== //
+// Storage Functions
+// ==================== //
+
+const SupabaseStorage = {
+    // Upload card image
+    async uploadImage(receiptNo, file) {
+        const client = getSupabase();
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${receiptNo}.${fileExt}`;
+
+        const { data, error } = await client.storage
+            .from('card-images')
+            .upload(fileName, file, {
+                upsert: true // Replace if exists
+            });
+
+        if (error) throw error;
+
+        // Get public URL
+        const { data: urlData } = client.storage
+            .from('card-images')
+            .getPublicUrl(fileName);
+
+        return urlData.publicUrl;
+    },
+
+    // Upload from base64
+    async uploadBase64(receiptNo, base64Data) {
+        const client = getSupabase();
+        // Extract mime type and data
+        const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches) throw new Error('Invalid base64 string');
+
+        const mimeType = matches[1];
+        const base64 = matches[2];
+        const ext = mimeType.split('/')[1] || 'jpg';
+        const fileName = `${receiptNo}.${ext}`;
+
+        // Convert base64 to Blob
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+
+        const { data, error } = await client.storage
+            .from('card-images')
+            .upload(fileName, blob, {
+                contentType: mimeType,
+                upsert: true
+            });
+
+        if (error) throw error;
+
+        const { data: urlData } = client.storage
+            .from('card-images')
+            .getPublicUrl(fileName);
+
+        return urlData.publicUrl;
+    },
+
+    // Delete image
+    async deleteImage(receiptNo) {
+        const client = getSupabase();
+        // Try common extensions
+        const extensions = ['jpg', 'jpeg', 'png', 'gif'];
+
+        for (const ext of extensions) {
+            const fileName = `${receiptNo}.${ext}`;
+            await client.storage
+                .from('card-images')
+                .remove([fileName]);
+        }
+    },
+
+    // Get image URL
+    getImageUrl(receiptNo, ext = 'jpg') {
+        const client = getSupabase();
+        const fileName = `${receiptNo}.${ext}`;
+        const { data } = client.storage
+            .from('card-images')
+            .getPublicUrl(fileName);
+        return data.publicUrl;
+    }
+};
+
+// ==================== //
+// Activity Log Functions
+// ==================== //
+
+const SupabaseActivityLog = {
+    // Add log entry
+    async add(action, receiptNo, details = {}) {
+        const client = getSupabase();
+        const profile = await SupabaseAuth.getProfile();
+
+        const { error } = await client
+            .from('activity_logs')
+            .insert({
+                action,
+                receipt_no: receiptNo,
+                details,
+                user_id: profile?.id,
+                user_name: profile?.name || 'Unknown'
+            });
+
+        if (error) throw error;
+    },
+
+    // Get logs (admin only)
+    async getAll(limit = 100) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('activity_logs')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Get logs by action type
+    async getByAction(action, limit = 100) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('activity_logs')
+            .select('*')
+            .eq('action', action)
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (error) throw error;
+        return data;
+    }
+};
+
+// ==================== //
+// User Management Functions
+// ==================== //
+
+const SupabaseUsers = {
+    // Get all profiles
+    async getAll() {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('profiles')
+            .select('*')
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Update profile
+    async updateProfile(userId, updates) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('profiles')
+            .update(updates)
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    }
+};
+
+// Export for use
+window.SupabaseAuth = SupabaseAuth;
+window.SupabaseReceipts = SupabaseReceipts;
+window.SupabaseStorage = SupabaseStorage;
+window.SupabaseActivityLog = SupabaseActivityLog;
+window.SupabaseUsers = SupabaseUsers;
+window.getSupabase = getSupabase;
+
+console.log('✅ Supabase Config Loaded');
