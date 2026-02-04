@@ -583,13 +583,9 @@ function generateSinglePrintContent(formData) {
     return `
         <div class="print-receipt-page" style="font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.4; padding: 10mm 15mm;">
             <!-- Header -->
-            <div style="text-align: center; margin-bottom: 18px; padding: 18px 15px; background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%); border: 1px solid #e2e8f0; border-radius: 8px; position: relative;">
-                <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 80px; height: 4px; background: linear-gradient(90deg, #2563eb, #3b82f6); border-radius: 0 0 4px 4px;"></div>
-                <h2 style="color: #2563eb; margin: 8px 0 4px 0; font-size: 22px; font-weight: 700; letter-spacing: 0.5px;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
-                <p style="color: #64748b; margin: 0 0 12px 0; font-size: 15px; font-weight: 500;">e-WorkPermit Card Receipt</p>
-                <div style="width: 50px; height: 1px; background: linear-gradient(90deg, transparent, #cbd5e1, transparent); margin: 0 auto 12px auto;"></div>
-                <p style="color: #1f2937; margin: 0; font-size: 13px; font-weight: 600;">ศูนย์บริการ EWP อาคาร One Bangkok</p>
-                <p style="color: #94a3b8; margin: 3px 0 0 0; font-size: 11px; font-weight: 400; letter-spacing: 0.3px;">EWP Service Center, One Bangkok Building</p>
+            <div style="text-align: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 3px solid #2563eb;">
+                <h2 style="color: #2563eb; margin: 0; font-size: 24px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
+                <p style="color: #6b7280; margin: 5px 0 0 0; font-size: 16px;">(e-WorkPermit Card Receipt)</p>
             </div>
 
             <!-- ข้อมูลหลัก -->
@@ -656,9 +652,14 @@ function generateSinglePrintContent(formData) {
                 </tr>
             </table>
 
-            <!-- Footer -->
-            <div style="margin-top: 25px; display: flex; justify-content: space-between; border-top: 1px solid #e5e7eb; padding-top: 10px;">
-                <span style="color: #9ca3af; font-size: 10px;">ศูนย์บริการวีซ่าและใบอนุญาตทำงาน BOI</span>
+            <!-- Organization Footer -->
+            <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                <p style="margin: 0 0 2px 0; font-size: 12px; font-weight: 600; color: #374151;">ศูนย์บริการ EWP อาคาร One Bangkok</p>
+                <p style="margin: 0; font-size: 11px; color: #6b7280;">(EWP Service Center, One Bangkok Building)</p>
+            </div>
+
+            <!-- Doc Number Footer -->
+            <div style="margin-top: 10px; text-align: right;">
                 <span style="color: #9ca3af; font-size: 10px;">Doc No.: ${formData.receiptNo || '-'}</span>
             </div>
         </div>
@@ -1377,13 +1378,9 @@ function generatePrintContent() {
     return `
         <div class="print-receipt-page" style="font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.4; padding: 10mm 15mm;">
             <!-- Header -->
-            <div style="text-align: center; margin-bottom: 18px; padding: 18px 15px; background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%); border: 1px solid #e2e8f0; border-radius: 8px; position: relative;">
-                <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 80px; height: 4px; background: linear-gradient(90deg, #2563eb, #3b82f6); border-radius: 0 0 4px 4px;"></div>
-                <h2 style="color: #2563eb; margin: 8px 0 4px 0; font-size: 22px; font-weight: 700; letter-spacing: 0.5px;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
-                <p style="color: #64748b; margin: 0 0 12px 0; font-size: 15px; font-weight: 500;">e-WorkPermit Card Receipt</p>
-                <div style="width: 50px; height: 1px; background: linear-gradient(90deg, transparent, #cbd5e1, transparent); margin: 0 auto 12px auto;"></div>
-                <p style="color: #1f2937; margin: 0; font-size: 13px; font-weight: 600;">ศูนย์บริการ EWP อาคาร One Bangkok</p>
-                <p style="color: #94a3b8; margin: 3px 0 0 0; font-size: 11px; font-weight: 400; letter-spacing: 0.3px;">EWP Service Center, One Bangkok Building</p>
+            <div style="text-align: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 3px solid #2563eb;">
+                <h2 style="color: #2563eb; margin: 0; font-size: 24px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
+                <p style="color: #6b7280; margin: 5px 0 0 0; font-size: 16px;">(e-WorkPermit Card Receipt)</p>
             </div>
 
             <!-- ข้อมูลหลัก -->
