@@ -652,15 +652,13 @@ function generateSinglePrintContent(formData) {
                 </tr>
             </table>
 
-            <!-- Organization Footer -->
-            <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
-                <p style="margin: 0 0 2px 0; font-size: 12px; font-weight: 600; color: #374151;">ศูนย์บริการ EWP อาคาร One Bangkok</p>
-                <p style="margin: 0; font-size: 11px; color: #6b7280;">(EWP Service Center, One Bangkok Building)</p>
-            </div>
-
-            <!-- Doc Number Footer -->
-            <div style="margin-top: 10px; text-align: right;">
-                <span style="color: #9ca3af; font-size: 10px;">Doc No.: ${formData.receiptNo || '-'}</span>
+            <!-- Footer with Org Name and Doc No -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+                <div style="font-size: 11px; color: #6b7280;">
+                    <span style="font-weight: 500; color: #374151;">ศูนย์บริการ EWP อาคาร One Bangkok</span>
+                    <span style="margin-left: 5px; font-size: 10px;">(EWP Service Center, One Bangkok Building)</span>
+                </div>
+                <div style="font-size: 10px; color: #9ca3af;">Doc No.: ${formData.receiptNo || '-'}</div>
             </div>
         </div>
     `;

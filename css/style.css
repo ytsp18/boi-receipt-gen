@@ -723,24 +723,34 @@ body {
     color: var(--text-secondary);
 }
 
-/* Organization Footer */
-.receipt-org-footer {
-    text-align: center;
+/* Bottom Footer - Org Name & Doc No */
+.receipt-bottom-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-top: 20px;
-    padding-top: 15px;
+    padding-top: 12px;
     border-top: 1px solid var(--border-color);
 }
 
-.receipt-org-footer p {
-    margin: 0;
-    font-size: 0.85rem;
+.footer-org {
+    font-size: 0.8rem;
     color: var(--text-secondary);
 }
 
-.receipt-org-footer p:first-child {
-    font-weight: 600;
+.footer-org span:first-child {
+    font-weight: 500;
     color: var(--text-primary);
-    margin-bottom: 2px;
+}
+
+.footer-org-en {
+    margin-left: 5px;
+    font-size: 0.75rem;
+}
+
+.footer-doc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
 }
 
 .receipt-body {
@@ -901,15 +911,6 @@ body {
     margin-top: 5px;
 }
 
-/* Receipt Doc Number Footer */
-.receipt-doc-number {
-    text-align: right;
-    margin-top: 20px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border-color);
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-}
 
 /* ==================== */
 /* Data Table */
