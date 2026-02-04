@@ -72,6 +72,16 @@ async function login(email, password) {
         cachedProfile = profile;
         console.log('Profile result:', profile);
 
+        // Check if user is approved
+        if (profile && profile.is_approved === false) {
+            // Sign out the user
+            await client.auth.signOut();
+            return {
+                success: false,
+                error: 'บัญชีของคุณยังไม่ได้รับอนุมัติ กรุณารอการอนุมัติจาก Admin'
+            };
+        }
+
         return {
             success: true,
             session: {
@@ -286,6 +296,138 @@ async function deleteUser(id) {
 }
 
 // ==================== //
+// User Registration (with Approval)
+// ==================== //
+
+async function registerUser(email, password, name) {
+    try {
+        const client = getSupabaseClient();
+        if (!client) {
+            return { success: false, error: 'ระบบไม่พร้อม กรุณา refresh หน้า' };
+        }
+
+        // Sign up with Supabase Auth
+        const { data, error } = await client.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    name: name
+                }
+            }
+        });
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        if (!data || !data.user) {
+            return { success: false, error: 'ไม่สามารถสร้างบัญชีได้' };
+        }
+
+        // Create profile with is_approved = false (pending approval)
+        const { error: profileError } = await client
+            .from('profiles')
+            .insert({
+                id: data.user.id,
+                username: email,
+                name: name,
+                role: 'staff',
+                is_approved: false,
+                created_at: new Date().toISOString()
+            });
+
+        if (profileError) {
+            console.error('Profile creation error:', profileError);
+            // Profile might already exist from trigger, try update
+            await client
+                .from('profiles')
+                .update({
+                    name: name,
+                    is_approved: false
+                })
+                .eq('id', data.user.id);
+        }
+
+        return {
+            success: true,
+            message: 'สมัครสำเร็จ! กรุณารอการอนุมัติจาก Admin'
+        };
+    } catch (e) {
+        console.error('Registration error:', e);
+        return { success: false, error: 'เกิดข้อผิดพลาดในการสมัคร: ' + e.message };
+    }
+}
+
+// Get pending users (Admin only)
+async function getPendingUsers() {
+    try {
+        const client = getSupabaseClient();
+        if (!client) return [];
+
+        const { data, error } = await client
+            .from('profiles')
+            .select('*')
+            .eq('is_approved', false)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+    } catch (e) {
+        console.error('Error loading pending users:', e);
+        return [];
+    }
+}
+
+// Approve user (Admin only)
+async function approveUser(userId) {
+    try {
+        const client = getSupabaseClient();
+        if (!client) return { success: false, error: 'ระบบไม่พร้อม' };
+
+        const currentUser = await client.auth.getUser();
+
+        const { error } = await client
+            .from('profiles')
+            .update({
+                is_approved: true,
+                approved_by: currentUser.data.user?.id,
+                approved_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+        return { success: true };
+    } catch (e) {
+        console.error('Error approving user:', e);
+        return { success: false, error: 'เกิดข้อผิดพลาดในการอนุมัติ' };
+    }
+}
+
+// Reject user (Admin only) - Deletes the profile
+async function rejectUser(userId) {
+    try {
+        const client = getSupabaseClient();
+        if (!client) return { success: false, error: 'ระบบไม่พร้อม' };
+
+        const { error } = await client
+            .from('profiles')
+            .delete()
+            .eq('id', userId);
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+        return { success: true };
+    } catch (e) {
+        console.error('Error rejecting user:', e);
+        return { success: false, error: 'เกิดข้อผิดพลาดในการปฏิเสธ' };
+    }
+}
+
+// ==================== //
 // Login Page Handler
 // ==================== //
 
@@ -333,6 +475,10 @@ window.AuthSystem = {
     addUser,
     updateUser,
     deleteUser,
+    registerUser,
+    getPendingUsers,
+    approveUser,
+    rejectUser,
     ROLE_PERMISSIONS
 };
 

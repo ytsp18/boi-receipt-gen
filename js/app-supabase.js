@@ -584,9 +584,9 @@ function generateSinglePrintContent(formData) {
         <div class="print-receipt-page" style="font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.4; padding: 10mm 15mm;">
             <!-- Header -->
             <div style="text-align: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 3px solid #2563eb;">
-                <h2 style="color: #2563eb; margin: 0; font-size: 24px; font-weight: 700;">ใบรับบัตรอนุญาตทำงาน</h2>
-                <p style="color: #444; margin: 5px 0 0 0; font-size: 18px; font-weight: 500;">Work Permit Card Receipt</p>
-                <p style="color: #666; margin: 8px 0 0 0; font-size: 12px;">สำนักงานคณะกรรมการส่งเสริมการลงทุน (BOI) / Board of Investment of Thailand</p>
+                <h2 style="color: #2563eb; margin: 0; font-size: 24px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
+                <p style="color: #444; margin: 5px 0 0 0; font-size: 18px; font-weight: 500;">e-WorkPermit Card Receipt</p>
+                <p style="color: #666; margin: 8px 0 0 0; font-size: 12px;">ศูนย์บริการ EWP อาคาร One Bangkok / EWP Service Center, One Bangkok Building</p>
             </div>
 
             <!-- ข้อมูลหลัก -->
@@ -1375,9 +1375,9 @@ function generatePrintContent() {
         <div class="print-receipt-page" style="font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.4; padding: 10mm 15mm;">
             <!-- Header -->
             <div style="text-align: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 3px solid #2563eb;">
-                <h2 style="color: #2563eb; margin: 0; font-size: 24px; font-weight: 700;">ใบรับบัตรอนุญาตทำงาน</h2>
-                <p style="color: #444; margin: 5px 0 0 0; font-size: 18px; font-weight: 500;">Work Permit Card Receipt</p>
-                <p style="color: #666; margin: 8px 0 0 0; font-size: 12px;">สำนักงานคณะกรรมการส่งเสริมการลงทุน (BOI) / Board of Investment of Thailand</p>
+                <h2 style="color: #2563eb; margin: 0; font-size: 24px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
+                <p style="color: #444; margin: 5px 0 0 0; font-size: 18px; font-weight: 500;">e-WorkPermit Card Receipt</p>
+                <p style="color: #666; margin: 8px 0 0 0; font-size: 12px;">ศูนย์บริการ EWP อาคาร One Bangkok / EWP Service Center, One Bangkok Building</p>
             </div>
 
             <!-- ข้อมูลหลัก -->
@@ -1575,7 +1575,7 @@ function exportToPDF() {
         <div style="font-family: 'Sarabun', sans-serif; padding: 20px; max-width: 1000px; margin: 0 auto;">
             <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2563eb; padding-bottom: 20px;">
                 <h2 style="color: #2563eb; margin: 0 0 10px 0;">รายงานสรุปการผลิตบัตร Work Permit</h2>
-                <p style="color: #666; margin: 0;">สำนักงานคณะกรรมการส่งเสริมการลงทุน (BOI)</p>
+                <p style="color: #666; margin: 0;">ศูนย์บริการ EWP อาคาร One Bangkok</p>
                 <p style="color: #333; margin: 10px 0 0 0; font-weight: 600;">วันที่: ${dateStr}</p>
             </div>
 
@@ -1675,6 +1675,25 @@ function getFilteredData() {
             }
         });
     }
+
+    // Sort: Not printed first, then printed at bottom
+    // Within each group, sort by date (newest first)
+    data.sort((a, b) => {
+        const aPrinted = isPrinted(a.receiptNo);
+        const bPrinted = isPrinted(b.receiptNo);
+
+        // Not printed items come first
+        if (!aPrinted && bPrinted) return -1;
+        if (aPrinted && !bPrinted) return 1;
+
+        // Within same group, sort by receiptNo descending (newest first)
+        return b.receiptNo.localeCompare(a.receiptNo);
+    });
+
+    // Re-number after sorting
+    data.forEach((row, index) => {
+        row.number = index + 1;
+    });
 
     return data;
 }
@@ -2031,14 +2050,17 @@ function setupUserManagement() {
     }
 }
 
-function showUserManagement() {
+async function showUserManagement() {
     const modal = document.getElementById('userModalOverlay');
     const modalBody = document.getElementById('userModalBody');
     const modalTitle = document.getElementById('userModalTitle');
 
     modalTitle.textContent = '👥 จัดการผู้ใช้งาน';
 
-    const users = window.AuthSystem.getUsers();
+    const allUsers = await window.AuthSystem.getUsers();
+    const pendingUsers = allUsers.filter(u => u.is_approved === false);
+    const approvedUsers = allUsers.filter(u => u.is_approved !== false);
+
     const roleLabels = {
         admin: 'Admin',
         manager: 'Manager',
@@ -2046,35 +2068,125 @@ function showUserManagement() {
     };
 
     modalBody.innerHTML = `
-        <div style="margin-bottom: 15px;">
-            <button class="btn btn-success btn-sm" onclick="showAddUserForm()">➕ เพิ่มผู้ใช้ใหม่</button>
+        <!-- Tabs -->
+        <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
+            <button class="btn btn-primary btn-sm" id="tabApproved" onclick="switchUserTab('approved')" style="flex: 1;">
+                ✅ ผู้ใช้งาน (${approvedUsers.length})
+            </button>
+            <button class="btn btn-outline btn-sm" id="tabPending" onclick="switchUserTab('pending')" style="flex: 1; position: relative;">
+                ⏳ รออนุมัติ (${pendingUsers.length})
+                ${pendingUsers.length > 0 ? '<span style="position: absolute; top: -5px; right: -5px; background: #dc2626; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 11px;">' + pendingUsers.length + '</span>' : ''}
+            </button>
         </div>
-        <table class="user-table">
-            <thead>
-                <tr>
-                    <th>ชื่อผู้ใช้</th>
-                    <th>ชื่อ</th>
-                    <th>Role</th>
-                    <th>การดำเนินการ</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${users.map(user => `
+
+        <!-- Approved Users Tab -->
+        <div id="approvedUsersTab">
+            <div style="margin-bottom: 15px;">
+                <button class="btn btn-success btn-sm" onclick="showAddUserForm()">➕ เพิ่มผู้ใช้ใหม่</button>
+            </div>
+            <table class="user-table">
+                <thead>
                     <tr>
-                        <td>${user.username}</td>
-                        <td>${user.name}</td>
-                        <td><span class="role-badge ${user.role}">${roleLabels[user.role]}</span></td>
-                        <td>
-                            <button class="btn btn-primary btn-sm" onclick="showEditUserForm(${user.id})">✏️</button>
-                            <button class="btn btn-outline-danger btn-sm" onclick="confirmDeleteUser(${user.id})">🗑️</button>
-                        </td>
+                        <th>ชื่อผู้ใช้</th>
+                        <th>ชื่อ</th>
+                        <th>Role</th>
+                        <th>การดำเนินการ</th>
                     </tr>
-                `).join('')}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    ${approvedUsers.map(user => `
+                        <tr>
+                            <td>${user.username || '-'}</td>
+                            <td>${user.name || '-'}</td>
+                            <td><span class="role-badge ${user.role}">${roleLabels[user.role] || user.role}</span></td>
+                            <td>
+                                <button class="btn btn-primary btn-sm" onclick="showEditUserForm('${user.id}')">✏️</button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="confirmDeleteUser('${user.id}')">🗑️</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pending Users Tab -->
+        <div id="pendingUsersTab" style="display: none;">
+            ${pendingUsers.length === 0 ? '<p style="text-align: center; color: #6b7280; padding: 20px;">ไม่มีผู้ใช้รออนุมัติ</p>' : `
+                <table class="user-table">
+                    <thead>
+                        <tr>
+                            <th>อีเมล</th>
+                            <th>ชื่อ</th>
+                            <th>วันที่สมัคร</th>
+                            <th>การดำเนินการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${pendingUsers.map(user => `
+                            <tr>
+                                <td>${user.username || '-'}</td>
+                                <td>${user.name || '-'}</td>
+                                <td>${user.created_at ? new Date(user.created_at).toLocaleDateString('th-TH') : '-'}</td>
+                                <td>
+                                    <button class="btn btn-success btn-sm" onclick="handleApproveUser('${user.id}')" title="อนุมัติ">✅ อนุมัติ</button>
+                                    <button class="btn btn-outline-danger btn-sm" onclick="handleRejectUser('${user.id}')" title="ปฏิเสธ">❌ ปฏิเสธ</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `}
+        </div>
     `;
 
     modal.style.display = 'flex';
+}
+
+function switchUserTab(tab) {
+    const approvedTab = document.getElementById('approvedUsersTab');
+    const pendingTab = document.getElementById('pendingUsersTab');
+    const btnApproved = document.getElementById('tabApproved');
+    const btnPending = document.getElementById('tabPending');
+
+    if (tab === 'approved') {
+        approvedTab.style.display = 'block';
+        pendingTab.style.display = 'none';
+        btnApproved.classList.remove('btn-outline');
+        btnApproved.classList.add('btn-primary');
+        btnPending.classList.remove('btn-primary');
+        btnPending.classList.add('btn-outline');
+    } else {
+        approvedTab.style.display = 'none';
+        pendingTab.style.display = 'block';
+        btnPending.classList.remove('btn-outline');
+        btnPending.classList.add('btn-primary');
+        btnApproved.classList.remove('btn-primary');
+        btnApproved.classList.add('btn-outline');
+    }
+}
+
+async function handleApproveUser(userId) {
+    if (!confirm('ต้องการอนุมัติผู้ใช้นี้หรือไม่?')) return;
+
+    const result = await window.AuthSystem.approveUser(userId);
+    if (result.success) {
+        alert('อนุมัติผู้ใช้เรียบร้อยแล้ว');
+        showUserManagement(); // Refresh
+    } else {
+        alert('เกิดข้อผิดพลาด: ' + result.error);
+    }
+}
+
+async function handleRejectUser(userId) {
+    if (!confirm('ต้องการปฏิเสธผู้ใช้นี้หรือไม่? ข้อมูลจะถูกลบ')) return;
+
+    const result = await window.AuthSystem.rejectUser(userId);
+    if (result.success) {
+        alert('ปฏิเสธผู้ใช้เรียบร้อยแล้ว');
+        showUserManagement(); // Refresh
+    } else {
+        alert('เกิดข้อผิดพลาด: ' + result.error);
+    }
 }
 
 function showAddUserForm() {
@@ -2268,8 +2380,84 @@ async function applyPermissions() {
         exportBtns.forEach(btn => btn.style.display = 'none');
     }
 
+    // Show Google Sheet sync toggle for Admin only
+    const syncToggleContainer = document.getElementById('syncToggleContainer');
+    if (syncToggleContainer && session.role === 'admin') {
+        syncToggleContainer.style.display = 'flex';
+
+        // Load sync setting from Supabase
+        await loadSyncSetting();
+
+        // Setup toggle event
+        const syncToggle = document.getElementById('googleSheetSyncToggle');
+        if (syncToggle) {
+            syncToggle.addEventListener('change', async (e) => {
+                await saveSyncSetting(e.target.checked);
+                updateImportButtonVisibility();
+            });
+        }
+    }
+
+    // Apply sync setting to show/hide import button
+    updateImportButtonVisibility();
+
     // Hide delete buttons if no permission
     // Will be applied when rendering table
+}
+
+// State for Google Sheet sync
+let googleSheetSyncEnabled = true;
+
+// Load sync setting from Supabase
+async function loadSyncSetting() {
+    try {
+        const { data, error } = await window.supabaseClient
+            .from('settings')
+            .select('value')
+            .eq('key', 'google_sheet_sync')
+            .maybeSingle();
+
+        if (data && data.value) {
+            googleSheetSyncEnabled = data.value.enabled !== false;
+        }
+
+        const toggle = document.getElementById('googleSheetSyncToggle');
+        if (toggle) {
+            toggle.checked = googleSheetSyncEnabled;
+        }
+    } catch (e) {
+        console.log('Could not load sync setting:', e.message);
+    }
+}
+
+// Save sync setting to Supabase
+async function saveSyncSetting(enabled) {
+    try {
+        googleSheetSyncEnabled = enabled;
+
+        const user = await window.supabaseClient.auth.getUser();
+
+        await window.supabaseClient
+            .from('settings')
+            .upsert({
+                key: 'google_sheet_sync',
+                value: { enabled: enabled },
+                updated_by: user.data.user?.id,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'key' });
+
+        console.log('✅ Sync setting saved:', enabled);
+    } catch (e) {
+        console.error('Error saving sync setting:', e);
+    }
+}
+
+// Update import button visibility based on sync setting
+function updateImportButtonVisibility() {
+    const importBtn = document.getElementById('importFromSheetBtn');
+    if (importBtn) {
+        importBtn.style.display = googleSheetSyncEnabled ? 'inline-flex' : 'none';
+    }
 }
 
 // ==================== //

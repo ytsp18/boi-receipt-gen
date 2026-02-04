@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เข้าสู่ระบบ - Work Permit Receipt System</title>
+    <title>เข้าสู่ระบบ - ระบบสร้างแบบฟอร์มรับบัตร EWP</title>
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -109,7 +109,8 @@
     <div class="login-container">
         <div class="login-header">
             <h1>🔐 เข้าสู่ระบบ</h1>
-            <p>ระบบออกใบรับบัตร Work Permit - BOI</p>
+            <p>ระบบสร้างแบบฟอร์มรับบัตร</p>
+            <p style="font-size: 0.8rem; margin-top: 4px;">ศูนย์บริการ EWP อาคาร One Bangkok</p>
         </div>
 
         <div class="login-error" id="loginError">
@@ -130,8 +131,132 @@
             <button type="submit" class="login-btn">เข้าสู่ระบบ</button>
         </form>
 
+        <div style="text-align: center; margin-top: 20px;">
+            <p style="color: #6b7280; font-size: 0.9rem;">ยังไม่มีบัญชี?</p>
+            <button type="button" class="register-btn" id="showRegisterBtn" style="
+                background: transparent;
+                border: 2px solid #2563eb;
+                color: #2563eb;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-size: 0.9rem;
+                font-weight: 500;
+                cursor: pointer;
+                margin-top: 8px;
+                transition: all 0.2s;
+            ">📝 สมัครใช้งาน</button>
+        </div>
+
+        <!-- Register Modal -->
+        <div id="registerModal" style="
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        ">
+            <div style="
+                background: white;
+                padding: 30px;
+                border-radius: 16px;
+                width: 100%;
+                max-width: 400px;
+                margin: 20px;
+            ">
+                <h2 style="text-align: center; color: #2563eb; margin-bottom: 20px;">📝 สมัครใช้งาน</h2>
+                <form id="registerForm">
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500;">อีเมล (Email)</label>
+                        <input type="email" id="regEmail" placeholder="example@email.com" required style="
+                            width: 100%;
+                            padding: 12px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            font-size: 1rem;
+                        ">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500;">ชื่อ-นามสกุล (Full Name)</label>
+                        <input type="text" id="regName" placeholder="ชื่อ นามสกุล" required style="
+                            width: 100%;
+                            padding: 12px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            font-size: 1rem;
+                        ">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500;">รหัสผ่าน (Password)</label>
+                        <input type="password" id="regPassword" placeholder="อย่างน้อย 6 ตัวอักษร" required minlength="6" style="
+                            width: 100%;
+                            padding: 12px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            font-size: 1rem;
+                        ">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500;">ยืนยันรหัสผ่าน (Confirm Password)</label>
+                        <input type="password" id="regConfirmPassword" placeholder="ยืนยันรหัสผ่าน" required style="
+                            width: 100%;
+                            padding: 12px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            font-size: 1rem;
+                        ">
+                    </div>
+                    <div id="registerError" style="
+                        background: #fee2e2;
+                        color: #dc2626;
+                        padding: 10px;
+                        border-radius: 8px;
+                        margin-bottom: 15px;
+                        display: none;
+                        font-size: 0.9rem;
+                    "></div>
+                    <div id="registerSuccess" style="
+                        background: #d1fae5;
+                        color: #059669;
+                        padding: 10px;
+                        border-radius: 8px;
+                        margin-bottom: 15px;
+                        display: none;
+                        font-size: 0.9rem;
+                    "></div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" id="cancelRegisterBtn" style="
+                            flex: 1;
+                            padding: 12px;
+                            background: #e5e7eb;
+                            color: #374151;
+                            border: none;
+                            border-radius: 8px;
+                            font-size: 1rem;
+                            cursor: pointer;
+                        ">ยกเลิก</button>
+                        <button type="submit" style="
+                            flex: 1;
+                            padding: 12px;
+                            background: #2563eb;
+                            color: white;
+                            border: none;
+                            border-radius: 8px;
+                            font-size: 1rem;
+                            font-weight: 600;
+                            cursor: pointer;
+                        ">สมัคร</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div class="login-footer">
-            <p>© 2026 Board of Investment of Thailand</p>
+            <p>© 2026 EWP Service Center, One Bangkok Building</p>
         </div>
     </div>
 
@@ -157,5 +282,80 @@
         }
     </script>
     <script src="js/auth.js"></script>
+    <script>
+        // Registration Modal Handlers
+        document.getElementById('showRegisterBtn').addEventListener('click', function() {
+            document.getElementById('registerModal').style.display = 'flex';
+        });
+
+        document.getElementById('cancelRegisterBtn').addEventListener('click', function() {
+            document.getElementById('registerModal').style.display = 'none';
+            document.getElementById('registerForm').reset();
+            document.getElementById('registerError').style.display = 'none';
+            document.getElementById('registerSuccess').style.display = 'none';
+        });
+
+        document.getElementById('registerModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.style.display = 'none';
+            }
+        });
+
+        document.getElementById('registerForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const email = document.getElementById('regEmail').value;
+            const name = document.getElementById('regName').value;
+            const password = document.getElementById('regPassword').value;
+            const confirmPassword = document.getElementById('regConfirmPassword').value;
+            const errorEl = document.getElementById('registerError');
+            const successEl = document.getElementById('registerSuccess');
+            const submitBtn = this.querySelector('button[type="submit"]');
+
+            // Reset messages
+            errorEl.style.display = 'none';
+            successEl.style.display = 'none';
+
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                errorEl.textContent = 'รหัสผ่านไม่ตรงกัน';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            // Disable button
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'กำลังสมัคร...';
+
+            // Wait for AuthSystem to be available
+            if (!window.AuthSystem || !window.AuthSystem.registerUser) {
+                errorEl.textContent = 'ระบบไม่พร้อม กรุณารอสักครู่แล้วลองใหม่';
+                errorEl.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'สมัคร';
+                return;
+            }
+
+            const result = await window.AuthSystem.registerUser(email, password, name);
+
+            if (result.success) {
+                successEl.textContent = result.message;
+                successEl.style.display = 'block';
+                document.getElementById('registerForm').reset();
+
+                // Close modal after 3 seconds
+                setTimeout(() => {
+                    document.getElementById('registerModal').style.display = 'none';
+                    successEl.style.display = 'none';
+                }, 3000);
+            } else {
+                errorEl.textContent = result.error;
+                errorEl.style.display = 'block';
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'สมัคร';
+        });
+    </script>
 </body>
 </html>

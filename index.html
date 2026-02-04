@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบออกใบรับบัตร Work Permit - BOI</title>
+    <title>ระบบสร้างแบบฟอร์มรับบัตร - EWP Service Center</title>
     <link rel="stylesheet" href="css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -12,8 +12,8 @@
         <!-- Header -->
         <header class="header">
             <div class="header-left">
-                <h1>ระบบออกใบรับบัตร Work Permit</h1>
-                <p class="subtitle">สำนักงานคณะกรรมการส่งเสริมการลงทุน (BOI)</p>
+                <h1>ระบบสร้างแบบฟอร์มรับบัตร</h1>
+                <p class="subtitle">ศูนย์บริการ EWP อาคาร One Bangkok</p>
             </div>
             <div class="header-right">
                 <div class="user-info" id="userInfo">
@@ -35,11 +35,19 @@
                 </div>
 
                 <!-- Import from Sheet Button -->
-                <div class="import-sheet-section">
+                <div class="import-sheet-section" id="importSheetSection">
                     <button type="button" class="btn btn-secondary btn-sm" id="importFromSheetBtn">
                         📥 ดึงข้อมูลจาก Google Sheet
                     </button>
                     <span class="sheet-status" id="sheetStatus"></span>
+                    <!-- Admin Toggle for Google Sheet Sync -->
+                    <div class="sync-toggle-container" id="syncToggleContainer" style="display: none; margin-left: 15px;">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="googleSheetSyncToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="sync-label">ซิงค์ Google Sheet</span>
+                    </div>
                 </div>
 
                 <form id="receiptForm">
@@ -111,8 +119,10 @@
                     <!-- Receipt Template -->
                     <div class="receipt-document">
                         <div class="receipt-header">
-                            <h3>ใบรับบัตรอนุญาตทำงาน</h3>
-                            <p>สำนักงานคณะกรรมการส่งเสริมการลงทุน</p>
+                            <h3>แบบรับใบอนุญาตทำงาน e-WorkPermit</h3>
+                            <p style="font-size: 0.85rem;">e-WorkPermit Card Receipt</p>
+                            <p>ศูนย์บริการ EWP อาคาร One Bangkok</p>
+                            <p style="font-size: 0.75rem; color: #666;">EWP Service Center, One Bangkok Building</p>
                         </div>
 
                         <div class="receipt-body">
@@ -231,7 +241,7 @@
         <!-- Data Panel - Registry List -->
         <section class="data-panel">
             <div class="data-header">
-                <h2>ข้อมูลคุมทะเบียน</h2>
+                <h2>รายการเอกสารแบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
                 <div class="data-controls">
                     <!-- Add New Button -->
                     <button class="btn btn-success btn-sm" id="addNewBtn">➕ เพิ่มข้อมูลใหม่</button>
