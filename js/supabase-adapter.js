@@ -94,12 +94,12 @@ async function saveReceiptToSupabase(receiptData, cardImageFile = null) {
             cardImageUrl = await uploadImageToSupabase(receiptData.receiptNo, cardImageFile);
         }
 
-        // Check if receipt exists
+        // Check if receipt exists (use maybeSingle to avoid 406 error when not found)
         const { data: existing } = await window.supabaseClient
             .from('receipts')
             .select('id')
             .eq('receipt_no', receiptData.receiptNo)
-            .single();
+            .maybeSingle();
 
         const receiptPayload = {
             receipt_no: receiptData.receiptNo,
