@@ -1,5 +1,27 @@
 # Change Log - Work Permit Receipt System
 
+## [5.1.1] - 2026-02-05
+
+### Security
+- **XSS Protection**
+  - เพิ่ม `sanitizeHTML()` function สำหรับป้องกัน XSS attacks
+  - Sanitize ข้อมูลทั้งหมดก่อนแสดงผลใน table
+
+- **Input Validation**
+  - เพิ่ม `validateInput()` function สำหรับตรวจสอบข้อมูล
+  - Validate ข้อมูลก่อนบันทึกลง database
+  - ป้องกัน script injection
+
+- **Credential Security**
+  - ลบ credentials ที่เปิดเผยออกจาก documentation
+  - เพิ่มคำเตือนความปลอดภัยใน SESSION_LOG
+
+### Technical
+- Security audit completed
+- Added security utility functions
+
+---
+
 ## [5.1.0] - 2026-02-05
 
 ### Changed

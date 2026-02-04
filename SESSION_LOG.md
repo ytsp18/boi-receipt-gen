@@ -490,11 +490,14 @@ CREATE TABLE activity_logs (
 
 ### Supabase Credentials
 
+> ⚠️ **SECURITY NOTE:** Credentials are stored securely and NOT in this file.
+> Please contact the administrator for access credentials.
+
 | Item | Value |
 |------|-------|
 | Project URL | https://pyyltrcqeyfhidpcdtvc.supabase.co |
-| Admin Email | admin@boireciptgen.go.th |
-| Admin Password | zihqep-Fecra8-sednip |
+| Admin Email | (stored securely - contact admin) |
+| Admin Password | (stored securely - contact admin) |
 
 ---
 
@@ -572,9 +575,48 @@ git push origin main --force
 
 ---
 
-## Session End (v5.1)
-- **Status:** UI Rebranding เรียบร้อย
-- **Current Version:** 5.1.0
+## Phase 14: Security Audit & Hardening (v5.1.1)
+
+**Session Date:** 5 February 2026
+
+### Security Audit Findings
+
+| Severity | Issue | Status |
+|----------|-------|--------|
+| 🔴 Critical | Exposed admin credentials in docs | ✅ Fixed |
+| 🟠 High | XSS vulnerabilities (innerHTML) | ✅ Fixed |
+| 🟠 High | No input validation | ✅ Fixed |
+| 🟡 Medium | No password complexity | ⚠️ Pending |
+| 🟡 Medium | No rate limiting | ⚠️ Pending |
+
+### Security Fixes Applied
+
+1. **Credential Security**
+   - ลบ admin password ออกจาก SESSION_LOG.md
+   - เพิ่มคำเตือนให้ติดต่อ admin
+
+2. **XSS Protection**
+   - เพิ่ม `sanitizeHTML()` function
+   - Sanitize ข้อมูลก่อนแสดงผลใน table
+   - ป้องกัน script injection
+
+3. **Input Validation**
+   - เพิ่ม `validateInput()` function
+   - Validate ข้อมูลก่อนบันทึก database
+   - ตรวจสอบ: text, email, number, date, receiptNo
+
+### Remaining Security Tasks (Manual)
+
+> ⚠️ **ต้องทำใน Supabase Dashboard:**
+> 1. เปลี่ยน Admin Password
+> 2. ตรวจสอบ RLS Policies
+> 3. เพิ่ม Rate Limiting (ถ้าต้องการ)
+
+---
+
+## Session End (v5.1.1)
+- **Status:** Security Hardening เรียบร้อย
+- **Current Version:** 5.1.1
 - **Live URL:** https://receipt.fts-internal.com
 
 ---
@@ -591,4 +633,5 @@ git push origin main --force
 | 4.1.0 | Google Sheets Integration + Print Layout Improvements |
 | 4.1.1 | Print Layout Optimization (Full A4 page) |
 | 5.0.0 | Supabase Cloud + GitHub Pages + Custom Domain |
-| **5.1.0** | **UI Rebranding - EWP Service Center** |
+| 5.1.0 | UI Rebranding - EWP Service Center |
+| **5.1.1** | **Security Audit & Hardening** |

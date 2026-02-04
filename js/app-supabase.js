@@ -1,8 +1,54 @@
 /**
  * Work Permit Receipt System - Main Application
- * ระบบออกใบรับบัตร Work Permit - BOI
- * Version 5.0 - Supabase Cloud Integration
+ * ระบบสร้างแบบฟอร์มรับบัตร - EWP Service Center
+ * Version 5.1 - Security Enhanced
  */
+
+// ==================== //
+// Security Utilities
+// ==================== //
+
+/**
+ * Sanitize string to prevent XSS attacks
+ * @param {string} str - Input string
+ * @returns {string} - Sanitized string
+ */
+function sanitizeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+/**
+ * Validate input data
+ * @param {string} input - Input to validate
+ * @param {string} type - Type of validation (text, email, number, date)
+ * @returns {boolean} - Is valid
+ */
+function validateInput(input, type = 'text') {
+    if (input === null || input === undefined) return false;
+    const str = String(input).trim();
+
+    switch(type) {
+        case 'text':
+            // No script tags, max 500 chars
+            return str.length <= 500 && !/<script/i.test(str);
+        case 'email':
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
+        case 'number':
+            return /^[0-9\-]+$/.test(str);
+        case 'date':
+            return /^\d{4}-\d{2}-\d{2}$/.test(str);
+        case 'receiptNo':
+            return /^[0-9\-]+$/.test(str) && str.length <= 20;
+        default:
+            return true;
+    }
+}
 
 // ==================== //
 // Configuration
@@ -1229,9 +1275,27 @@ function loadFromRegistry(rowData) {
 async function saveData() {
     updateFormState();
 
-    // Validate
+    // Basic validation
     if (!state.formData.receiptNo || !state.formData.foreignerName) {
         alert('กรุณากรอกข้อมูลให้ครบถ้วน (เลขรับที่ และ ชื่อ)');
+        return;
+    }
+
+    // Security validation
+    if (!validateInput(state.formData.receiptNo, 'receiptNo')) {
+        alert('รูปแบบเลขรับที่ไม่ถูกต้อง');
+        return;
+    }
+    if (!validateInput(state.formData.foreignerName, 'text')) {
+        alert('ชื่อมีรูปแบบไม่ถูกต้องหรือยาวเกินไป');
+        return;
+    }
+    if (state.formData.snNumber && !validateInput(state.formData.snNumber, 'text')) {
+        alert('หมายเลข SN มีรูปแบบไม่ถูกต้อง');
+        return;
+    }
+    if (state.formData.requestNo && !validateInput(state.formData.requestNo, 'text')) {
+        alert('เลขที่คำขอมีรูปแบบไม่ถูกต้อง');
         return;
     }
 
@@ -1795,14 +1859,20 @@ function renderRegistryTable() {
             onchange="toggleSelectItem('${row.receiptNo}')"
             title="เลือกเพื่อพิมพ์หลายใบ">`;
 
+        // Sanitize all user data before rendering
+        const safeReceiptNo = sanitizeHTML(row.receiptNo);
+        const safeSN = sanitizeHTML(row.sn || '-');
+        const safeName = sanitizeHTML(row.name || '-');
+        const safeDate = sanitizeHTML(row.date);
+
         return `
             <tr class="${rowClass}">
                 <td>${batchCheckbox}</td>
                 <td>${row.number}</td>
-                <td>${row.receiptNo}</td>
-                <td>${row.sn || '-'}</td>
-                <td>${row.name || '-'}</td>
-                <td>${row.date}</td>
+                <td>${safeReceiptNo}</td>
+                <td>${safeSN}</td>
+                <td>${safeName}</td>
+                <td>${safeDate}</td>
                 <td>${imageCell}</td>
                 <td><span class="${printStatusClass}">${printStatusText}</span></td>
                 <td>
@@ -1819,7 +1889,7 @@ function renderRegistryTable() {
                     <button class="btn btn-primary btn-sm" onclick="selectRow(${row.number - 1})" title="แก้ไข">
                         ✏️
                     </button>
-                    <button class="btn btn-outline-danger btn-sm" onclick="deleteRecord('${row.receiptNo}')" title="ลบ">
+                    <button class="btn btn-outline-danger btn-sm" onclick="deleteRecord('${safeReceiptNo}')" title="ลบ">
                         🗑️
                     </button>
                 </td>
