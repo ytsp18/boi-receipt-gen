@@ -1254,41 +1254,43 @@ async function saveData() {
         // Upload image if exists and save receipt
         await SupabaseAdapter.saveReceipt(receiptData, state.formData.cardImage);
 
-        // Update local state
-        const newRecord = {
-            number: state.registryData.length + 1,
-            receiptNo: state.formData.receiptNo,
-            sn: state.formData.snNumber,
-            name: state.formData.foreignerName,
-            date: formatThaiDate(state.formData.receiptDate),
-            requestNo: state.formData.requestNo,
-            appointmentNo: state.formData.appointmentNo,
-            cardImage: state.formData.cardImage,
-            createdAt: new Date().toISOString()
-        };
+        // Show success message
+        const isEdit = state.formMode === 'edit';
+        const savedReceiptNo = state.formData.receiptNo;
+        const savedName = state.formData.foreignerName;
 
-        if (state.formMode === 'edit') {
-            const index = state.registryData.findIndex(r => r.receiptNo === state.editingReceiptNo);
-            if (index >= 0) {
-                newRecord.number = state.registryData[index].number;
-                newRecord.createdAt = state.registryData[index].createdAt;
-                state.registryData[index] = newRecord;
-            }
-            addActivity('edit', `แก้ไขข้อมูล ${newRecord.receiptNo}`, newRecord.name);
-            alert('อัพเดทข้อมูลเรียบร้อยแล้ว!');
-        } else {
-            // Check for duplicate in local state
-            const exists = state.registryData.some(r => r.receiptNo === newRecord.receiptNo);
-            if (!exists) {
-                state.registryData.unshift(newRecord);
-            }
-            addActivity('add', `เพิ่มข้อมูลใหม่ ${newRecord.receiptNo}`, newRecord.name);
-            alert('บันทึกข้อมูลเรียบร้อยแล้ว!');
-        }
+        // Clear form first
+        clearForm(true);
 
+        // Reload data from Supabase to get latest data including image URLs
+        console.log('🔄 Reloading data from Supabase...');
+        const freshData = await SupabaseAdapter.loadRegistry();
+        state.registryData = freshData.map((r, index) => ({
+            number: index + 1,
+            receiptNo: r.receiptNo,
+            sn: r.sn,
+            name: r.name,
+            date: r.date,
+            requestNo: r.requestNo,
+            appointmentNo: r.appointmentNo,
+            cardImage: r.cardImage,
+            isPrinted: r.isPrinted,
+            isReceived: r.isReceived
+        }));
+        console.log(`✅ Loaded ${state.registryData.length} records from Supabase`);
+
+        // Update UI
         renderRegistryTable();
         updateSummary();
-        clearForm(true);
+
+        // Add activity and show message
+        if (isEdit) {
+            addActivity('edit', `แก้ไขข้อมูล ${savedReceiptNo}`, savedName);
+            alert('อัพเดทข้อมูลเรียบร้อยแล้ว!');
+        } else {
+            addActivity('add', `เพิ่มข้อมูลใหม่ ${savedReceiptNo}`, savedName);
+            alert('บันทึกข้อมูลเรียบร้อยแล้ว!');
+        }
 
     } catch (e) {
         console.error('Error saving data:', e);
