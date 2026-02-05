@@ -390,9 +390,7 @@ async function approveUser(userId) {
         const { error } = await client
             .from('profiles')
             .update({
-                is_approved: true,
-                approved_by: currentUser.data.user?.id,
-                approved_at: new Date().toISOString()
+                is_approved: true
             })
             .eq('id', userId);
 
