@@ -425,6 +425,26 @@ async function rejectUser(userId) {
     }
 }
 
+// Reset password (Admin only) - Sends reset email to user
+async function resetPassword(email) {
+    try {
+        const client = getSupabaseClient();
+        if (!client) return { success: false, error: 'ระบบไม่พร้อม' };
+
+        const { error } = await client.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.origin + '/reset-password.html'
+        });
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+        return { success: true };
+    } catch (e) {
+        console.error('Error sending reset password email:', e);
+        return { success: false, error: 'เกิดข้อผิดพลาดในการส่งอีเมล' };
+    }
+}
+
 // ==================== //
 // Login Page Handler
 // ==================== //
@@ -477,6 +497,7 @@ window.AuthSystem = {
     getPendingUsers,
     approveUser,
     rejectUser,
+    resetPassword,
     ROLE_PERMISSIONS
 };
 

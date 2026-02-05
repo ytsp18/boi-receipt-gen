@@ -2168,8 +2168,9 @@ async function showUserManagement() {
                             <td>${user.name || '-'}</td>
                             <td><span class="role-badge ${user.role}">${roleLabels[user.role] || user.role}</span></td>
                             <td>
-                                <button class="btn btn-primary btn-sm" onclick="showEditUserForm('${user.id}')">✏️</button>
-                                <button class="btn btn-outline-danger btn-sm" onclick="confirmDeleteUser('${user.id}')">🗑️</button>
+                                <button class="btn btn-primary btn-sm" onclick="showEditUserForm('${user.id}')" title="แก้ไข">✏️</button>
+                                <button class="btn btn-warning btn-sm" onclick="handleResetPassword('${user.id}')" title="Reset Password">🔑</button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="confirmDeleteUser('${user.id}')" title="ลบ">🗑️</button>
                             </td>
                         </tr>
                     `).join('')}
@@ -2410,11 +2411,32 @@ function closeModal() {
     modal.style.display = 'none';
 }
 
+async function handleResetPassword(userId) {
+    const user = await window.AuthSystem.getUserById(userId);
+    if (!user) {
+        alert('ไม่พบข้อมูลผู้ใช้');
+        return;
+    }
+
+    if (!confirm(`ต้องการส่ง email reset password ให้ "${user.name}" (${user.username}) หรือไม่?`)) {
+        return;
+    }
+
+    const result = await window.AuthSystem.resetPassword(user.username);
+
+    if (result.success) {
+        alert(`ส่ง email reset password ไปที่ ${user.username} เรียบร้อยแล้ว\n\nผู้ใช้จะได้รับ link สำหรับตั้งรหัสผ่านใหม่ทาง email`);
+    } else {
+        alert('เกิดข้อผิดพลาด: ' + result.error);
+    }
+}
+
 // Make functions globally accessible
 window.showUserManagement = showUserManagement;
 window.showAddUserForm = showAddUserForm;
 window.showEditUserForm = showEditUserForm;
 window.confirmDeleteUser = confirmDeleteUser;
+window.handleResetPassword = handleResetPassword;
 window.closeModal = closeModal;
 
 // ==================== //
