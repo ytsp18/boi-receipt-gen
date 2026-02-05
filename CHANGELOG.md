@@ -1,5 +1,39 @@
 # Change Log - Work Permit Receipt System
 
+## [5.2.0] - 2026-02-05
+
+### Added
+- **Reset Password Feature (Admin)**
+  - ปุ่ม 🔑 Reset Password ในตาราง User Management
+  - ฟังก์ชัน `resetPassword()` ใน auth.js ใช้ Supabase `resetPasswordForEmail`
+  - ฟังก์ชัน `handleResetPassword()` ใน app-supabase.js
+  - หน้า `reset-password.html` สำหรับผู้ใช้ตั้งรหัสผ่านใหม่
+
+### Fixed
+- **Edit User Modal แสดง "undefined"**
+  - สาเหตุ: เรียก async function โดยไม่ใช้ await
+  - แก้ไข: เพิ่ม async/await ใน `showEditUserForm()`, `confirmDeleteUser()`
+
+- **User Approval Error (approved_at column)**
+  - สาเหตุ: พยายาม update column ที่ไม่มีอยู่
+  - แก้ไข: ลบ `approved_by` และ `approved_at` ออกจาก `approveUser()`
+
+- **User Login ไม่ได้**
+  - สาเหตุ: Email ไม่ได้รับการยืนยัน + Supabase Redirect URL ไม่ถูกต้อง
+  - แก้ไข: ปิด Email Confirmation + ตั้งค่า Site URL และ Redirect URLs ใน Supabase
+
+### Changed
+- **Supabase Settings**
+  - ปิด "Confirm email" ใน Authentication → Providers → Email
+  - ตั้ง Site URL: `https://receipt.fts-internal.com`
+  - เพิ่ม Redirect URL: `https://receipt.fts-internal.com/reset-password.html`
+
+### Technical
+- เพิ่ม `resetPassword` ใน `window.AuthSystem` exports
+- เพิ่ม `handleResetPassword` ใน global window functions
+
+---
+
 ## [5.1.1] - 2026-02-05
 
 ### Security
@@ -15,10 +49,18 @@
 - **Credential Security**
   - ลบ credentials ที่เปิดเผยออกจาก documentation
   - เพิ่มคำเตือนความปลอดภัยใน SESSION_LOG
+  - เปลี่ยน Admin Password ใน Supabase Dashboard
+
+- **Authentication & Authorization**
+  - Supabase RLS (Row Level Security) enabled
+  - JWT-based session management
+  - User approval system for new registrations
 
 ### Technical
-- Security audit completed
+- Security audit completed ✅
 - Added security utility functions
+- All critical/high security issues resolved
+- System ready for production use
 
 ---
 

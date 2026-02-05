@@ -607,17 +607,34 @@ git push origin main --force
 
 ### Remaining Security Tasks (Manual)
 
-> ⚠️ **ต้องทำใน Supabase Dashboard:**
-> 1. เปลี่ยน Admin Password
-> 2. ตรวจสอบ RLS Policies
-> 3. เพิ่ม Rate Limiting (ถ้าต้องการ)
+> ✅ **Completed in Supabase Dashboard:**
+> 1. ✅ เปลี่ยน Admin Password - เรียบร้อย
+> 2. ✅ ตรวจสอบ RLS Policies - เปิดใช้งานแล้ว
+> 3. ⚠️ Rate Limiting - Optional (ยังไม่จำเป็น)
+
+---
+
+### Final Security Status
+
+| รายการ | สถานะ |
+|--------|--------|
+| XSS Protection | ✅ ใช้งานแล้ว |
+| Input Validation | ✅ ใช้งานแล้ว |
+| Supabase RLS | ✅ เปิดใช้งาน |
+| Admin Password Changed | ✅ เปลี่ยนแล้ว |
+| Credentials Removed from Docs | ✅ ลบแล้ว |
+| User Approval System | ✅ มีระบบอนุมัติ |
+| JWT Authentication | ✅ ใช้งานแล้ว |
+
+**สรุป:** ระบบมีความปลอดภัยเพียงพอสำหรับการใช้งานจริง
 
 ---
 
 ## Session End (v5.1.1)
-- **Status:** Security Hardening เรียบร้อย
+- **Status:** Security Audit & Hardening เรียบร้อย ✅
 - **Current Version:** 5.1.1
 - **Live URL:** https://receipt.fts-internal.com
+- **Security Level:** Production Ready
 
 ---
 
@@ -634,4 +651,66 @@ git push origin main --force
 | 4.1.1 | Print Layout Optimization (Full A4 page) |
 | 5.0.0 | Supabase Cloud + GitHub Pages + Custom Domain |
 | 5.1.0 | UI Rebranding - EWP Service Center |
-| **5.1.1** | **Security Audit & Hardening** |
+| 5.1.1 | Security Audit & Hardening |
+| **5.2.0** | **Reset Password + Bug Fixes** |
+
+---
+
+## Phase 15: Reset Password & Bug Fixes (v5.2.0)
+
+**Session Date:** 5 February 2026
+
+### ปัญหาที่พบและแก้ไข
+
+**1. Edit User Modal แสดง "undefined"**
+- **สาเหตุ:** `showEditUserForm()` เรียก async function `getUserById()` โดยไม่ใช้ `await`
+- **แก้ไข:** เพิ่ม `async` keyword และ `await` ในฟังก์ชัน
+
+**2. User Approval Error (approved_at column not found)**
+- **สาเหตุ:** โค้ดพยายาม update column `approved_by` และ `approved_at` ที่ไม่มีอยู่ใน profiles table
+- **แก้ไข:** ลบ columns ที่ไม่มีออกจาก `approveUser()` function
+
+**3. User Login ไม่ได้ (Invalid credentials)**
+- **สาเหตุ:** Email ไม่ได้รับการยืนยัน (Supabase Email Confirmation เปิดอยู่)
+- **แก้ไข:**
+  - ปิด "Confirm email" ใน Supabase Dashboard
+  - รัน SQL: `UPDATE auth.users SET email_confirmed_at = NOW() WHERE email_confirmed_at IS NULL;`
+
+**4. Reset Password Link ไปที่ localhost:3000**
+- **สาเหตุ:** Supabase Redirect URLs ไม่ได้ตั้งค่า
+- **แก้ไข:**
+  - ตั้ง Site URL: `https://receipt.fts-internal.com`
+  - เพิ่ม Redirect URL: `https://receipt.fts-internal.com/reset-password.html`
+
+---
+
+### Features เพิ่มใหม่
+
+**Reset Password (Admin)**
+- ปุ่ม 🔑 ในตาราง User Management
+- Admin กดปุ่ม → Supabase ส่ง email → ผู้ใช้คลิก link → ตั้งรหัสผ่านใหม่
+
+**Files Modified:**
+- `js/auth.js` - เพิ่ม `resetPassword()` function
+- `js/app-supabase.js` - เพิ่ม `handleResetPassword()` และปุ่ม 🔑
+
+**Files Created:**
+- `reset-password.html` - หน้าตั้งรหัสผ่านใหม่
+
+---
+
+### Supabase Configuration
+
+| Setting | Value |
+|---------|-------|
+| Site URL | `https://receipt.fts-internal.com` |
+| Redirect URLs | `https://receipt.fts-internal.com/reset-password.html` |
+| Confirm email | ❌ ปิด |
+
+---
+
+## Session End (v5.2.0)
+- **Status:** ระบบ v5.2.0 ทำงานได้ครบถ้วน ✅
+- **Current Version:** 5.2.0
+- **Live URL:** https://receipt.fts-internal.com
+- **New Features:** Reset Password (Admin), Bug Fixes
