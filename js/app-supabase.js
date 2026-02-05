@@ -2314,9 +2314,12 @@ function showAddUserForm() {
     });
 }
 
-function showEditUserForm(userId) {
-    const user = window.AuthSystem.getUserById(userId);
-    if (!user) return;
+async function showEditUserForm(userId) {
+    const user = await window.AuthSystem.getUserById(userId);
+    if (!user) {
+        alert('ไม่พบข้อมูลผู้ใช้');
+        return;
+    }
 
     const modalBody = document.getElementById('userModalBody');
     const modalTitle = document.getElementById('userModalTitle');
@@ -2356,7 +2359,7 @@ function showEditUserForm(userId) {
         </form>
     `;
 
-    document.getElementById('editUserForm').addEventListener('submit', (e) => {
+    document.getElementById('editUserForm').addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const updateData = {
@@ -2370,7 +2373,7 @@ function showEditUserForm(userId) {
             updateData.password = newPassword;
         }
 
-        const result = window.AuthSystem.updateUser(userId, updateData);
+        const result = await window.AuthSystem.updateUser(userId, updateData);
 
         if (result.success) {
             alert('อัพเดทผู้ใช้สำเร็จ');
@@ -2381,15 +2384,18 @@ function showEditUserForm(userId) {
     });
 }
 
-function confirmDeleteUser(userId) {
-    const user = window.AuthSystem.getUserById(userId);
-    if (!user) return;
+async function confirmDeleteUser(userId) {
+    const user = await window.AuthSystem.getUserById(userId);
+    if (!user) {
+        alert('ไม่พบข้อมูลผู้ใช้');
+        return;
+    }
 
     if (!confirm(`ต้องการลบผู้ใช้ "${user.name}" หรือไม่?`)) {
         return;
     }
 
-    const result = window.AuthSystem.deleteUser(userId);
+    const result = await window.AuthSystem.deleteUser(userId);
 
     if (result.success) {
         alert('ลบผู้ใช้สำเร็จ');
