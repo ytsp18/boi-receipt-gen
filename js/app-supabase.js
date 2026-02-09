@@ -902,14 +902,14 @@ function generateSinglePrintContent(formData) {
     const categoryInfo = getCategoryInfo(formData.foreignerName);
 
     return `
-        <div class="print-receipt-page" style="position: relative; font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.2; padding: 5mm 10mm; border-top: 3px solid ${categoryInfo.color};">
-            <!-- Category Letter Badge -->
-            <div style="position: absolute; top: 5mm; right: 10mm; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; color: ${categoryInfo.color}; border: 2px solid ${categoryInfo.color}; border-radius: 5px; background: #fff;">${categoryInfo.letter}</div>
-
-            <!-- Header -->
-            <div style="text-align: center; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 2px solid #2563eb;">
-                <h2 style="color: #2563eb; margin: 0; font-size: 18px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
-                <p style="color: #6b7280; margin: 2px 0 0 0; font-size: 12px;">(e-WorkPermit Card Receipt)</p>
+        <div class="print-receipt-page" style="font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.2; padding: 5mm 10mm; border-top: 3px solid ${categoryInfo.color};">
+            <!-- Header with Category Badge -->
+            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 2px solid #2563eb;">
+                <div style="text-align: center; flex: 1;">
+                    <h2 style="color: #2563eb; margin: 0; font-size: 18px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
+                    <p style="color: #6b7280; margin: 2px 0 0 0; font-size: 12px;">(e-WorkPermit Card Receipt)</p>
+                </div>
+                <div style="width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; color: ${categoryInfo.color}; border: 2px solid ${categoryInfo.color}; border-radius: 5px; background: #fff; flex-shrink: 0; margin-left: 10px;">${categoryInfo.letter}</div>
             </div>
 
             <!-- ข้อมูลหลัก -->
@@ -1831,14 +1831,14 @@ function generatePrintContent() {
     const categoryInfo = getCategoryInfo(state.formData.foreignerName);
 
     return `
-        <div class="print-receipt-page" style="position: relative; font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.2; padding: 5mm 10mm; border-top: 3px solid ${categoryInfo.color};">
-            <!-- Category Letter Badge -->
-            <div style="position: absolute; top: 5mm; right: 10mm; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; color: ${categoryInfo.color}; border: 2px solid ${categoryInfo.color}; border-radius: 5px; background: #fff;">${categoryInfo.letter}</div>
-
-            <!-- Header -->
-            <div style="text-align: center; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 2px solid #2563eb;">
-                <h2 style="color: #2563eb; margin: 0; font-size: 18px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
-                <p style="color: #6b7280; margin: 2px 0 0 0; font-size: 12px;">(e-WorkPermit Card Receipt)</p>
+        <div class="print-receipt-page" style="font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.2; padding: 5mm 10mm; border-top: 3px solid ${categoryInfo.color};">
+            <!-- Header with Category Badge -->
+            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 2px solid #2563eb;">
+                <div style="text-align: center; flex: 1;">
+                    <h2 style="color: #2563eb; margin: 0; font-size: 18px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
+                    <p style="color: #6b7280; margin: 2px 0 0 0; font-size: 12px;">(e-WorkPermit Card Receipt)</p>
+                </div>
+                <div style="width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; color: ${categoryInfo.color}; border: 2px solid ${categoryInfo.color}; border-radius: 5px; background: #fff; flex-shrink: 0; margin-left: 10px;">${categoryInfo.letter}</div>
             </div>
 
             <!-- ข้อมูลหลัก -->
