@@ -109,9 +109,13 @@ async function saveReceiptToSupabase(receiptData, cardImageFile = null) {
             sn_number: receiptData.snNumber || receiptData.sn,
             request_no: receiptData.requestNo,
             appointment_no: receiptData.appointmentNo,
-            card_image_url: cardImageUrl,
-            api_photo_url: receiptData.apiPhotoUrl || null
+            card_image_url: cardImageUrl
         };
+
+        // Only include api_photo_url if it has a value (column may not exist yet before migration)
+        if (receiptData.apiPhotoUrl) {
+            receiptPayload.api_photo_url = receiptData.apiPhotoUrl;
+        }
 
         let result;
         if (existing && receiptData.isEdit) {
