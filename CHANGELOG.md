@@ -1,5 +1,62 @@
 # Change Log - Work Permit Receipt System
 
+## [6.0.0] - 2026-02-09
+
+### Added
+- **VP API Integration (ปิดไว้ชั่วคราว — รอ migration)**
+  - Edge Function `vpapi-webhook` รับข้อมูลจาก VP แบบ push (webhook)
+  - Edge Function `vpapi-sync` ดึงข้อมูลอัตโนมัติตาม schedule (polling backup)
+  - ตาราง `pending_receipts` เก็บข้อมูลจาก VP ที่รอสร้างใบรับบัตร
+  - SQL migration `supabase-update-v6.0-api-integration.sql`
+  - Modal เลือกข้อมูลจาก VP แทน Google Sheet
+  - Realtime notification เมื่อมีข้อมูลใหม่จาก VP
+  - Pending badge แสดงจำนวนรายการที่รอสร้างใบรับ
+  - Column `api_photo_url` ในตาราง receipts (สำหรับรูปถ่ายจาก API)
+
+### Changed
+- **ลบ Google Sheet Integration**
+  - ลบ `fetchSheetData()`, `fetchSheetDataPublic()`, `renderSheetResults()` ฯลฯ
+  - ลบ Google Sheet sync toggle สำหรับ Admin
+  - ลบ CONFIG สำหรับ SPREADSHEET_ID, SHEET_COLUMNS, API_KEY
+  - เปลี่ยนปุ่ม "📥 ดึงข้อมูลจาก Google Sheet" → "📋 เลือกข้อมูลจาก VP" (ซ่อนไว้รอ migration)
+
+### Fixed
+- **🔴 SyntaxError ตัวแปรซ้ำ (Critical)**
+  - `printFromTable(receiptNo)` มี parameter ชื่อ `receiptNo` ซ้ำกับ `const receiptNo` ข้างใน
+  - ทำให้ทั้งไฟล์ JS ไม่ทำงาน — ไม่โหลดข้อมูล ไม่แสดงชื่อผู้ใช้
+  - แก้โดยเปลี่ยนเป็น `printReceiptNo` / `printName`
+
+- **Race Condition เมื่อ 3 เครื่องบันทึกพร้อมกัน**
+  - สาเหตุ: เลข receipt number ถูก gen ตอนเปิดฟอร์ม แต่ 3 เครื่องได้เลขเดียวกัน
+  - เครื่องที่ save ทีหลังจะ overwrite ข้อมูลเครื่องแรก (รูปไม่ตรงคน)
+  - แก้ 3 ชั้น: (1) Re-gen เลขก่อน save (2) Block duplicate insert (3) Auto-retry 3 ครั้ง
+
+- **ข้อมูลพิมพ์ไม่ตรงกับ preview**
+  - สาเหตุ: ตาราง sort (ยังไม่พิมพ์อยู่บน พิมพ์แล้วอยู่ล่าง) แต่ปุ่มพิมพ์ใช้ index ของ array ที่ยังไม่ sort
+  - กดพิมพ์แถว 1 ในตาราง → ได้ข้อมูล index 1 จาก array จริง → คนละคน
+  - แก้โดยใช้ `receiptNo` (เลขรับที่) แทน index ใน `printFromTable()` และ `selectRow()`
+
+- **api_photo_url ทำให้บันทึกไม่ได้**
+  - สาเหตุ: ส่ง `api_photo_url: null` ไป Supabase แต่ column ยังไม่มี (ยังไม่ได้รัน migration)
+  - แก้ให้ส่งเฉพาะเมื่อมีค่าจริงเท่านั้น
+
+### Technical
+- Edge Functions ใช้ Deno runtime (Supabase Edge Functions standard)
+- Webhook authentication ด้วย `x-api-key` header
+- VP API credentials เก็บใน Supabase Secrets (VP_API_USERNAME, VP_API_PASSWORD)
+- Realtime subscription ผ่าน Supabase Channels (postgres_changes)
+- ฟีเจอร์ VP ปิดไว้ด้วย `style="display: none;"` และ comment out — เปิดได้ทันทีหลังรัน migration
+
+### Deployment Notes
+ก่อนเปิดฟีเจอร์ VP ต้อง:
+1. รัน SQL migration `supabase-update-v6.0-api-integration.sql`
+2. Deploy Edge Functions: `supabase functions deploy vpapi-webhook` / `vpapi-sync`
+3. ตั้ง Supabase Secrets: `VPAPI_WEBHOOK_SECRET`, `VP_API_USERNAME`, `VP_API_PASSWORD`
+4. เปิดปุ่มใน `index.html` (ลบ `style="display: none;"`)
+5. Uncomment `updatePendingBadge()` และ `setupPendingRealtime()` ใน `app-supabase.js`
+
+---
+
 ## [5.2.0] - 2026-02-05
 
 ### Added
@@ -360,12 +417,14 @@
 
 ## Roadmap (Future)
 
-- [x] ~~เชื่อมต่อ Google Sheets API~~ (v4.1.0)
+- [x] ~~เชื่อมต่อ Google Sheets API~~ (v4.1.0 → ลบใน v6.0.0)
 - [x] ~~บันทึกรูปไป Cloud~~ (v5.0.0 - Supabase Storage)
 - [x] ~~Batch Print (พิมพ์หลายใบพร้อมกัน)~~ (v3.0.0)
 - [x] ~~รายงานสรุปรายเดือน~~ (v3.0.0)
 - [x] ~~Activity Log (ประวัติการทำงาน)~~ (v3.0.0)
 - [x] ~~Cloud Deployment~~ (v5.0.0 - GitHub Pages + Custom Domain)
+- [x] ~~VP/SWD API Integration~~ (v6.0.0 - Edge Functions + pending_receipts)
+- [ ] เปิดใช้งาน VP API (รอ migration + credentials)
 - [ ] Multi-device real-time sync
 - [ ] Mobile responsive improvements
 - [ ] QR Code verification integration
