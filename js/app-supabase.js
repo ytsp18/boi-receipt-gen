@@ -902,85 +902,85 @@ function generateSinglePrintContent(formData) {
     const categoryInfo = getCategoryInfo(formData.foreignerName);
 
     return `
-        <div class="print-receipt-page" style="position: relative; font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.3; padding: 8mm 12mm; border-top: 4px solid ${categoryInfo.color};">
+        <div class="print-receipt-page" style="position: relative; font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.2; padding: 5mm 10mm; border-top: 3px solid ${categoryInfo.color};">
             <!-- Category Letter Badge -->
-            <div style="position: absolute; top: 8mm; right: 12mm; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; color: ${categoryInfo.color}; border: 3px solid ${categoryInfo.color}; border-radius: 6px; background: #fff;">${categoryInfo.letter}</div>
+            <div style="position: absolute; top: 5mm; right: 10mm; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; color: ${categoryInfo.color}; border: 2px solid ${categoryInfo.color}; border-radius: 5px; background: #fff;">${categoryInfo.letter}</div>
 
             <!-- Header -->
-            <div style="text-align: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 3px solid #2563eb;">
-                <h2 style="color: #2563eb; margin: 0; font-size: 22px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
-                <p style="color: #6b7280; margin: 3px 0 0 0; font-size: 14px;">(e-WorkPermit Card Receipt)</p>
+            <div style="text-align: center; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 2px solid #2563eb;">
+                <h2 style="color: #2563eb; margin: 0; font-size: 18px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
+                <p style="color: #6b7280; margin: 2px 0 0 0; font-size: 12px;">(e-WorkPermit Card Receipt)</p>
             </div>
 
             <!-- ข้อมูลหลัก -->
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; background: #f8fafc; border: 1px solid #e5e7eb;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px; background: #f8fafc; border: 1px solid #e5e7eb;">
                 <tr>
-                    <td style="padding: 8px 12px; border-bottom: 1px dotted #ddd; width: 50%;">
-                        <div style="font-weight: 600; color: #374151; font-size: 11px;">วันที่รับบัตร / Receipt Date:</div>
-                        <div style="color: #111; font-size: 15px; font-weight: 500; margin-top: 2px;">${formatDateForDisplay(formData.receiptDate)}</div>
+                    <td style="padding: 5px 10px; border-bottom: 1px dotted #ddd; width: 50%;">
+                        <div style="font-weight: 600; color: #374151; font-size: 10px;">วันที่รับบัตร / Receipt Date:</div>
+                        <div style="color: #111; font-size: 14px; font-weight: 500;">${formatDateForDisplay(formData.receiptDate)}</div>
                     </td>
-                    <td style="padding: 8px 12px; border-bottom: 1px dotted #ddd;">
-                        <div style="font-weight: 600; color: #374151; font-size: 11px;">หมายเลข SN / Serial No.:</div>
-                        <div style="color: #111; font-size: 15px; font-weight: 500; margin-top: 2px;">${safeSN}</div>
+                    <td style="padding: 5px 10px; border-bottom: 1px dotted #ddd;">
+                        <div style="font-weight: 600; color: #374151; font-size: 10px;">หมายเลข SN / Serial No.:</div>
+                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeSN}</div>
                     </td>
                 </tr>
                 <tr>
-                    <td style="padding: 8px 12px; border-bottom: 1px dotted #ddd;">
-                        <div style="font-weight: 600; color: #374151; font-size: 11px;">ชื่อผู้รับบัตร / Name:</div>
-                        <div style="color: #111; font-size: 15px; font-weight: 500; margin-top: 2px;">${safeName}</div>
+                    <td style="padding: 5px 10px; border-bottom: 1px dotted #ddd;">
+                        <div style="font-weight: 600; color: #374151; font-size: 10px;">ชื่อผู้รับบัตร / Name:</div>
+                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeName}</div>
                     </td>
-                    <td style="padding: 8px 12px; border-bottom: 1px dotted #ddd;">
-                        <div style="font-weight: 600; color: #374151; font-size: 11px;">เลขที่คำขอ / Request No.:</div>
-                        <div style="color: #111; font-size: 15px; font-weight: 500; margin-top: 2px;">${safeRequestNo}</div>
+                    <td style="padding: 5px 10px; border-bottom: 1px dotted #ddd;">
+                        <div style="font-weight: 600; color: #374151; font-size: 10px;">เลขที่คำขอ / Request No.:</div>
+                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeRequestNo}</div>
                     </td>
                 </tr>
                 <tr>
-                    <td colspan="2" style="padding: 8px 12px;">
-                        <div style="font-weight: 600; color: #374151; font-size: 11px;">เลขที่นัดหมาย / Appointment No.:</div>
-                        <div style="color: #111; font-size: 15px; font-weight: 500; margin-top: 2px;">${safeAppointmentNo}</div>
+                    <td colspan="2" style="padding: 5px 10px;">
+                        <div style="font-weight: 600; color: #374151; font-size: 10px;">เลขที่นัดหมาย / Appointment No.:</div>
+                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeAppointmentNo}</div>
                     </td>
                 </tr>
             </table>
 
             <!-- รูปบัตร -->
-            <div style="margin-bottom: 10px;">
-                <p style="text-align: center; font-weight: 600; color: #374151; margin: 0 0 6px 0; font-size: 12px;">รูปบัตรอนุญาตทำงาน / Work Permit Card Image</p>
-                <div style="border: 2px solid #e5e7eb; border-radius: 8px; padding: 8px; text-align: center; min-height: 170px; background: #fff; display: flex; align-items: center; justify-content: center;">
+            <div style="margin-bottom: 6px;">
+                <p style="text-align: center; font-weight: 600; color: #374151; margin: 0 0 4px 0; font-size: 11px;">รูปบัตรอนุญาตทำงาน / Work Permit Card Image</p>
+                <div style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px; text-align: center; min-height: 200px; background: #fff; display: flex; align-items: center; justify-content: center;">
                     ${safeCardImage ?
-                        `<img src="${safeCardImage}" style="max-width: 100%; max-height: 170px; object-fit: contain;">` :
+                        `<img src="${safeCardImage}" style="max-width: 100%; max-height: 210px; object-fit: contain;">` :
                         `<div style="color: #9ca3af;"><p style="font-size: 40px; margin: 0;">📷</p><p style="font-size: 14px; margin: 10px 0 0 0;">ไม่มีรูปภาพ / No Image</p></div>`}
                 </div>
             </div>
 
             <!-- ข้อความยืนยัน -->
-            <div style="margin: 8px 0; padding: 10px 14px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #2563eb;">
-                <p style="font-size: 12px; line-height: 1.5; color: #1f2937; margin: 0 0 4px 0;">ข้าพเจ้าตรวจความถูกต้องของใบอนุญาตทำงานแล้ว และยืนยันว่าได้รับใบอนุญาตทำงาน ณ ศูนย์บริการวีซ่าและใบอนุญาตทำงาน อาคาร One Bangkok</p>
-                <p style="font-size: 10px; line-height: 1.4; color: #6b7280; font-style: italic; margin: 0;">I have verified that all information on the work permit card is correct and confirm receipt at the Visa and Work Permit Service Center, One Bangkok Building.</p>
+            <div style="margin: 5px 0; padding: 8px 12px; background: #f0f9ff; border-radius: 6px; border-left: 3px solid #2563eb;">
+                <p style="font-size: 11px; line-height: 1.4; color: #1f2937; margin: 0 0 3px 0;">ข้าพเจ้าตรวจความถูกต้องของใบอนุญาตทำงานแล้ว และยืนยันว่าได้รับใบอนุญาตทำงาน ณ ศูนย์บริการวีซ่าและใบอนุญาตทำงาน อาคาร One Bangkok</p>
+                <p style="font-size: 9px; line-height: 1.3; color: #6b7280; font-style: italic; margin: 0;">I have verified that all information on the work permit card is correct and confirm receipt at the Visa and Work Permit Service Center, One Bangkok Building.</p>
             </div>
 
             <!-- ช่องลงชื่อ -->
-            <table style="width: 100%; margin-top: 15px;">
+            <table style="width: 100%; margin-top: 10px;">
                 <tr>
-                    <td style="width: 50%; text-align: center; padding: 0 20px;">
-                        <div style="border-bottom: 1px solid #374151; height: 30px; margin-bottom: 5px;"></div>
-                        <p style="color: #374151; margin: 0; font-size: 11px; font-weight: 600;">ลงชื่อผู้รับบัตร / Cardholder</p>
-                        <p style="color: #1f2937; font-weight: 600; margin: 4px 0; font-size: 11px;">(${safeName !== '-' ? safeName : '___________________'})</p>
-                        <p style="color: #6b7280; margin: 0; font-size: 10px;">Tel: ________________________</p>
+                    <td style="width: 50%; text-align: center; padding: 0 15px;">
+                        <div style="border-bottom: 1px solid #374151; height: 28px; margin-bottom: 4px;"></div>
+                        <p style="color: #374151; margin: 0; font-size: 10px; font-weight: 600;">ลงชื่อผู้รับบัตร / Cardholder</p>
+                        <p style="color: #1f2937; font-weight: 600; margin: 3px 0; font-size: 10px;">(${safeName !== '-' ? safeName : '___________________'})</p>
+                        <p style="color: #6b7280; margin: 0; font-size: 9px;">Tel: ________________________</p>
                     </td>
-                    <td style="width: 50%; text-align: center; padding: 0 20px;">
-                        <div style="border-bottom: 1px solid #374151; height: 30px; margin-bottom: 5px;"></div>
-                        <p style="color: #374151; margin: 0; font-size: 11px; font-weight: 600;">ลงชื่อเจ้าหน้าที่ / Officer</p>
-                        <p style="color: #1f2937; font-weight: 600; margin: 4px 0; font-size: 11px;">(${officerName || '___________________'})</p>
-                        <p style="color: #6b7280; margin: 0; font-size: 10px;">Date: ${formatDateForDisplay(formData.receiptDate)}</p>
+                    <td style="width: 50%; text-align: center; padding: 0 15px;">
+                        <div style="border-bottom: 1px solid #374151; height: 28px; margin-bottom: 4px;"></div>
+                        <p style="color: #374151; margin: 0; font-size: 10px; font-weight: 600;">ลงชื่อเจ้าหน้าที่ / Officer</p>
+                        <p style="color: #1f2937; font-weight: 600; margin: 3px 0; font-size: 10px;">(${officerName || '___________________'})</p>
+                        <p style="color: #6b7280; margin: 0; font-size: 9px;">Date: ${formatDateForDisplay(formData.receiptDate)}</p>
                     </td>
                 </tr>
             </table>
 
             <!-- Footer with Org Name, Doc No and Barcode -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 6px; border-top: 2px solid #d1d5db;">
-                <div style="font-size: 9px; color: #6b7280;">ศูนย์บริการ EWP อาคาร One Bangkok</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 4px; border-top: 1px solid #d1d5db;">
+                <div style="font-size: 8px; color: #9ca3af;">ศูนย์บริการ EWP อาคาร One Bangkok</div>
                 <div style="text-align: right;">
-                    <div style="font-size: 14px; color: #111; font-weight: 700; margin-bottom: 2px;">Doc No.: ${safeReceiptNo}</div>
+                    <div style="font-size: 13px; color: #111; font-weight: 700; margin-bottom: 1px;">Doc No.: ${safeReceiptNo}</div>
                     <svg class="receipt-barcode" data-receipt-no="${safeReceiptNo}"></svg>
                 </div>
             </div>
@@ -1831,85 +1831,85 @@ function generatePrintContent() {
     const categoryInfo = getCategoryInfo(state.formData.foreignerName);
 
     return `
-        <div class="print-receipt-page" style="position: relative; font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.3; padding: 8mm 12mm; border-top: 4px solid ${categoryInfo.color};">
+        <div class="print-receipt-page" style="position: relative; font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.2; padding: 5mm 10mm; border-top: 3px solid ${categoryInfo.color};">
             <!-- Category Letter Badge -->
-            <div style="position: absolute; top: 8mm; right: 12mm; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; color: ${categoryInfo.color}; border: 3px solid ${categoryInfo.color}; border-radius: 6px; background: #fff;">${categoryInfo.letter}</div>
+            <div style="position: absolute; top: 5mm; right: 10mm; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; color: ${categoryInfo.color}; border: 2px solid ${categoryInfo.color}; border-radius: 5px; background: #fff;">${categoryInfo.letter}</div>
 
             <!-- Header -->
-            <div style="text-align: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 3px solid #2563eb;">
-                <h2 style="color: #2563eb; margin: 0; font-size: 22px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
-                <p style="color: #6b7280; margin: 3px 0 0 0; font-size: 14px;">(e-WorkPermit Card Receipt)</p>
+            <div style="text-align: center; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 2px solid #2563eb;">
+                <h2 style="color: #2563eb; margin: 0; font-size: 18px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
+                <p style="color: #6b7280; margin: 2px 0 0 0; font-size: 12px;">(e-WorkPermit Card Receipt)</p>
             </div>
 
             <!-- ข้อมูลหลัก -->
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; background: #f8fafc; border: 1px solid #e5e7eb;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px; background: #f8fafc; border: 1px solid #e5e7eb;">
                 <tr>
-                    <td style="padding: 8px 12px; border-bottom: 1px dotted #ddd; width: 50%;">
-                        <div style="font-weight: 600; color: #374151; font-size: 11px;">วันที่รับบัตร / Receipt Date:</div>
-                        <div style="color: #111; font-size: 15px; font-weight: 500; margin-top: 2px;">${formatDateForDisplay(state.formData.receiptDate)}</div>
+                    <td style="padding: 5px 10px; border-bottom: 1px dotted #ddd; width: 50%;">
+                        <div style="font-weight: 600; color: #374151; font-size: 10px;">วันที่รับบัตร / Receipt Date:</div>
+                        <div style="color: #111; font-size: 14px; font-weight: 500;">${formatDateForDisplay(state.formData.receiptDate)}</div>
                     </td>
-                    <td style="padding: 8px 12px; border-bottom: 1px dotted #ddd;">
-                        <div style="font-weight: 600; color: #374151; font-size: 11px;">หมายเลข SN / Serial No.:</div>
-                        <div style="color: #111; font-size: 15px; font-weight: 500; margin-top: 2px;">${safeSN}</div>
+                    <td style="padding: 5px 10px; border-bottom: 1px dotted #ddd;">
+                        <div style="font-weight: 600; color: #374151; font-size: 10px;">หมายเลข SN / Serial No.:</div>
+                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeSN}</div>
                     </td>
                 </tr>
                 <tr>
-                    <td style="padding: 8px 12px; border-bottom: 1px dotted #ddd;">
-                        <div style="font-weight: 600; color: #374151; font-size: 11px;">ชื่อผู้รับบัตร / Name:</div>
-                        <div style="color: #111; font-size: 15px; font-weight: 500; margin-top: 2px;">${safeName}</div>
+                    <td style="padding: 5px 10px; border-bottom: 1px dotted #ddd;">
+                        <div style="font-weight: 600; color: #374151; font-size: 10px;">ชื่อผู้รับบัตร / Name:</div>
+                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeName}</div>
                     </td>
-                    <td style="padding: 8px 12px; border-bottom: 1px dotted #ddd;">
-                        <div style="font-weight: 600; color: #374151; font-size: 11px;">เลขที่คำขอ / Request No.:</div>
-                        <div style="color: #111; font-size: 15px; font-weight: 500; margin-top: 2px;">${safeRequestNo}</div>
+                    <td style="padding: 5px 10px; border-bottom: 1px dotted #ddd;">
+                        <div style="font-weight: 600; color: #374151; font-size: 10px;">เลขที่คำขอ / Request No.:</div>
+                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeRequestNo}</div>
                     </td>
                 </tr>
                 <tr>
-                    <td colspan="2" style="padding: 8px 12px;">
-                        <div style="font-weight: 600; color: #374151; font-size: 11px;">เลขที่นัดหมาย / Appointment No.:</div>
-                        <div style="color: #111; font-size: 15px; font-weight: 500; margin-top: 2px;">${safeAppointmentNo}</div>
+                    <td colspan="2" style="padding: 5px 10px;">
+                        <div style="font-weight: 600; color: #374151; font-size: 10px;">เลขที่นัดหมาย / Appointment No.:</div>
+                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeAppointmentNo}</div>
                     </td>
                 </tr>
             </table>
 
             <!-- รูปบัตร -->
-            <div style="margin-bottom: 10px;">
-                <p style="text-align: center; font-weight: 600; color: #374151; margin: 0 0 6px 0; font-size: 12px;">รูปบัตรอนุญาตทำงาน / Work Permit Card Image</p>
-                <div style="border: 2px solid #e5e7eb; border-radius: 8px; padding: 8px; text-align: center; min-height: 170px; background: #fff; display: flex; align-items: center; justify-content: center;">
+            <div style="margin-bottom: 6px;">
+                <p style="text-align: center; font-weight: 600; color: #374151; margin: 0 0 4px 0; font-size: 11px;">รูปบัตรอนุญาตทำงาน / Work Permit Card Image</p>
+                <div style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px; text-align: center; min-height: 200px; background: #fff; display: flex; align-items: center; justify-content: center;">
                     ${safeCardImage ?
-                        `<img src="${safeCardImage}" style="max-width: 100%; max-height: 170px; object-fit: contain;">` :
+                        `<img src="${safeCardImage}" style="max-width: 100%; max-height: 210px; object-fit: contain;">` :
                         `<div style="color: #9ca3af;"><p style="font-size: 40px; margin: 0;">📷</p><p style="font-size: 14px; margin: 10px 0 0 0;">ไม่มีรูปภาพ / No Image</p></div>`}
                 </div>
             </div>
 
             <!-- ข้อความยืนยัน -->
-            <div style="margin: 8px 0; padding: 10px 14px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #2563eb;">
-                <p style="font-size: 12px; line-height: 1.5; color: #1f2937; margin: 0 0 4px 0;">ข้าพเจ้าตรวจความถูกต้องของใบอนุญาตทำงานแล้ว และยืนยันว่าได้รับใบอนุญาตทำงาน ณ ศูนย์บริการวีซ่าและใบอนุญาตทำงาน อาคาร One Bangkok</p>
-                <p style="font-size: 10px; line-height: 1.4; color: #6b7280; font-style: italic; margin: 0;">I have verified that all information on the work permit card is correct and confirm receipt at the Visa and Work Permit Service Center, One Bangkok Building.</p>
+            <div style="margin: 5px 0; padding: 8px 12px; background: #f0f9ff; border-radius: 6px; border-left: 3px solid #2563eb;">
+                <p style="font-size: 11px; line-height: 1.4; color: #1f2937; margin: 0 0 3px 0;">ข้าพเจ้าตรวจความถูกต้องของใบอนุญาตทำงานแล้ว และยืนยันว่าได้รับใบอนุญาตทำงาน ณ ศูนย์บริการวีซ่าและใบอนุญาตทำงาน อาคาร One Bangkok</p>
+                <p style="font-size: 9px; line-height: 1.3; color: #6b7280; font-style: italic; margin: 0;">I have verified that all information on the work permit card is correct and confirm receipt at the Visa and Work Permit Service Center, One Bangkok Building.</p>
             </div>
 
             <!-- ช่องลงชื่อ -->
-            <table style="width: 100%; margin-top: 15px;">
+            <table style="width: 100%; margin-top: 10px;">
                 <tr>
-                    <td style="width: 50%; text-align: center; padding: 0 20px;">
-                        <div style="border-bottom: 1px solid #374151; height: 30px; margin-bottom: 5px;"></div>
-                        <p style="color: #374151; margin: 0; font-size: 11px; font-weight: 600;">ลงชื่อผู้รับบัตร / Cardholder</p>
-                        <p style="color: #1f2937; font-weight: 600; margin: 4px 0; font-size: 11px;">(${safeName !== '-' ? safeName : '___________________'})</p>
-                        <p style="color: #6b7280; margin: 0; font-size: 10px;">Tel: ________________________</p>
+                    <td style="width: 50%; text-align: center; padding: 0 15px;">
+                        <div style="border-bottom: 1px solid #374151; height: 28px; margin-bottom: 4px;"></div>
+                        <p style="color: #374151; margin: 0; font-size: 10px; font-weight: 600;">ลงชื่อผู้รับบัตร / Cardholder</p>
+                        <p style="color: #1f2937; font-weight: 600; margin: 3px 0; font-size: 10px;">(${safeName !== '-' ? safeName : '___________________'})</p>
+                        <p style="color: #6b7280; margin: 0; font-size: 9px;">Tel: ________________________</p>
                     </td>
-                    <td style="width: 50%; text-align: center; padding: 0 20px;">
-                        <div style="border-bottom: 1px solid #374151; height: 30px; margin-bottom: 5px;"></div>
-                        <p style="color: #374151; margin: 0; font-size: 11px; font-weight: 600;">ลงชื่อเจ้าหน้าที่ / Officer</p>
-                        <p style="color: #1f2937; font-weight: 600; margin: 4px 0; font-size: 11px;">(${officerName || '___________________'})</p>
-                        <p style="color: #6b7280; margin: 0; font-size: 10px;">Date: ${formatDateForDisplay(state.formData.receiptDate)}</p>
+                    <td style="width: 50%; text-align: center; padding: 0 15px;">
+                        <div style="border-bottom: 1px solid #374151; height: 28px; margin-bottom: 4px;"></div>
+                        <p style="color: #374151; margin: 0; font-size: 10px; font-weight: 600;">ลงชื่อเจ้าหน้าที่ / Officer</p>
+                        <p style="color: #1f2937; font-weight: 600; margin: 3px 0; font-size: 10px;">(${officerName || '___________________'})</p>
+                        <p style="color: #6b7280; margin: 0; font-size: 9px;">Date: ${formatDateForDisplay(state.formData.receiptDate)}</p>
                     </td>
                 </tr>
             </table>
 
             <!-- Footer -->
-            <div style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #d1d5db; padding-top: 6px;">
-                <span style="color: #9ca3af; font-size: 9px;">ศูนย์บริการวีซ่าและใบอนุญาตทำงาน BOI</span>
+            <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #d1d5db; padding-top: 4px;">
+                <span style="color: #9ca3af; font-size: 8px;">ศูนย์บริการวีซ่าและใบอนุญาตทำงาน BOI</span>
                 <div style="text-align: right;">
-                    <div style="font-size: 14px; color: #111; font-weight: 700; margin-bottom: 2px;">Doc No.: ${safeReceiptNo}</div>
+                    <div style="font-size: 13px; color: #111; font-weight: 700; margin-bottom: 1px;">Doc No.: ${safeReceiptNo}</div>
                     <svg class="receipt-barcode" data-receipt-no="${safeReceiptNo}"></svg>
                 </div>
             </div>
