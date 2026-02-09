@@ -1912,10 +1912,10 @@ function renderRegistryTable() {
                     </div>
                 </td>
                 <td class="action-buttons">
-                    <button class="btn btn-success btn-sm" onclick="printFromTable(${row.number - 1})" title="พิมพ์ใบรับ">
+                    <button class="btn btn-success btn-sm" onclick="printFromTable('${safeReceiptNo}')" title="พิมพ์ใบรับ">
                         🖨️
                     </button>
-                    <button class="btn btn-primary btn-sm" onclick="selectRow(${row.number - 1})" title="แก้ไข">
+                    <button class="btn btn-primary btn-sm" onclick="selectRow('${safeReceiptNo}')" title="แก้ไข">
                         ✏️
                     </button>
                     <button class="btn btn-outline-danger btn-sm" onclick="deleteRecord('${safeReceiptNo}')" title="ลบ">
@@ -1929,8 +1929,8 @@ function renderRegistryTable() {
     updateBatchPrintUI();
 }
 
-function selectRow(index) {
-    const rowData = state.registryData[index];
+function selectRow(receiptNo) {
+    const rowData = state.registryData.find(r => r.receiptNo === receiptNo);
     if (rowData) {
         loadFromRegistry(rowData);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1955,8 +1955,8 @@ function viewImage(receiptNo) {
 /**
  * พิมพ์ใบรับจากตารางโดยตรง
  */
-function printFromTable(index) {
-    const rowData = state.registryData[index];
+function printFromTable(receiptNo) {
+    const rowData = state.registryData.find(r => r.receiptNo === receiptNo);
     if (!rowData) return;
 
     // Set form data from row
