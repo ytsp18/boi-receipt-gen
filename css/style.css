@@ -1131,6 +1131,79 @@ tr:last-child td {
 }
 
 /* ==================== */
+/* Pagination */
+/* ==================== */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: var(--card-bg);
+    border-top: 1px solid var(--border-color);
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.pagination-info {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.pagination-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.pagination-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    font-family: 'Sarabun', sans-serif;
+    transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.pagination-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    font-weight: 600;
+}
+
+.pagination-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.pagination-ellipsis {
+    padding: 6px 4px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+@media (max-width: 600px) {
+    .pagination {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+    .pagination-controls {
+        justify-content: center;
+    }
+}
+
+/* ==================== */
 /* Print Styles */
 /* ==================== */
 .print-only {
@@ -1165,6 +1238,7 @@ tr:last-child td {
     .modal-overlay,
     .form-panel,
     .preview-panel,
+    .pagination,
     nav,
     footer {
         display: none !important;
@@ -1184,6 +1258,11 @@ tr:last-child td {
         display: block !important;
         margin: 0 !important;
         padding: 0 !important;
+    }
+
+    .receipt-barcode {
+        display: inline-block !important;
+        visibility: visible !important;
     }
 
     .print-only {

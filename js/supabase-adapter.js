@@ -81,8 +81,13 @@ async function searchRegistryFromSupabase(query) {
     try {
         if (!query || query.trim().length < 2) return [];
 
-        // Validate query (no HTML, no script injection)
-        const cleanQuery = query.trim().replace(/[<>"'`;]/g, '');
+        // Validate query (no HTML, no script injection, escape SQL wildcards & PostgREST chars)
+        const cleanQuery = query.trim()
+            .replace(/[<>"'`;]/g, '')       // Remove HTML/script chars
+            .replace(/[%_]/g, '')           // Remove SQL wildcard chars
+            .replace(/[(),.\\\[\]]/g, '');  // Remove PostgREST-significant chars
+
+        if (cleanQuery.length < 2) return [];
 
         const { data, error } = await window.supabaseClient
             .from('receipts')
@@ -405,6 +410,30 @@ function getActivityTitle(action, receiptNo) {
 }
 
 // ==================== //
+// UX Analytics (Admin)
+// ==================== //
+
+async function loadAnalyticsSummary(days = 30) {
+    try {
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+
+        const { data, error } = await window.supabaseClient
+            .from('ux_analytics')
+            .select('event_type, event_name, duration_ms, created_at, user_role')
+            .gte('created_at', since.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1000);
+
+        if (error) throw error;
+        return data || [];
+    } catch (e) {
+        console.error('Error loading analytics:', e);
+        return [];
+    }
+}
+
+// ==================== //
 // Get Next Receipt Number
 // ==================== //
 
@@ -454,7 +483,8 @@ window.SupabaseAdapter = {
     toggleReceived: toggleReceivedInSupabase,
     loadActivityLog: loadActivityLogFromSupabase,
     getNextReceiptNo: getNextReceiptNoFromSupabase,
-    uploadImage: uploadImageToSupabase
+    uploadImage: uploadImageToSupabase,
+    loadAnalyticsSummary: loadAnalyticsSummary
 };
 
 console.log('✅ Supabase Adapter Loaded');

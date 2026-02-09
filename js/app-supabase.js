@@ -1,7 +1,7 @@
 /**
  * Work Permit Receipt System - Main Application
  * ระบบสร้างแบบฟอร์มรับบัตร - EWP Service Center
- * Version 6.0.2 - Security Enhanced
+ * Version 6.3.0 - Pagination + Barcode + UX Analytics
  */
 
 // ==================== //
@@ -63,6 +63,96 @@ const CONFIG = {
 };
 
 // ==================== //
+// UX Analytics (Non-blocking)
+// ==================== //
+const UXAnalytics = (() => {
+    const sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
+    const timers = {};
+    const featureCounts = {};
+    const eventQueue = [];
+    const FLUSH_INTERVAL = 30000; // Flush every 30 seconds
+    const MAX_QUEUE_SIZE = 50;    // Flush when queue reaches 50 events
+    let flushTimer = null;
+
+    // Batch flush — send all queued events in a single INSERT
+    function flush() {
+        if (eventQueue.length === 0) return;
+        try {
+            const client = window.supabaseClient;
+            if (!client) return;
+
+            const batch = eventQueue.splice(0); // Take all & clear
+            client.from('ux_analytics').insert(batch)
+                .then(() => {})
+                .catch(() => {}); // Silent — never block UI
+        } catch (e) {
+            // Never throw from analytics
+        }
+    }
+
+    // Schedule periodic flush
+    function startFlushTimer() {
+        if (flushTimer) return;
+        flushTimer = setInterval(flush, FLUSH_INTERVAL);
+    }
+
+    // Flush on page unload
+    if (typeof window !== 'undefined') {
+        window.addEventListener('beforeunload', flush);
+    }
+
+    function log(eventType, eventName, eventData = {}, durationMs = null) {
+        try {
+            eventQueue.push({
+                session_id: sessionId,
+                user_id: null,
+                user_role: (typeof state !== 'undefined' && state.currentUserRole) || null,
+                event_type: eventType,
+                event_name: eventName,
+                event_data: eventData,
+                duration_ms: durationMs
+            });
+
+            startFlushTimer();
+
+            // Flush immediately if queue is full
+            if (eventQueue.length >= MAX_QUEUE_SIZE) {
+                flush();
+            }
+        } catch (e) {
+            // Never throw from analytics
+        }
+    }
+
+    function startTimer(name) {
+        timers[name] = Date.now();
+    }
+
+    function endTimer(name, eventType = 'action_timing', eventData = {}) {
+        if (!timers[name]) return null;
+        const duration = Date.now() - timers[name];
+        log(eventType, name, eventData, duration);
+        delete timers[name];
+        return duration;
+    }
+
+    function trackFeature(featureName, data = {}) {
+        featureCounts[featureName] = (featureCounts[featureName] || 0) + 1;
+        log('feature_usage', featureName, { count: featureCounts[featureName], ...data });
+    }
+
+    function trackJourney(action, details = {}) {
+        log('user_journey', action, details);
+    }
+
+    function trackError(errorName, details = {}) {
+        log('error', errorName, details);
+    }
+
+    return { log, startTimer, endTimer, trackFeature, trackJourney, trackError, flush, sessionId };
+})();
+
+// ==================== //
 // State Management
 // ==================== //
 const state = {
@@ -92,7 +182,15 @@ const state = {
     pendingData: [],
     pendingDataLoaded: false,
     // Current user role
-    currentUserRole: 'staff'
+    currentUserRole: 'staff',
+    // Pagination - Registry
+    currentPage: 1,
+    pageSize: 50,
+    // Pagination - Activity Log
+    activityPage: 1,
+    activityPageSize: 50,
+    // Barcode scan detection
+    barcodeScanLastKeyTime: 0
 };
 
 // ==================== //
@@ -392,7 +490,7 @@ function saveReceivedCards() {
 
 async function loadActivityLog() {
     try {
-        const logs = await SupabaseAdapter.loadActivityLog(100);
+        const logs = await SupabaseAdapter.loadActivityLog(500);
         state.activityLog = logs;
     } catch (e) {
         console.error('Error loading activity log:', e);
@@ -432,10 +530,22 @@ function renderActivityLog() {
         activities = activities.filter(a => a.type === filter);
     }
 
+    const paginationEl = document.getElementById('activityPagination');
+
     if (activities.length === 0) {
         elements.activityList.innerHTML = '<div class="activity-empty">ยังไม่มี Activity</div>';
+        if (paginationEl) paginationEl.innerHTML = '';
         return;
     }
+
+    // Pagination
+    const totalRecords = activities.length;
+    const totalPages = Math.ceil(totalRecords / state.activityPageSize) || 1;
+    if (state.activityPage > totalPages) state.activityPage = totalPages;
+    if (state.activityPage < 1) state.activityPage = 1;
+    const startIdx = (state.activityPage - 1) * state.activityPageSize;
+    const endIdx = Math.min(startIdx + state.activityPageSize, totalRecords);
+    const pageActivities = activities.slice(startIdx, endIdx);
 
     const iconMap = {
         'add': { icon: '➕', class: 'add' },
@@ -445,7 +555,7 @@ function renderActivityLog() {
         'receive': { icon: '🎫', class: 'receive' }
     };
 
-    elements.activityList.innerHTML = activities.slice(0, 100).map(activity => {
+    elements.activityList.innerHTML = pageActivities.map(activity => {
         const iconInfo = iconMap[activity.type] || { icon: '📝', class: 'add' };
         const time = new Date(activity.timestamp);
         const timeStr = time.toLocaleDateString('th-TH') + ' ' + time.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
@@ -461,7 +571,58 @@ function renderActivityLog() {
             </div>
         `;
     }).join('');
+
+    // Activity pagination
+    renderActivityPagination(totalRecords, totalPages);
 }
+
+function renderActivityPagination(totalRecords, totalPages) {
+    const container = document.getElementById('activityPagination');
+    if (!container) return;
+
+    if (totalRecords === 0 || totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const startRecord = (state.activityPage - 1) * state.activityPageSize + 1;
+    const endRecord = Math.min(state.activityPage * state.activityPageSize, totalRecords);
+
+    let pagesHTML = '';
+    const startPage = Math.max(1, state.activityPage - 2);
+    const endPage = Math.min(totalPages, state.activityPage + 2);
+
+    if (startPage > 1) {
+        pagesHTML += `<button class="pagination-btn" onclick="goToActivityPage(1)">1</button>`;
+        if (startPage > 2) pagesHTML += `<span class="pagination-ellipsis">...</span>`;
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        pagesHTML += `<button class="pagination-btn ${i === state.activityPage ? 'active' : ''}" onclick="goToActivityPage(${i})">${i}</button>`;
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) pagesHTML += `<span class="pagination-ellipsis">...</span>`;
+        pagesHTML += `<button class="pagination-btn" onclick="goToActivityPage(${totalPages})">${totalPages}</button>`;
+    }
+
+    container.innerHTML = `
+        <div class="pagination-info">แสดง ${startRecord}-${endRecord} จาก ${totalRecords} รายการ</div>
+        <div class="pagination-controls">
+            <button class="pagination-btn" onclick="goToActivityPage(${state.activityPage - 1})" ${state.activityPage <= 1 ? 'disabled' : ''}>&#8592; ก่อนหน้า</button>
+            ${pagesHTML}
+            <button class="pagination-btn" onclick="goToActivityPage(${state.activityPage + 1})" ${state.activityPage >= totalPages ? 'disabled' : ''}>ถัดไป &#8594;</button>
+        </div>
+    `;
+}
+
+function goToActivityPage(page) {
+    if (page < 1) return;
+    state.activityPage = page;
+    renderActivityLog();
+    document.getElementById('activityLogPane')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+window.goToActivityPage = goToActivityPage;
 
 // ==================== //
 // Print & Received Tracking (Supabase)
@@ -520,6 +681,7 @@ function getPrintInfo(receiptNo) {
 }
 
 async function toggleCardReceived(receiptNo) {
+    UXAnalytics.trackFeature('toggle_received');
     if (!receiptNo) return;
 
     try {
@@ -593,10 +755,24 @@ function toggleSelectItem(receiptNo) {
 
 function toggleSelectAll() {
     const filteredData = getFilteredData();
-    if (state.selectedItems.length === filteredData.length) {
-        state.selectedItems = [];
+    // Only select/deselect items on current page
+    const startIndex = (state.currentPage - 1) * state.pageSize;
+    const endIndex = Math.min(startIndex + state.pageSize, filteredData.length);
+    const pageData = filteredData.slice(startIndex, endIndex);
+    const pageReceiptNos = pageData.map(r => r.receiptNo);
+
+    const allPageSelected = pageReceiptNos.every(rn => state.selectedItems.includes(rn));
+
+    if (allPageSelected) {
+        // Deselect current page items
+        state.selectedItems = state.selectedItems.filter(rn => !pageReceiptNos.includes(rn));
     } else {
-        state.selectedItems = filteredData.map(row => row.receiptNo);
+        // Select current page items (add to existing selection)
+        pageReceiptNos.forEach(rn => {
+            if (!state.selectedItems.includes(rn)) {
+                state.selectedItems.push(rn);
+            }
+        });
     }
     renderRegistryTable();
     updateBatchPrintUI();
@@ -610,15 +786,20 @@ function updateBatchPrintUI() {
     if (elements.batchPrintBtn) {
         elements.batchPrintBtn.disabled = count === 0;
     }
-    // Update select all checkbox
+    // Update select all checkbox (check current page only)
     const filteredData = getFilteredData();
+    const startIdx = (state.currentPage - 1) * state.pageSize;
+    const endIdx = Math.min(startIdx + state.pageSize, filteredData.length);
+    const pageReceiptNos = filteredData.slice(startIdx, endIdx).map(r => r.receiptNo);
     if (elements.selectAllCheckbox) {
-        elements.selectAllCheckbox.checked = filteredData.length > 0 && state.selectedItems.length === filteredData.length;
-        elements.selectAllCheckbox.indeterminate = state.selectedItems.length > 0 && state.selectedItems.length < filteredData.length;
+        const selectedOnPage = pageReceiptNos.filter(rn => state.selectedItems.includes(rn)).length;
+        elements.selectAllCheckbox.checked = pageReceiptNos.length > 0 && selectedOnPage === pageReceiptNos.length;
+        elements.selectAllCheckbox.indeterminate = selectedOnPage > 0 && selectedOnPage < pageReceiptNos.length;
     }
 }
 
 function batchPrint() {
+    UXAnalytics.trackFeature('batch_print', { count: state.selectedItems.length });
     if (state.selectedItems.length === 0) {
         alert('กรุณาเลือกรายการที่ต้องการพิมพ์');
         return;
@@ -664,6 +845,7 @@ function batchPrint() {
     });
 
     elements.printTemplate.innerHTML = printContent;
+    renderBarcodes();
 
     // Store selected items for confirmation
     const itemsToPrint = [...state.selectedItems];
@@ -680,15 +862,13 @@ function batchPrint() {
                 await markAsPrinted(receiptNo);
             }
             addActivity('print', `พิมพ์ใบรับ ${count} รายการ (Batch)`, receiptNos);
-            renderRegistryTable();
             updateSummary();
         }
+        // Clear selection after confirm/cancel (not before)
+        state.selectedItems = [];
+        renderRegistryTable();
+        updateBatchPrintUI();
     }, 500);
-
-    // Clear selection after print
-    state.selectedItems = [];
-    renderRegistryTable();
-    updateBatchPrintUI();
 }
 
 // Helper: ดึงตัวอักษรหมวดหมู่ + สี จากชื่อ (ข้าม prefix mr./mrs./miss/ms.)
@@ -796,13 +976,47 @@ function generateSinglePrintContent(formData) {
                 </tr>
             </table>
 
-            <!-- Footer with Org Name and Doc No -->
+            <!-- Footer with Org Name, Doc No and Barcode -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 10px; border-top: 2px solid #d1d5db;">
                 <div style="font-size: 10px; color: #6b7280;">ศูนย์บริการ EWP อาคาร One Bangkok</div>
-                <div style="font-size: 16px; color: #111; font-weight: 700;">Doc No.: ${safeReceiptNo}</div>
+                <div style="text-align: right;">
+                    <div style="font-size: 16px; color: #111; font-weight: 700; margin-bottom: 4px;">Doc No.: ${safeReceiptNo}</div>
+                    <svg class="receipt-barcode" data-receipt-no="${safeReceiptNo}"></svg>
+                </div>
             </div>
         </div>
     `;
+}
+
+// ==================== //
+// Barcode Rendering
+// ==================== //
+
+function renderBarcodes() {
+    const barcodeElements = document.querySelectorAll('#printTemplate .receipt-barcode');
+    barcodeElements.forEach(el => {
+        const receiptNo = el.getAttribute('data-receipt-no');
+        if (receiptNo && window.JsBarcode) {
+            try {
+                JsBarcode(el, receiptNo, {
+                    format: 'CODE128',
+                    width: 1.5,
+                    height: 35,
+                    displayValue: true,
+                    fontSize: 12,
+                    font: 'Sarabun',
+                    textMargin: 2,
+                    margin: 0
+                });
+            } catch (e) {
+                // Fallback: show text if barcode generation fails
+                el.outerHTML = `<span style="font-size: 16px; color: #111; font-weight: 700;">Doc No.: ${receiptNo}</span>`;
+            }
+        } else {
+            // Fallback: JsBarcode not loaded
+            el.outerHTML = `<span style="font-size: 16px; color: #111; font-weight: 700;">Doc No.: ${receiptNo}</span>`;
+        }
+    });
 }
 
 function markAsPrintedSilent(receiptNo) {
@@ -1343,6 +1557,7 @@ async function clearForm(skipConfirm = false) {
 
     setFormMode('add');
     updateReceiptPreview();
+    UXAnalytics.startTimer('form_add');
 }
 
 function setDefaultDate() {
@@ -1350,6 +1565,7 @@ function setDefaultDate() {
 }
 
 function loadFromRegistry(rowData) {
+    UXAnalytics.startTimer('form_edit');
     elements.receiptNo.value = rowData.receiptNo || '';
     elements.foreignerName.value = rowData.name || '';
     elements.snNumber.value = rowData.sn || '';
@@ -1387,28 +1603,34 @@ function loadFromRegistry(rowData) {
 
 async function saveData() {
     updateFormState();
+    UXAnalytics.endTimer(state.formMode === 'edit' ? 'form_edit' : 'form_add', 'action_timing', { mode: state.formMode });
 
     // Basic validation
     if (!state.formData.receiptNo || !state.formData.foreignerName) {
         alert('กรุณากรอกข้อมูลให้ครบถ้วน (เลขรับที่ และ ชื่อ)');
+        UXAnalytics.trackError('validation_fail', { field: 'required', reason: 'missing_receipt_or_name' });
         return;
     }
 
     // Security validation
     if (!validateInput(state.formData.receiptNo, 'receiptNo')) {
         alert('รูปแบบเลขรับที่ไม่ถูกต้อง');
+        UXAnalytics.trackError('validation_fail', { field: 'receiptNo', reason: 'invalid_format' });
         return;
     }
     if (!validateInput(state.formData.foreignerName, 'text')) {
         alert('ชื่อมีรูปแบบไม่ถูกต้องหรือยาวเกินไป');
+        UXAnalytics.trackError('validation_fail', { field: 'foreignerName', reason: 'invalid_or_too_long' });
         return;
     }
     if (state.formData.snNumber && !validateInput(state.formData.snNumber, 'text')) {
         alert('หมายเลข SN มีรูปแบบไม่ถูกต้อง');
+        UXAnalytics.trackError('validation_fail', { field: 'snNumber', reason: 'invalid_format' });
         return;
     }
     if (state.formData.requestNo && !validateInput(state.formData.requestNo, 'text')) {
         alert('เลขที่คำขอมีรูปแบบไม่ถูกต้อง');
+        UXAnalytics.trackError('validation_fail', { field: 'requestNo', reason: 'invalid_format' });
         return;
     }
 
@@ -1507,10 +1729,12 @@ async function saveData() {
             addActivity('add', `เพิ่มข้อมูลใหม่ ${savedReceiptNo}`, savedName);
             alert('บันทึกข้อมูลเรียบร้อยแล้ว!');
         }
+        UXAnalytics.trackJourney('save', { mode: isEdit ? 'edit' : 'add' });
 
     } catch (e) {
         console.error('Error saving data:', e);
         alert('เกิดข้อผิดพลาดในการบันทึก: ' + e.message);
+        UXAnalytics.trackError('save_error', { message: e.message });
     } finally {
         elements.saveBtn.disabled = false;
         elements.saveBtn.textContent = state.formMode === 'edit' ? '💾 อัพเดทข้อมูล' : '💾 บันทึกข้อมูล';
@@ -1563,6 +1787,7 @@ window.deleteRecord = deleteRecord;
 // ==================== //
 
 function printReceipt() {
+    UXAnalytics.trackFeature('print_single');
     updateFormState();
 
     if (!state.formData.receiptNo || !state.formData.foreignerName) {
@@ -1572,6 +1797,7 @@ function printReceipt() {
 
     const printContent = generatePrintContent();
     elements.printTemplate.innerHTML = printContent;
+    renderBarcodes();
 
     // Store receipt info for confirmation
     const receiptNo = state.formData.receiptNo;
@@ -1682,7 +1908,10 @@ function generatePrintContent() {
             <!-- Footer -->
             <div style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #d1d5db; padding-top: 10px;">
                 <span style="color: #9ca3af; font-size: 10px;">ศูนย์บริการวีซ่าและใบอนุญาตทำงาน BOI</span>
-                <span style="font-size: 16px; color: #111; font-weight: 700;">Doc No.: ${safeReceiptNo}</span>
+                <div style="text-align: right;">
+                    <div style="font-size: 16px; color: #111; font-weight: 700; margin-bottom: 4px;">Doc No.: ${safeReceiptNo}</div>
+                    <svg class="receipt-barcode" data-receipt-no="${safeReceiptNo}"></svg>
+                </div>
             </div>
         </div>
     `;
@@ -1751,6 +1980,7 @@ function getDataForExport() {
 }
 
 function exportToCSV() {
+    UXAnalytics.trackFeature('export_csv');
     const data = getDataForExport();
     const selectedDate = elements.summaryDate.value;
     const dateStr = selectedDate ? formatThaiDate(selectedDate) : 'ทั้งหมด';
@@ -1793,6 +2023,7 @@ function exportToCSV() {
 }
 
 function exportToPDF() {
+    UXAnalytics.trackFeature('export_pdf');
     const data = getDataForExport();
     const selectedDate = elements.summaryDate.value;
     const dateStr = selectedDate ? formatThaiDate(selectedDate) : 'ทั้งหมด';
@@ -1942,6 +2173,7 @@ function getFilteredData() {
 async function loadRegistryData(date = null) {
     state.isLoading = true;
     state.isSearchMode = false;
+    state.currentPage = 1;
     renderRegistryTable();
 
     // Use provided date, or state's current filter, or today
@@ -2007,6 +2239,15 @@ function renderRegistryTable() {
 
     const filteredData = getFilteredData();
 
+    // Pagination calculation
+    const totalRecords = filteredData.length;
+    const totalPages = Math.ceil(totalRecords / state.pageSize) || 1;
+    if (state.currentPage > totalPages) state.currentPage = totalPages;
+    if (state.currentPage < 1) state.currentPage = 1;
+    const startIndex = (state.currentPage - 1) * state.pageSize;
+    const endIndex = Math.min(startIndex + state.pageSize, totalRecords);
+    const pageData = filteredData.slice(startIndex, endIndex);
+
     if (filteredData.length === 0) {
         let emptyMessage = 'ไม่พบข้อมูล';
         if (state.isSearchMode) {
@@ -2024,7 +2265,7 @@ function renderRegistryTable() {
         return;
     }
 
-    elements.registryBody.innerHTML = filteredData.map(row => {
+    elements.registryBody.innerHTML = pageData.map(row => {
         const printed = isPrinted(row.receiptNo);
         const printInfo = getPrintInfo(row.receiptNo);
         const received = isCardReceived(row.receiptNo);
@@ -2100,7 +2341,61 @@ function renderRegistryTable() {
     }).join('');
 
     updateBatchPrintUI();
+    renderPagination(totalRecords, totalPages);
 }
+
+// ==================== //
+// Pagination
+// ==================== //
+
+function renderPagination(totalRecords, totalPages) {
+    const container = document.getElementById('registryPagination');
+    if (!container) return;
+
+    if (totalRecords === 0 || totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const startRecord = (state.currentPage - 1) * state.pageSize + 1;
+    const endRecord = Math.min(state.currentPage * state.pageSize, totalRecords);
+
+    // Show up to 5 page buttons around current page
+    let pagesHTML = '';
+    const startPage = Math.max(1, state.currentPage - 2);
+    const endPage = Math.min(totalPages, state.currentPage + 2);
+
+    if (startPage > 1) {
+        pagesHTML += `<button class="pagination-btn" onclick="goToPage(1)">1</button>`;
+        if (startPage > 2) pagesHTML += `<span class="pagination-ellipsis">...</span>`;
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        pagesHTML += `<button class="pagination-btn ${i === state.currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) pagesHTML += `<span class="pagination-ellipsis">...</span>`;
+        pagesHTML += `<button class="pagination-btn" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+    }
+
+    container.innerHTML = `
+        <div class="pagination-info">แสดง ${startRecord}-${endRecord} จาก ${totalRecords} รายการ</div>
+        <div class="pagination-controls">
+            <button class="pagination-btn" onclick="goToPage(${state.currentPage - 1})" ${state.currentPage <= 1 ? 'disabled' : ''}>&#8592; ก่อนหน้า</button>
+            ${pagesHTML}
+            <button class="pagination-btn" onclick="goToPage(${state.currentPage + 1})" ${state.currentPage >= totalPages ? 'disabled' : ''}>ถัดไป &#8594;</button>
+        </div>
+    `;
+}
+
+function goToPage(page) {
+    if (page < 1) return;
+    state.currentPage = page;
+    renderRegistryTable();
+    document.getElementById('registryTable')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+window.goToPage = goToPage;
 
 function selectRow(receiptNo) {
     const rowData = state.registryData.find(r => r.receiptNo === receiptNo);
@@ -2136,6 +2431,7 @@ function viewImage(receiptNo) {
  * พิมพ์ใบรับจากตารางโดยตรง
  */
 function printFromTable(receiptNo) {
+    UXAnalytics.trackFeature('print_from_table');
     const rowData = state.registryData.find(r => r.receiptNo === receiptNo);
     if (!rowData) return;
 
@@ -2168,6 +2464,7 @@ function printFromTable(receiptNo) {
     // Generate print content and print
     const printContent = generatePrintContent();
     elements.printTemplate.innerHTML = printContent;
+    renderBarcodes();
     window.print();
 
     // Ask for confirmation after print dialog closes
@@ -2219,6 +2516,7 @@ function setupEventListeners() {
         elements.dateFilter.addEventListener('change', (e) => {
             const selectedDate = e.target.value;
             if (selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) {
+                UXAnalytics.trackFeature('date_filter');
                 // Clear search when changing date
                 state.searchQuery = '';
                 elements.searchInput.value = '';
@@ -2236,10 +2534,59 @@ function setupEventListeners() {
         });
     }
 
+    // Barcode scan detection — rapid input + Enter bypasses debounce
+    elements.searchInput.addEventListener('keydown', (e) => {
+        const now = Date.now();
+
+        if (e.key === 'Enter') {
+            const timeSinceLastKey = now - state.barcodeScanLastKeyTime;
+            const query = elements.searchInput.value.trim();
+
+            // Barcode scanner pattern: rapid input (< 100ms between keys) + Enter + query ≥ 5 chars
+            if (query.length >= 5 && timeSinceLastKey < 100) {
+                e.preventDefault();
+                if (state.searchDebounceTimer) {
+                    clearTimeout(state.searchDebounceTimer);
+                }
+
+                state.searchQuery = query;
+                state.isSearchMode = true;
+                state.currentPage = 1;
+                state.isLoading = true;
+                renderRegistryTable();
+
+                (async () => {
+                    try {
+                        const results = await SupabaseAdapter.searchRegistry(query);
+                        state.registryData = results.map((row, index) => ({
+                            ...row,
+                            number: index + 1
+                        }));
+                        loadPrintedReceipts();
+                        loadReceivedCards();
+                        console.log(`📱 Barcode scan "${query}": ${state.registryData.length} results`);
+                        UXAnalytics.trackFeature('barcode_scan', { result_count: state.registryData.length });
+                    } catch (err) {
+                        console.error('Barcode search error:', err);
+                    }
+                    state.isLoading = false;
+                    renderRegistryTable();
+                    updateSummary();
+                })();
+
+                return;
+            }
+        }
+
+        // Track key timing for barcode detection
+        state.barcodeScanLastKeyTime = now;
+    });
+
     // Search — server-side with debounce (searches across ALL dates)
     elements.searchInput.addEventListener('input', (e) => {
         const query = e.target.value.trim();
         state.searchQuery = query;
+        state.currentPage = 1;
 
         // Clear previous debounce timer
         if (state.searchDebounceTimer) {
@@ -2275,8 +2622,10 @@ function setupEventListeners() {
                 loadPrintedReceipts();
                 loadReceivedCards();
                 console.log(`🔍 Search "${query}": ${state.registryData.length} results (all dates)`);
+                UXAnalytics.trackFeature('search', { query_length: query.length, result_count: state.registryData.length });
             } catch (e) {
                 console.error('Error searching:', e);
+                UXAnalytics.trackError('search_error', { message: e.message });
             }
 
             state.isLoading = false;
@@ -2287,6 +2636,8 @@ function setupEventListeners() {
 
     elements.filterStatus.addEventListener('change', (e) => {
         state.filterStatus = e.target.value;
+        state.currentPage = 1;
+        UXAnalytics.trackFeature('status_filter', { filter: e.target.value });
         renderRegistryTable();
     });
 
@@ -2311,7 +2662,10 @@ function setupEventListeners() {
 
     // Activity Log
     if (elements.activityFilter) {
-        elements.activityFilter.addEventListener('change', renderActivityLog);
+        elements.activityFilter.addEventListener('change', () => {
+            state.activityPage = 1;
+            renderActivityLog();
+        });
     }
     if (elements.clearLogBtn) {
         elements.clearLogBtn.addEventListener('click', clearActivityLog);
@@ -2332,6 +2686,7 @@ function setupTabNavigation() {
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const targetTab = btn.getAttribute('data-tab');
+            UXAnalytics.trackJourney('tab_switch', { tab: targetTab });
 
             // Remove active class from all buttons and panes
             tabBtns.forEach(b => b.classList.remove('active'));
@@ -3111,7 +3466,7 @@ window.closePendingModal = closePendingModal;
 // ==================== //
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('Work Permit Receipt System v6.0 (Supabase) initialized');
+    console.log('Work Permit Receipt System v6.3.0 (Supabase) initialized');
 
     // Check Supabase authentication
     try {
@@ -3147,6 +3502,8 @@ async function initializeApp() {
 
     // Apply role-based permissions first (sets state.currentUserRole before rendering)
     await applyPermissions();
+
+    UXAnalytics.trackJourney('session_start', { role: state.currentUserRole });
 
     // Load registry data from Supabase
     await loadRegistryData();

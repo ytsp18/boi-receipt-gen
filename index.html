@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบสร้างแบบฟอร์มรับบัตร - EWP Service Center</title>
-    <link rel="stylesheet" href="css/style.css?v=6.2">
+    <link rel="stylesheet" href="css/style.css?v=6.3">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -286,6 +286,7 @@
                     </tbody>
                 </table>
             </div>
+            <div class="pagination" id="registryPagination"></div>
         </section>
     </div>
 
@@ -361,6 +362,7 @@
                     <div class="activity-list" id="activityList">
                         <div class="activity-empty">ยังไม่มี Activity</div>
                     </div>
+                    <div class="pagination" id="activityPagination"></div>
                 </div>
             </div>
         </section>
@@ -428,6 +430,7 @@
     </div>
 
     <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         // Initialize Supabase before other scripts
@@ -448,12 +451,12 @@
             setTimeout(initSupabase, 100);
         }
     </script>
-    <script src="js/supabase-config.js?v=6.2"></script>
-    <script src="js/supabase-adapter.js?v=6.2"></script>
-    <script src="js/auth.js?v=6.2"></script>
-    <script src="js/app-supabase.js?v=6.2"></script>
+    <script src="js/supabase-config.js?v=6.3"></script>
+    <script src="js/supabase-adapter.js?v=6.3"></script>
+    <script src="js/auth.js?v=6.3"></script>
+    <script src="js/app-supabase.js?v=6.3"></script>
 
     <!-- Version Badge -->
-    <div class="version-badge">v6.2.0</div>
+    <div class="version-badge">v6.3.0</div>
 </body>
 </html>
