@@ -2845,7 +2845,7 @@ window.closePendingModal = closePendingModal;
 // ==================== //
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('Work Permit Receipt System v5.0 (Supabase) initialized');
+    console.log('Work Permit Receipt System v6.0 (Supabase) initialized');
 
     // Check Supabase authentication
     try {
