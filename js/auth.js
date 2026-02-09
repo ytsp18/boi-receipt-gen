@@ -15,7 +15,7 @@ const ROLE_PERMISSIONS = {
     manager: {
         name: 'Manager',
         description: 'Full access except User Management and Activity Log',
-        permissions: ['view', 'create', 'edit', 'delete', 'print', 'export', 'monthly_report']
+        permissions: ['view', 'create', 'edit', 'print', 'export', 'monthly_report']
     },
     staff: {
         name: 'Staff',

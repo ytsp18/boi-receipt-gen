@@ -1,7 +1,7 @@
 /**
  * Work Permit Receipt System - Main Application
  * ระบบสร้างแบบฟอร์มรับบัตร - EWP Service Center
- * Version 5.1 - Security Enhanced
+ * Version 6.0.2 - Security Enhanced
  */
 
 // ==================== //
@@ -36,7 +36,7 @@ function validateInput(input, type = 'text') {
     switch(type) {
         case 'text':
             // No script tags, max 500 chars
-            return str.length <= 500 && !/<script/i.test(str);
+            return str.length <= 500 && !/(<[a-z\/!]|javascript:|on\w+\s*=)/i.test(str);
         case 'email':
             return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
         case 'number':
@@ -87,7 +87,9 @@ const state = {
     editingReceiptNo: null,
     // VP Pending data
     pendingData: [],
-    pendingDataLoaded: false
+    pendingDataLoaded: false,
+    // Current user role
+    currentUserRole: 'staff'
 };
 
 // ==================== //
@@ -373,8 +375,8 @@ function renderActivityLog() {
             <div class="activity-item">
                 <div class="activity-icon ${iconInfo.class}">${iconInfo.icon}</div>
                 <div class="activity-content">
-                    <div class="activity-title">${activity.title}</div>
-                    ${activity.details ? `<div class="activity-details">${activity.details}</div>` : ''}
+                    <div class="activity-title">${sanitizeHTML(activity.title)}</div>
+                    ${activity.details ? `<div class="activity-details">${sanitizeHTML(activity.details)}</div>` : ''}
                 </div>
                 <div class="activity-time">${timeStr}</div>
             </div>
@@ -585,12 +587,12 @@ function batchPrint() {
     window.print();
 
     // Ask for confirmation after print dialog closes
-    setTimeout(() => {
+    setTimeout(async () => {
         if (confirm(`พิมพ์ใบรับ ${count} รายการ เรียบร้อยแล้วหรือไม่?`)) {
-            // Mark all as printed
-            itemsToPrint.forEach(receiptNo => {
-                markAsPrintedSilent(receiptNo);
-            });
+            // Mark all as printed (async - syncs to Supabase)
+            for (const receiptNo of itemsToPrint) {
+                await markAsPrinted(receiptNo);
+            }
             addActivity('print', `พิมพ์ใบรับ ${count} รายการ (Batch)`, receiptNos);
             renderRegistryTable();
             updateSummary();
@@ -606,7 +608,15 @@ function batchPrint() {
 function generateSinglePrintContent(formData) {
     // ดึงชื่อเจ้าหน้าที่จาก session
     const session = window.AuthSystem ? window.AuthSystem.getSession() : null;
-    const officerName = session ? session.name : '';
+    const officerName = sanitizeHTML(session ? session.name : '');
+
+    // Sanitize all user-sourced data
+    const safeSN = sanitizeHTML(formData.snNumber || '-');
+    const safeName = sanitizeHTML(formData.foreignerName || '-');
+    const safeRequestNo = sanitizeHTML(formData.requestNo || '-');
+    const safeAppointmentNo = sanitizeHTML(formData.appointmentNo || '-');
+    const safeReceiptNo = sanitizeHTML(formData.receiptNo || '-');
+    const safeCardImage = formData.cardImage && /^(https?:\/\/|data:image\/)/i.test(formData.cardImage) ? sanitizeHTML(formData.cardImage) : '';
 
     return `
         <div class="print-receipt-page" style="font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.4; padding: 10mm 15mm;">
@@ -625,23 +635,23 @@ function generateSinglePrintContent(formData) {
                     </td>
                     <td style="padding: 12px 15px; border-bottom: 1px dotted #ddd;">
                         <div style="font-weight: 600; color: #374151; font-size: 12px;">หมายเลข SN / Serial No.:</div>
-                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${formData.snNumber || '-'}</div>
+                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${safeSN}</div>
                     </td>
                 </tr>
                 <tr>
                     <td style="padding: 12px 15px; border-bottom: 1px dotted #ddd;">
                         <div style="font-weight: 600; color: #374151; font-size: 12px;">ชื่อผู้รับบัตร / Name:</div>
-                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${formData.foreignerName || '-'}</div>
+                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${safeName}</div>
                     </td>
                     <td style="padding: 12px 15px; border-bottom: 1px dotted #ddd;">
                         <div style="font-weight: 600; color: #374151; font-size: 12px;">เลขที่คำขอ / Request No.:</div>
-                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${formData.requestNo || '-'}</div>
+                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${safeRequestNo}</div>
                     </td>
                 </tr>
                 <tr>
                     <td colspan="2" style="padding: 12px 15px;">
                         <div style="font-weight: 600; color: #374151; font-size: 12px;">เลขที่นัดหมาย / Appointment No.:</div>
-                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${formData.appointmentNo || '-'}</div>
+                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${safeAppointmentNo}</div>
                     </td>
                 </tr>
             </table>
@@ -650,8 +660,8 @@ function generateSinglePrintContent(formData) {
             <div style="margin-bottom: 18px;">
                 <p style="text-align: center; font-weight: 600; color: #374151; margin: 0 0 10px 0; font-size: 13px;">รูปบัตรอนุญาตทำงาน / Work Permit Card Image</p>
                 <div style="border: 2px solid #e5e7eb; border-radius: 8px; padding: 12px; text-align: center; min-height: 220px; background: #fff; display: flex; align-items: center; justify-content: center;">
-                    ${formData.cardImage ?
-                        `<img src="${formData.cardImage}" style="max-width: 100%; max-height: 210px; object-fit: contain;">` :
+                    ${safeCardImage ?
+                        `<img src="${safeCardImage}" style="max-width: 100%; max-height: 210px; object-fit: contain;">` :
                         `<div style="color: #9ca3af;"><p style="font-size: 40px; margin: 0;">📷</p><p style="font-size: 14px; margin: 10px 0 0 0;">ไม่มีรูปภาพ / No Image</p></div>`}
                 </div>
             </div>
@@ -668,7 +678,7 @@ function generateSinglePrintContent(formData) {
                     <td style="width: 50%; text-align: center; padding: 0 25px;">
                         <div style="border-bottom: 1px solid #374151; height: 40px; margin-bottom: 8px;"></div>
                         <p style="color: #374151; margin: 0; font-size: 12px; font-weight: 600;">ลงชื่อผู้รับบัตร / Cardholder</p>
-                        <p style="color: #1f2937; font-weight: 600; margin: 6px 0; font-size: 12px;">(${formData.foreignerName || '___________________'})</p>
+                        <p style="color: #1f2937; font-weight: 600; margin: 6px 0; font-size: 12px;">(${safeName !== '-' ? safeName : '___________________'})</p>
                         <p style="color: #6b7280; margin: 0; font-size: 11px;">Tel: ________________________</p>
                     </td>
                     <td style="width: 50%; text-align: center; padding: 0 25px;">
@@ -683,7 +693,7 @@ function generateSinglePrintContent(formData) {
             <!-- Footer with Org Name and Doc No -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
                 <div style="font-size: 10px; color: #6b7280;">ศูนย์บริการ EWP อาคาร One Bangkok</div>
-                <div style="font-size: 10px; color: #6b7280;">Doc No.: ${formData.receiptNo || '-'}</div>
+                <div style="font-size: 10px; color: #6b7280;">Doc No.: ${safeReceiptNo}</div>
             </div>
         </div>
     `;
@@ -1390,6 +1400,12 @@ async function saveData() {
 // ==================== //
 
 async function deleteRecord(receiptNo) {
+    // Only admin can delete
+    if (state.currentUserRole !== 'admin') {
+        alert('คุณไม่มีสิทธิ์ลบรายการ เฉพาะ Admin เท่านั้น');
+        return;
+    }
+
     if (!confirm(`ต้องการลบรายการ ${receiptNo} หรือไม่?`)) {
         return;
     }
@@ -1453,7 +1469,15 @@ function printReceipt() {
 function generatePrintContent() {
     // ดึงชื่อเจ้าหน้าที่จาก session
     const session = window.AuthSystem ? window.AuthSystem.getSession() : null;
-    const officerName = session ? session.name : '';
+    const officerName = sanitizeHTML(session ? session.name : '');
+
+    // Sanitize all user-sourced data
+    const safeSN = sanitizeHTML(state.formData.snNumber || '-');
+    const safeName = sanitizeHTML(state.formData.foreignerName || '-');
+    const safeRequestNo = sanitizeHTML(state.formData.requestNo || '-');
+    const safeAppointmentNo = sanitizeHTML(state.formData.appointmentNo || '-');
+    const safeReceiptNo = sanitizeHTML(state.formData.receiptNo || '-');
+    const safeCardImage = state.formData.cardImage && /^(https?:\/\/|data:image\/)/i.test(state.formData.cardImage) ? sanitizeHTML(state.formData.cardImage) : '';
 
     return `
         <div class="print-receipt-page" style="font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.4; padding: 10mm 15mm;">
@@ -1472,23 +1496,23 @@ function generatePrintContent() {
                     </td>
                     <td style="padding: 12px 15px; border-bottom: 1px dotted #ddd;">
                         <div style="font-weight: 600; color: #374151; font-size: 12px;">หมายเลข SN / Serial No.:</div>
-                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${state.formData.snNumber || '-'}</div>
+                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${safeSN}</div>
                     </td>
                 </tr>
                 <tr>
                     <td style="padding: 12px 15px; border-bottom: 1px dotted #ddd;">
                         <div style="font-weight: 600; color: #374151; font-size: 12px;">ชื่อผู้รับบัตร / Name:</div>
-                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${state.formData.foreignerName || '-'}</div>
+                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${safeName}</div>
                     </td>
                     <td style="padding: 12px 15px; border-bottom: 1px dotted #ddd;">
                         <div style="font-weight: 600; color: #374151; font-size: 12px;">เลขที่คำขอ / Request No.:</div>
-                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${state.formData.requestNo || '-'}</div>
+                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${safeRequestNo}</div>
                     </td>
                 </tr>
                 <tr>
                     <td colspan="2" style="padding: 12px 15px;">
                         <div style="font-weight: 600; color: #374151; font-size: 12px;">เลขที่นัดหมาย / Appointment No.:</div>
-                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${state.formData.appointmentNo || '-'}</div>
+                        <div style="color: #111; font-size: 16px; font-weight: 500; margin-top: 3px;">${safeAppointmentNo}</div>
                     </td>
                 </tr>
             </table>
@@ -1497,8 +1521,8 @@ function generatePrintContent() {
             <div style="margin-bottom: 18px;">
                 <p style="text-align: center; font-weight: 600; color: #374151; margin: 0 0 10px 0; font-size: 13px;">รูปบัตรอนุญาตทำงาน / Work Permit Card Image</p>
                 <div style="border: 2px solid #e5e7eb; border-radius: 8px; padding: 12px; text-align: center; min-height: 220px; background: #fff; display: flex; align-items: center; justify-content: center;">
-                    ${state.formData.cardImage ?
-                        `<img src="${state.formData.cardImage}" style="max-width: 100%; max-height: 210px; object-fit: contain;">` :
+                    ${safeCardImage ?
+                        `<img src="${safeCardImage}" style="max-width: 100%; max-height: 210px; object-fit: contain;">` :
                         `<div style="color: #9ca3af;"><p style="font-size: 40px; margin: 0;">📷</p><p style="font-size: 14px; margin: 10px 0 0 0;">ไม่มีรูปภาพ / No Image</p></div>`}
                 </div>
             </div>
@@ -1515,7 +1539,7 @@ function generatePrintContent() {
                     <td style="width: 50%; text-align: center; padding: 0 25px;">
                         <div style="border-bottom: 1px solid #374151; height: 40px; margin-bottom: 8px;"></div>
                         <p style="color: #374151; margin: 0; font-size: 12px; font-weight: 600;">ลงชื่อผู้รับบัตร / Cardholder</p>
-                        <p style="color: #1f2937; font-weight: 600; margin: 6px 0; font-size: 12px;">(${state.formData.foreignerName || '___________________'})</p>
+                        <p style="color: #1f2937; font-weight: 600; margin: 6px 0; font-size: 12px;">(${safeName !== '-' ? safeName : '___________________'})</p>
                         <p style="color: #6b7280; margin: 0; font-size: 11px;">Tel: ________________________</p>
                     </td>
                     <td style="width: 50%; text-align: center; padding: 0 25px;">
@@ -1530,7 +1554,7 @@ function generatePrintContent() {
             <!-- Footer -->
             <div style="margin-top: 25px; display: flex; justify-content: space-between; border-top: 1px solid #e5e7eb; padding-top: 10px;">
                 <span style="color: #9ca3af; font-size: 10px;">ศูนย์บริการวีซ่าและใบอนุญาตทำงาน BOI</span>
-                <span style="color: #9ca3af; font-size: 10px;">Doc No.: ${state.formData.receiptNo || '-'}</span>
+                <span style="color: #9ca3af; font-size: 10px;">Doc No.: ${safeReceiptNo}</span>
             </div>
         </div>
     `;
@@ -1910,9 +1934,9 @@ function renderRegistryTable() {
                     <button class="btn btn-primary btn-sm" onclick="selectRow('${safeReceiptNo}')" title="แก้ไข">
                         ✏️
                     </button>
-                    <button class="btn btn-outline-danger btn-sm" onclick="deleteRecord('${safeReceiptNo}')" title="ลบ">
+                    ${state.currentUserRole === 'admin' ? `<button class="btn btn-outline-danger btn-sm" onclick="deleteRecord('${safeReceiptNo}')" title="ลบ">
                         🗑️
-                    </button>
+                    </button>` : ''}
                 </td>
             </tr>
         `;
@@ -1932,12 +1956,19 @@ function selectRow(receiptNo) {
 function viewImage(receiptNo) {
     const row = state.registryData.find(r => r.receiptNo === receiptNo);
     if (row && row.cardImage) {
+        // Validate URL - only allow https and data:image URLs
+        if (!/^(https:\/\/|data:image\/)/i.test(row.cardImage)) {
+            alert('URL รูปภาพไม่ถูกต้อง');
+            return;
+        }
+        const safeReceiptNo = sanitizeHTML(receiptNo);
+        const safeImageUrl = sanitizeHTML(row.cardImage);
         const win = window.open('', '_blank');
         win.document.write(`
             <html>
-            <head><title>รูปบัตร - ${receiptNo}</title></head>
+            <head><title>รูปบัตร - ${safeReceiptNo}</title></head>
             <body style="margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #333;">
-                <img src="${row.cardImage}" style="max-width: 90%; max-height: 90%;">
+                <img src="${safeImageUrl}" style="max-width: 90%; max-height: 90%;">
             </body>
             </html>
         `);
@@ -2183,18 +2214,23 @@ async function showUserManagement() {
                     </tr>
                 </thead>
                 <tbody>
-                    ${approvedUsers.map(user => `
+                    ${approvedUsers.map(user => {
+                        const safeUsername = sanitizeHTML(user.username || '-');
+                        const safeName = sanitizeHTML(user.name || '-');
+                        const safeRole = sanitizeHTML(user.role);
+                        const safeId = sanitizeHTML(user.id);
+                        return `
                         <tr>
-                            <td>${user.username || '-'}</td>
-                            <td>${user.name || '-'}</td>
-                            <td><span class="role-badge ${user.role}">${roleLabels[user.role] || user.role}</span></td>
+                            <td>${safeUsername}</td>
+                            <td>${safeName}</td>
+                            <td><span class="role-badge ${safeRole}">${roleLabels[user.role] || safeRole}</span></td>
                             <td>
-                                <button class="btn btn-primary btn-sm" onclick="showEditUserForm('${user.id}')" title="แก้ไข">✏️</button>
-                                <button class="btn btn-warning btn-sm" onclick="handleResetPassword('${user.id}')" title="Reset Password">🔑</button>
-                                <button class="btn btn-outline-danger btn-sm" onclick="confirmDeleteUser('${user.id}')" title="ลบ">🗑️</button>
+                                <button class="btn btn-primary btn-sm" onclick="showEditUserForm('${safeId}')" title="แก้ไข">✏️</button>
+                                <button class="btn btn-warning btn-sm" onclick="handleResetPassword('${safeId}')" title="Reset Password">🔑</button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="confirmDeleteUser('${safeId}')" title="ลบ">🗑️</button>
                             </td>
-                        </tr>
-                    `).join('')}
+                        </tr>`;
+                    }).join('')}
                 </tbody>
             </table>
         </div>
@@ -2212,17 +2248,21 @@ async function showUserManagement() {
                         </tr>
                     </thead>
                     <tbody>
-                        ${pendingUsers.map(user => `
+                        ${pendingUsers.map(user => {
+                            const safeUsername = sanitizeHTML(user.username || '-');
+                            const safeName = sanitizeHTML(user.name || '-');
+                            const safeId = sanitizeHTML(user.id);
+                            return `
                             <tr>
-                                <td>${user.username || '-'}</td>
-                                <td>${user.name || '-'}</td>
+                                <td>${safeUsername}</td>
+                                <td>${safeName}</td>
                                 <td>${user.created_at ? new Date(user.created_at).toLocaleDateString('th-TH') : '-'}</td>
                                 <td>
-                                    <button class="btn btn-success btn-sm" onclick="handleApproveUser('${user.id}')" title="อนุมัติ">✅ อนุมัติ</button>
-                                    <button class="btn btn-outline-danger btn-sm" onclick="handleRejectUser('${user.id}')" title="ปฏิเสธ">❌ ปฏิเสธ</button>
+                                    <button class="btn btn-success btn-sm" onclick="handleApproveUser('${safeId}')" title="อนุมัติ">✅ อนุมัติ</button>
+                                    <button class="btn btn-outline-danger btn-sm" onclick="handleRejectUser('${safeId}')" title="ปฏิเสธ">❌ ปฏิเสธ</button>
                                 </td>
-                            </tr>
-                        `).join('')}
+                            </tr>`;
+                        }).join('')}
                     </tbody>
                 </table>
             `}
@@ -2353,7 +2393,7 @@ async function showEditUserForm(userId) {
             <div class="form-row">
                 <div class="form-group">
                     <label>ชื่อผู้ใช้ (Username)</label>
-                    <input type="text" id="editUsername" value="${user.username}" required>
+                    <input type="text" id="editUsername" value="${sanitizeHTML(user.username)}" required>
                 </div>
                 <div class="form-group">
                     <label>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label>
@@ -2363,7 +2403,7 @@ async function showEditUserForm(userId) {
             <div class="form-row">
                 <div class="form-group">
                     <label>ชื่อแสดง (Display Name)</label>
-                    <input type="text" id="editName" value="${user.name}" required>
+                    <input type="text" id="editName" value="${sanitizeHTML(user.name)}" required>
                 </div>
                 <div class="form-group">
                     <label>Role</label>
@@ -2470,7 +2510,8 @@ async function applyPermissions() {
     const session = await window.AuthSystem.getSession();
     if (!session) return;
 
-    // Update user info display
+    // Update user info display and store role in state
+    state.currentUserRole = session.role || 'staff';
     const userNameEl = document.getElementById('currentUserName');
     const userRoleEl = document.getElementById('currentUserRole');
     if (userNameEl) userNameEl.textContent = session.name;
@@ -2579,18 +2620,19 @@ function renderPendingResults(data) {
     }
 
     tbody.innerHTML = data.slice(0, 50).map((row, index) => {
-        const safeId = row.id.replace(/'/g, "\\'");
-        const photoHtml = row.apiPhotoUrl
-            ? `<img src="${row.apiPhotoUrl}" alt="photo" class="pending-photo-thumb" onerror="this.style.display='none'">`
+        const safeId = sanitizeHTML(row.id.replace(/'/g, "\\'"));
+        const safePhotoUrl = row.apiPhotoUrl && /^https?:\/\//i.test(row.apiPhotoUrl) ? sanitizeHTML(row.apiPhotoUrl) : '';
+        const photoHtml = safePhotoUrl
+            ? `<img src="${safePhotoUrl}" alt="photo" class="pending-photo-thumb" onerror="this.style.display='none'">`
             : '<span class="text-secondary">-</span>';
         const dateStr = row.createdAt ? new Date(row.createdAt).toLocaleDateString('th-TH') : '-';
 
         return `
-            <tr data-pending-id="${row.id}">
+            <tr data-pending-id="${sanitizeHTML(row.id)}">
                 <td>${index + 1}</td>
-                <td>${row.foreignerName || '-'}</td>
-                <td>${row.requestNo || '-'}</td>
-                <td>${row.appointmentNo || '-'}</td>
+                <td>${sanitizeHTML(row.foreignerName || '-')}</td>
+                <td>${sanitizeHTML(row.requestNo || '-')}</td>
+                <td>${sanitizeHTML(row.appointmentNo || '-')}</td>
                 <td>${photoHtml}</td>
                 <td>${dateStr}</td>
                 <td>
@@ -2879,6 +2921,9 @@ async function initializeApp() {
     setupUserManagement();
     setupPendingImport();
 
+    // Apply role-based permissions first (sets state.currentUserRole before rendering)
+    await applyPermissions();
+
     // Load registry data from Supabase
     await loadRegistryData();
 
@@ -2912,9 +2957,6 @@ async function initializeApp() {
     updateReceiptPreview();
     renderActivityLog();
     updateBatchPrintUI();
-
-    // Apply role-based permissions
-    applyPermissions();
 
     // VP API integration disabled until migration is complete
     // setTimeout(() => {
