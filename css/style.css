@@ -1789,3 +1789,21 @@ tr:last-child td {
     justify-content: center;
     align-items: center;
 }
+
+/* Version Badge */
+.version-badge {
+    position: fixed;
+    bottom: 8px;
+    right: 12px;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    opacity: 0.5;
+    z-index: 1;
+    pointer-events: none;
+}
+
+@media print {
+    .version-badge {
+        display: none;
+    }
+}
