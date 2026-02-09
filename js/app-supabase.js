@@ -945,9 +945,9 @@ function generateSinglePrintContent(formData) {
             <!-- รูปบัตร -->
             <div style="margin-bottom: 10px;">
                 <p style="text-align: center; font-weight: 600; color: #374151; margin: 0 0 6px 0; font-size: 12px;">รูปบัตรอนุญาตทำงาน / Work Permit Card Image</p>
-                <div style="border: 2px solid #e5e7eb; border-radius: 8px; padding: 8px; text-align: center; min-height: 200px; background: #fff; display: flex; align-items: center; justify-content: center;">
+                <div style="border: 2px solid #e5e7eb; border-radius: 8px; padding: 8px; text-align: center; min-height: 170px; background: #fff; display: flex; align-items: center; justify-content: center;">
                     ${safeCardImage ?
-                        `<img src="${safeCardImage}" style="max-width: 100%; max-height: 200px; object-fit: contain;">` :
+                        `<img src="${safeCardImage}" style="max-width: 100%; max-height: 170px; object-fit: contain;">` :
                         `<div style="color: #9ca3af;"><p style="font-size: 40px; margin: 0;">📷</p><p style="font-size: 14px; margin: 10px 0 0 0;">ไม่มีรูปภาพ / No Image</p></div>`}
                 </div>
             </div>
@@ -962,13 +962,13 @@ function generateSinglePrintContent(formData) {
             <table style="width: 100%; margin-top: 15px;">
                 <tr>
                     <td style="width: 50%; text-align: center; padding: 0 20px;">
-                        <div style="border-bottom: 1px solid #374151; height: 35px; margin-bottom: 6px;"></div>
+                        <div style="border-bottom: 1px solid #374151; height: 30px; margin-bottom: 5px;"></div>
                         <p style="color: #374151; margin: 0; font-size: 11px; font-weight: 600;">ลงชื่อผู้รับบัตร / Cardholder</p>
                         <p style="color: #1f2937; font-weight: 600; margin: 4px 0; font-size: 11px;">(${safeName !== '-' ? safeName : '___________________'})</p>
                         <p style="color: #6b7280; margin: 0; font-size: 10px;">Tel: ________________________</p>
                     </td>
                     <td style="width: 50%; text-align: center; padding: 0 20px;">
-                        <div style="border-bottom: 1px solid #374151; height: 35px; margin-bottom: 6px;"></div>
+                        <div style="border-bottom: 1px solid #374151; height: 30px; margin-bottom: 5px;"></div>
                         <p style="color: #374151; margin: 0; font-size: 11px; font-weight: 600;">ลงชื่อเจ้าหน้าที่ / Officer</p>
                         <p style="color: #1f2937; font-weight: 600; margin: 4px 0; font-size: 11px;">(${officerName || '___________________'})</p>
                         <p style="color: #6b7280; margin: 0; font-size: 10px;">Date: ${formatDateForDisplay(formData.receiptDate)}</p>
@@ -1874,9 +1874,9 @@ function generatePrintContent() {
             <!-- รูปบัตร -->
             <div style="margin-bottom: 10px;">
                 <p style="text-align: center; font-weight: 600; color: #374151; margin: 0 0 6px 0; font-size: 12px;">รูปบัตรอนุญาตทำงาน / Work Permit Card Image</p>
-                <div style="border: 2px solid #e5e7eb; border-radius: 8px; padding: 8px; text-align: center; min-height: 200px; background: #fff; display: flex; align-items: center; justify-content: center;">
+                <div style="border: 2px solid #e5e7eb; border-radius: 8px; padding: 8px; text-align: center; min-height: 170px; background: #fff; display: flex; align-items: center; justify-content: center;">
                     ${safeCardImage ?
-                        `<img src="${safeCardImage}" style="max-width: 100%; max-height: 200px; object-fit: contain;">` :
+                        `<img src="${safeCardImage}" style="max-width: 100%; max-height: 170px; object-fit: contain;">` :
                         `<div style="color: #9ca3af;"><p style="font-size: 40px; margin: 0;">📷</p><p style="font-size: 14px; margin: 10px 0 0 0;">ไม่มีรูปภาพ / No Image</p></div>`}
                 </div>
             </div>
@@ -1891,13 +1891,13 @@ function generatePrintContent() {
             <table style="width: 100%; margin-top: 15px;">
                 <tr>
                     <td style="width: 50%; text-align: center; padding: 0 20px;">
-                        <div style="border-bottom: 1px solid #374151; height: 35px; margin-bottom: 6px;"></div>
+                        <div style="border-bottom: 1px solid #374151; height: 30px; margin-bottom: 5px;"></div>
                         <p style="color: #374151; margin: 0; font-size: 11px; font-weight: 600;">ลงชื่อผู้รับบัตร / Cardholder</p>
                         <p style="color: #1f2937; font-weight: 600; margin: 4px 0; font-size: 11px;">(${safeName !== '-' ? safeName : '___________________'})</p>
                         <p style="color: #6b7280; margin: 0; font-size: 10px;">Tel: ________________________</p>
                     </td>
                     <td style="width: 50%; text-align: center; padding: 0 20px;">
-                        <div style="border-bottom: 1px solid #374151; height: 35px; margin-bottom: 6px;"></div>
+                        <div style="border-bottom: 1px solid #374151; height: 30px; margin-bottom: 5px;"></div>
                         <p style="color: #374151; margin: 0; font-size: 11px; font-weight: 600;">ลงชื่อเจ้าหน้าที่ / Officer</p>
                         <p style="color: #1f2937; font-weight: 600; margin: 4px 0; font-size: 11px;">(${officerName || '___________________'})</p>
                         <p style="color: #6b7280; margin: 0; font-size: 10px;">Date: ${formatDateForDisplay(state.formData.receiptDate)}</p>

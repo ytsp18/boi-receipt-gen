@@ -1276,15 +1276,24 @@ tr:last-child td {
         width: 190mm !important;
         max-width: 190mm !important;
         min-height: auto !important;
-        max-height: 277mm !important;
+        max-height: 260mm !important;
         overflow: hidden !important;
         margin: 0 auto !important;
-        padding: 5mm 8mm !important;
+        padding: 3mm 8mm !important;
         box-sizing: border-box !important;
     }
 
     .print-receipt-page:last-child {
         page-break-after: auto;
+    }
+
+    /* Compact print: reduce image and spacing */
+    .print-receipt-page img {
+        max-height: 180px !important;
+    }
+
+    .print-receipt-page table td {
+        padding: 6px 10px !important;
     }
 }
 
