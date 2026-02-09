@@ -34,20 +34,13 @@
                     <span class="form-mode-badge" id="formModeBadge">โหมด: เพิ่มใหม่</span>
                 </div>
 
-                <!-- Import from Sheet Button -->
+                <!-- Import from VP API Button -->
                 <div class="import-sheet-section" id="importSheetSection">
-                    <button type="button" class="btn btn-secondary btn-sm" id="importFromSheetBtn">
-                        📥 ดึงข้อมูลจาก Google Sheet
+                    <button type="button" class="btn btn-secondary btn-sm" id="importFromVPBtn">
+                        📋 เลือกข้อมูลจาก VP
                     </button>
-                    <span class="sheet-status" id="sheetStatus"></span>
-                    <!-- Admin Toggle for Google Sheet Sync -->
-                    <div class="sync-toggle-container" id="syncToggleContainer" style="display: none; margin-left: 15px;">
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="googleSheetSyncToggle" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <span class="sync-label">ซิงค์ Google Sheet</span>
-                    </div>
+                    <span class="pending-badge" id="pendingBadge" style="display: none;">0</span>
+                    <span class="sheet-status" id="vpStatus"></span>
                 </div>
 
                 <form id="receiptForm">
@@ -383,41 +376,41 @@
         </div>
     </div>
 
-    <!-- Import from Sheet Modal -->
-    <div class="modal-overlay" id="sheetModalOverlay" style="display: none;">
+    <!-- Pending Receipts from VP Modal -->
+    <div class="modal-overlay" id="pendingModalOverlay" style="display: none;">
         <div class="modal-content modal-large">
             <div class="modal-header">
-                <h3>📥 ดึงข้อมูลจาก Google Sheet</h3>
-                <button class="modal-close" id="closeSheetModal">&times;</button>
+                <h3>📋 เลือกข้อมูลจาก VP</h3>
+                <button class="modal-close" id="closePendingModal">&times;</button>
             </div>
             <div class="modal-body">
                 <!-- Search Section -->
                 <div class="sheet-search-section">
                     <div class="search-row">
-                        <input type="text" id="sheetSearchInput" placeholder="🔍 ค้นหาด้วย เลขคำขอ, ชื่อ, เลขนัดหมาย..." class="search-input-large">
-                        <button type="button" class="btn btn-primary" id="sheetSearchBtn">ค้นหา</button>
-                        <button type="button" class="btn btn-outline" id="sheetRefreshBtn">🔄 โหลดใหม่</button>
+                        <input type="text" id="pendingSearchInput" placeholder="🔍 ค้นหาด้วย เลขคำขอ, ชื่อ, เลขนัดหมาย..." class="search-input-large">
+                        <button type="button" class="btn btn-primary" id="pendingSearchBtn">ค้นหา</button>
+                        <button type="button" class="btn btn-outline" id="pendingRefreshBtn">🔄 โหลดใหม่</button>
                     </div>
                     <div class="search-info">
-                        <span id="sheetDataInfo">กำลังโหลดข้อมูล...</span>
+                        <span id="pendingDataInfo">กำลังโหลดข้อมูล...</span>
                     </div>
                 </div>
 
                 <!-- Results Table -->
                 <div class="sheet-results-container">
-                    <table class="sheet-results-table" id="sheetResultsTable">
+                    <table class="sheet-results-table" id="pendingResultsTable">
                         <thead>
                             <tr>
                                 <th>ลำดับ</th>
-                                <th>เลขรับที่</th>
-                                <th>วันที่</th>
+                                <th>ชื่อ</th>
                                 <th>เลขคำขอ</th>
                                 <th>เลขนัดหมาย</th>
-                                <th>ชื่อ</th>
+                                <th>รูปถ่าย</th>
+                                <th>วันที่รับ</th>
                                 <th>เลือก</th>
                             </tr>
                         </thead>
-                        <tbody id="sheetResultsBody">
+                        <tbody id="pendingResultsBody">
                             <tr><td colspan="7" class="loading-cell">กำลังโหลดข้อมูล...</td></tr>
                         </tbody>
                     </table>

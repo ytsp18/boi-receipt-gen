@@ -47,6 +47,7 @@ async function loadRegistryFromSupabase() {
             requestNo: row.request_no,
             appointmentNo: row.appointment_no,
             cardImage: row.card_image_url,
+            apiPhotoUrl: row.api_photo_url,
             // Include status fields
             isPrinted: row.is_printed,
             printedAt: row.printed_at,
@@ -108,7 +109,8 @@ async function saveReceiptToSupabase(receiptData, cardImageFile = null) {
             sn_number: receiptData.snNumber || receiptData.sn,
             request_no: receiptData.requestNo,
             appointment_no: receiptData.appointmentNo,
-            card_image_url: cardImageUrl
+            card_image_url: cardImageUrl,
+            api_photo_url: receiptData.apiPhotoUrl || null
         };
 
         let result;

@@ -54,29 +54,12 @@ function validateInput(input, type = 'text') {
 // Configuration
 // ==================== //
 const CONFIG = {
-    // Google Sheets Configuration
-    SPREADSHEET_ID: '1OAe6uFkaiJyw548d0JfHqylAAFowLbxQ',
-    SHEET_NAME_REGISTRY: 'คุมทะเบียน',
-    SHEET_NAME_FORM: 'ฟอร์มรับบัตร',
-    API_KEY: '', // ใส่ Google API Key ที่นี่
-
     // Receipt Number Format
     RECEIPT_PREFIX: '6902',
 
     // Date Format
     DATE_LOCALE: 'th-TH',
-    BUDDHIST_YEAR_OFFSET: 543,
-
-    // Google Sheets Column Mapping (0-indexed)
-    SHEET_COLUMNS: {
-        NUMBER: 0,      // A: ลำดับ
-        NO: 1,          // B: เลขรับที่
-        DATE: 2,        // C: วันที่
-        REQUEST_NO: 3,  // D: เลขคำขอ
-        APPT_NO: 4,     // E: เลขนัดหมาย
-        PHOTO: 5,       // F: รูป
-        NAME: 6         // G: ชื่อ
-    }
+    BUDDHIST_YEAR_OFFSET: 543
 };
 
 // ==================== //
@@ -102,10 +85,9 @@ const state = {
     filterStatus: 'all',
     formMode: 'add', // 'add' or 'edit'
     editingReceiptNo: null,
-    // Google Sheets data
-    sheetData: [],
-    sheetDataLoaded: false,
-    sheetLastFetch: null
+    // VP Pending data
+    pendingData: [],
+    pendingDataLoaded: false
 };
 
 // ==================== //
@@ -1225,7 +1207,9 @@ async function clearForm(skipConfirm = false) {
         snNumber: '',
         requestNo: '',
         appointmentNo: '',
-        cardImage: null
+        cardImage: null,
+        _pendingId: null,
+        _apiPhotoUrl: null
     };
 
     setFormMode('add');
@@ -1330,12 +1314,20 @@ async function saveData() {
                     snNumber: state.formData.snNumber,
                     requestNo: state.formData.requestNo,
                     appointmentNo: state.formData.appointmentNo,
+                    apiPhotoUrl: state.formData._apiPhotoUrl || null,
                     isEdit: isEdit
                 };
 
                 // Upload image if exists and save receipt
                 await SupabaseAdapter.saveReceipt(receiptData, state.formData.cardImage);
                 saved = true;
+
+                // If this was from a pending receipt, mark it as used
+                if (state.formData._pendingId && !isEdit) {
+                    await markPendingAsUsed(state.formData._pendingId, state.formData.receiptNo);
+                    state.formData._pendingId = null;
+                    state.formData._apiPhotoUrl = null;
+                }
 
             } catch (retryError) {
                 console.warn(`⚠️ Save attempt ${attempt} failed:`, retryError.message);
@@ -2505,284 +2497,212 @@ async function applyPermissions() {
         exportBtns.forEach(btn => btn.style.display = 'none');
     }
 
-    // Show Google Sheet sync toggle for Admin only
-    const syncToggleContainer = document.getElementById('syncToggleContainer');
-    if (syncToggleContainer && session.role === 'admin') {
-        syncToggleContainer.style.display = 'flex';
-
-        // Load sync setting from Supabase
-        await loadSyncSetting();
-
-        // Setup toggle event
-        const syncToggle = document.getElementById('googleSheetSyncToggle');
-        if (syncToggle) {
-            syncToggle.addEventListener('change', async (e) => {
-                await saveSyncSetting(e.target.checked);
-                updateImportButtonVisibility();
-            });
-        }
-    }
-
-    // Apply sync setting to show/hide import button
-    updateImportButtonVisibility();
+    // Load pending receipts count for badge
+    await updatePendingBadge();
 
     // Hide delete buttons if no permission
     // Will be applied when rendering table
 }
 
-// State for Google Sheet sync
-let googleSheetSyncEnabled = true;
+// ==================== //
+// VP Pending Receipts Integration
+// ==================== //
 
-// Load sync setting from Supabase
-async function loadSyncSetting() {
+// Fetch pending receipts from Supabase (status = 'pending')
+async function fetchPendingReceipts() {
+    const statusEl = document.getElementById('vpStatus');
+    const infoEl = document.getElementById('pendingDataInfo');
+
     try {
+        if (statusEl) statusEl.textContent = 'กำลังโหลด...';
+        if (infoEl) infoEl.textContent = 'กำลังดึงข้อมูลจากระบบ VP...';
+
         const { data, error } = await window.supabaseClient
-            .from('settings')
-            .select('value')
-            .eq('key', 'google_sheet_sync')
-            .maybeSingle();
+            .from('pending_receipts')
+            .select('*')
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false });
 
-        if (data && data.value) {
-            googleSheetSyncEnabled = data.value.enabled !== false;
+        if (error) throw error;
+
+        state.pendingData = (data || []).map((row, index) => ({
+            id: row.id,
+            appointmentNo: row.appointment_no,
+            requestNo: row.request_no,
+            foreignerName: row.foreigner_name,
+            apiPhotoUrl: row.api_photo_url,
+            rawData: row.raw_data,
+            createdAt: row.created_at
+        }));
+
+        state.pendingDataLoaded = true;
+
+        if (statusEl) {
+            statusEl.textContent = state.pendingData.length > 0 ? `✅ ${state.pendingData.length} รายการรอสร้างใบรับ` : '';
+            statusEl.className = 'sheet-status success';
         }
+        if (infoEl) infoEl.textContent = `พบข้อมูล ${state.pendingData.length} รายการที่รอสร้างใบรับบัตร`;
 
-        const toggle = document.getElementById('googleSheetSyncToggle');
-        if (toggle) {
-            toggle.checked = googleSheetSyncEnabled;
-        }
-    } catch (e) {
-        console.log('Could not load sync setting:', e.message);
-    }
-}
-
-// Save sync setting to Supabase
-async function saveSyncSetting(enabled) {
-    try {
-        googleSheetSyncEnabled = enabled;
-
-        const user = await window.supabaseClient.auth.getUser();
-
-        await window.supabaseClient
-            .from('settings')
-            .upsert({
-                key: 'google_sheet_sync',
-                value: { enabled: enabled },
-                updated_by: user.data.user?.id,
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'key' });
-
-        console.log('✅ Sync setting saved:', enabled);
-    } catch (e) {
-        console.error('Error saving sync setting:', e);
-    }
-}
-
-// Update import button visibility based on sync setting
-function updateImportButtonVisibility() {
-    const importBtn = document.getElementById('importFromSheetBtn');
-    if (importBtn) {
-        importBtn.style.display = googleSheetSyncEnabled ? 'inline-flex' : 'none';
-    }
-}
-
-// ==================== //
-// Google Sheets Integration
-// ==================== //
-
-async function fetchSheetData() {
-    const statusEl = document.getElementById('sheetStatus');
-    const infoEl = document.getElementById('sheetDataInfo');
-
-    if (!CONFIG.API_KEY) {
-        // ถ้าไม่มี API Key ให้ใช้ mock data หรือ public CSV
-        console.log('No API Key configured, trying public CSV...');
-        return fetchSheetDataPublic();
-    }
-
-    try {
-        if (statusEl) statusEl.textContent = 'กำลังโหลด...';
-        if (infoEl) infoEl.textContent = 'กำลังดึงข้อมูลจาก Google Sheets...';
-
-        const range = `${CONFIG.SHEET_NAME_REGISTRY}!A:G`;
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SPREADSHEET_ID}/values/${encodeURIComponent(range)}?key=${CONFIG.API_KEY}`;
-
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.values && data.values.length > 1) {
-            // Skip header row
-            state.sheetData = data.values.slice(1).map((row, index) => ({
-                rowIndex: index + 2, // 1-indexed, skip header
-                number: row[CONFIG.SHEET_COLUMNS.NUMBER] || '',
-                no: row[CONFIG.SHEET_COLUMNS.NO] || '',
-                date: row[CONFIG.SHEET_COLUMNS.DATE] || '',
-                requestNo: row[CONFIG.SHEET_COLUMNS.REQUEST_NO] || '',
-                appointmentNo: row[CONFIG.SHEET_COLUMNS.APPT_NO] || '',
-                photo: row[CONFIG.SHEET_COLUMNS.PHOTO] || '',
-                name: row[CONFIG.SHEET_COLUMNS.NAME] || ''
-            }));
-
-            state.sheetDataLoaded = true;
-            state.sheetLastFetch = new Date();
-
-            if (statusEl) {
-                statusEl.textContent = `✅ โหลดแล้ว ${state.sheetData.length} รายการ`;
-                statusEl.className = 'sheet-status success';
-            }
-            if (infoEl) infoEl.textContent = `พบข้อมูล ${state.sheetData.length} รายการ (อัพเดทล่าสุด: ${formatTime(state.sheetLastFetch)})`;
-
-            return state.sheetData;
-        } else {
-            throw new Error('No data found in sheet');
-        }
+        return state.pendingData;
     } catch (error) {
-        console.error('Error fetching sheet data:', error);
+        console.error('Error fetching pending receipts:', error);
         if (statusEl) {
             statusEl.textContent = '❌ โหลดไม่สำเร็จ';
             statusEl.className = 'sheet-status error';
         }
-        if (infoEl) infoEl.textContent = `Error: ${error.message}. ลอง Refresh หรือตรวจสอบ API Key`;
+        if (infoEl) infoEl.textContent = `Error: ${error.message}`;
         return [];
     }
 }
 
-// Fetch using public published CSV (alternative method)
-async function fetchSheetDataPublic() {
-    const statusEl = document.getElementById('sheetStatus');
-    const infoEl = document.getElementById('sheetDataInfo');
-
-    try {
-        if (statusEl) statusEl.textContent = 'กำลังโหลด...';
-        if (infoEl) infoEl.textContent = 'กำลังดึงข้อมูล...';
-
-        // Use the public CSV export URL
-        const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(CONFIG.SHEET_NAME_REGISTRY)}`;
-
-        const response = await fetch(url);
-        const text = await response.text();
-
-        // Parse the JSON response (Google returns it wrapped in a function call)
-        const jsonText = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
-        const data = JSON.parse(jsonText);
-
-        if (data.table && data.table.rows) {
-            state.sheetData = data.table.rows.map((row, index) => ({
-                rowIndex: index + 2,
-                number: row.c[0]?.v || '',
-                no: row.c[1]?.v || '',
-                date: row.c[2]?.v || '',
-                requestNo: row.c[3]?.v || '',
-                appointmentNo: row.c[4]?.v || '',
-                photo: row.c[5]?.v || '',
-                name: row.c[6]?.v || ''
-            }));
-
-            state.sheetDataLoaded = true;
-            state.sheetLastFetch = new Date();
-
-            if (statusEl) {
-                statusEl.textContent = `✅ โหลดแล้ว ${state.sheetData.length} รายการ`;
-                statusEl.className = 'sheet-status success';
-            }
-            if (infoEl) infoEl.textContent = `พบข้อมูล ${state.sheetData.length} รายการ`;
-
-            return state.sheetData;
-        }
-
-        throw new Error('No data found');
-    } catch (error) {
-        console.error('Error fetching public sheet:', error);
-        if (statusEl) {
-            statusEl.textContent = '❌ โหลดไม่สำเร็จ';
-            statusEl.className = 'sheet-status error';
-        }
-        if (infoEl) infoEl.textContent = 'ไม่สามารถดึงข้อมูลได้ กรุณาตรวจสอบการเข้าถึง Sheet';
-        return [];
-    }
-}
-
-function formatSheetTime(date) {
-    if (!date) return '';
-    return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-}
-
-function searchSheetData(query) {
-    if (!query || !state.sheetData.length) return state.sheetData;
+// Search pending data
+function searchPendingData(query) {
+    if (!query || !state.pendingData.length) return state.pendingData;
 
     const lowerQuery = query.toLowerCase().trim();
 
-    return state.sheetData.filter(row =>
-        (row.no && row.no.toLowerCase().includes(lowerQuery)) ||
+    return state.pendingData.filter(row =>
         (row.requestNo && row.requestNo.toLowerCase().includes(lowerQuery)) ||
         (row.appointmentNo && row.appointmentNo.toLowerCase().includes(lowerQuery)) ||
-        (row.name && row.name.toLowerCase().includes(lowerQuery))
+        (row.foreignerName && row.foreignerName.toLowerCase().includes(lowerQuery))
     );
 }
 
-function renderSheetResults(data) {
-    const tbody = document.getElementById('sheetResultsBody');
+// Render pending results in modal table
+function renderPendingResults(data) {
+    const tbody = document.getElementById('pendingResultsBody');
     if (!tbody) return;
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="no-results">ไม่พบข้อมูล</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="no-results">ไม่พบข้อมูลที่รอสร้างใบรับบัตร</td></tr>`;
         return;
     }
 
-    tbody.innerHTML = data.slice(0, 50).map(row => `
-        <tr data-row-index="${row.rowIndex}">
-            <td>${row.number}</td>
-            <td>${row.no}</td>
-            <td>${row.date}</td>
-            <td>${row.requestNo}</td>
-            <td>${row.appointmentNo}</td>
-            <td>${row.name}</td>
-            <td>
-                <button type="button" class="btn btn-success btn-sm btn-select" onclick="selectSheetRow(${row.rowIndex})">
-                    ✓ เลือก
-                </button>
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = data.slice(0, 50).map((row, index) => {
+        const safeId = row.id.replace(/'/g, "\\'");
+        const photoHtml = row.apiPhotoUrl
+            ? `<img src="${row.apiPhotoUrl}" alt="photo" class="pending-photo-thumb" onerror="this.style.display='none'">`
+            : '<span class="text-secondary">-</span>';
+        const dateStr = row.createdAt ? new Date(row.createdAt).toLocaleDateString('th-TH') : '-';
+
+        return `
+            <tr data-pending-id="${row.id}">
+                <td>${index + 1}</td>
+                <td>${row.foreignerName || '-'}</td>
+                <td>${row.requestNo || '-'}</td>
+                <td>${row.appointmentNo || '-'}</td>
+                <td>${photoHtml}</td>
+                <td>${dateStr}</td>
+                <td>
+                    <button type="button" class="btn btn-success btn-sm btn-select" onclick="selectPendingReceipt('${safeId}')">
+                        ✓ เลือก
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
 
     if (data.length > 50) {
         tbody.innerHTML += `<tr><td colspan="7" class="no-results">แสดง 50 รายการแรก (พบทั้งหมด ${data.length} รายการ)</td></tr>`;
     }
 }
 
-function selectSheetRow(rowIndex) {
-    const row = state.sheetData.find(r => r.rowIndex === rowIndex);
+// Select a pending receipt and auto-fill the form
+async function selectPendingReceipt(pendingId) {
+    const row = state.pendingData.find(r => r.id === pendingId);
     if (!row) {
         alert('ไม่พบข้อมูล');
         return;
     }
 
-    // Generate new receipt number with new format (YYYYMMDD-NNN) instead of using old format from Sheet
-    elements.receiptNo.value = generateNextReceiptNo(state.registryData);
+    // Generate new receipt number
+    try {
+        const newReceiptNo = await SupabaseAdapter.getNextReceiptNo();
+        elements.receiptNo.value = newReceiptNo;
+        state.formData.receiptNo = newReceiptNo;
+    } catch (e) {
+        elements.receiptNo.value = generateNextReceiptNo(state.registryData);
+    }
 
-    // Fill form with selected data (except receipt number)
-    if (row.name) elements.foreignerName.value = row.name;
+    // Fill form with selected data
+    if (row.foreignerName) elements.foreignerName.value = row.foreignerName;
     if (row.requestNo) elements.requestNo.value = row.requestNo;
     if (row.appointmentNo) elements.appointmentNo.value = row.appointmentNo;
 
-    // Set today's date instead of date from Sheet
+    // Set today's date
     elements.receiptDate.value = getTodayDateString();
 
-    // Clear SN Number (will be filled manually)
+    // Clear SN Number (will be filled manually later)
     elements.snNumber.value = '';
+
+    // Store pending ID for marking as used after save
+    state.formData._pendingId = pendingId;
+    state.formData._apiPhotoUrl = row.apiPhotoUrl || null;
+
+    // Update state
+    state.formData.foreignerName = row.foreignerName || '';
+    state.formData.requestNo = row.requestNo || '';
+    state.formData.appointmentNo = row.appointmentNo || '';
+    state.formData.receiptDate = getTodayDateString();
+    state.formData.snNumber = '';
 
     // Update preview
     updateReceiptPreview();
 
     // Close modal
-    closeSheetModal();
+    closePendingModal();
 
     // Show success message
-    showToast(`✅ เลือกข้อมูล: ${row.name}`);
+    showToast(`✅ เลือกข้อมูล: ${row.foreignerName}`);
+}
+
+// Update pending badge count
+async function updatePendingBadge() {
+    try {
+        const { count, error } = await window.supabaseClient
+            .from('pending_receipts')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'pending');
+
+        if (error) throw error;
+
+        const badge = document.getElementById('pendingBadge');
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count;
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    } catch (e) {
+        console.log('Could not update pending badge:', e.message);
+    }
+}
+
+// Mark pending receipt as used (called after successful save)
+async function markPendingAsUsed(pendingId, receiptNo) {
+    try {
+        const { error } = await window.supabaseClient
+            .from('pending_receipts')
+            .update({
+                status: 'used',
+                used_receipt_no: receiptNo
+            })
+            .eq('id', pendingId);
+
+        if (error) throw error;
+
+        console.log(`✅ Pending receipt ${pendingId} marked as used (receipt: ${receiptNo})`);
+
+        // Update badge
+        await updatePendingBadge();
+
+        // Remove from local state
+        state.pendingData = state.pendingData.filter(r => r.id !== pendingId);
+    } catch (e) {
+        console.error('Error marking pending as used:', e);
+    }
 }
 
 function showToast(message) {
@@ -2810,57 +2730,53 @@ function showToast(message) {
     }, 2000);
 }
 
-function openSheetModal() {
-    const modal = document.getElementById('sheetModalOverlay');
+function openPendingModal() {
+    const modal = document.getElementById('pendingModalOverlay');
     if (modal) {
         modal.style.display = 'flex';
 
-        // Load data if not loaded
-        if (!state.sheetDataLoaded) {
-            fetchSheetData().then(data => {
-                renderSheetResults(data);
-            });
-        } else {
-            renderSheetResults(state.sheetData);
-        }
+        // Always reload data when opening
+        fetchPendingReceipts().then(data => {
+            renderPendingResults(data);
+        });
     }
 }
 
-function closeSheetModal() {
-    const modal = document.getElementById('sheetModalOverlay');
+function closePendingModal() {
+    const modal = document.getElementById('pendingModalOverlay');
     if (modal) {
         modal.style.display = 'none';
     }
 }
 
-function setupSheetImport() {
-    const importBtn = document.getElementById('importFromSheetBtn');
-    const closeBtn = document.getElementById('closeSheetModal');
-    const searchBtn = document.getElementById('sheetSearchBtn');
-    const refreshBtn = document.getElementById('sheetRefreshBtn');
-    const searchInput = document.getElementById('sheetSearchInput');
-    const modalOverlay = document.getElementById('sheetModalOverlay');
+function setupPendingImport() {
+    const importBtn = document.getElementById('importFromVPBtn');
+    const closeBtn = document.getElementById('closePendingModal');
+    const searchBtn = document.getElementById('pendingSearchBtn');
+    const refreshBtn = document.getElementById('pendingRefreshBtn');
+    const searchInput = document.getElementById('pendingSearchInput');
+    const modalOverlay = document.getElementById('pendingModalOverlay');
 
     if (importBtn) {
-        importBtn.addEventListener('click', openSheetModal);
+        importBtn.addEventListener('click', openPendingModal);
     }
 
     if (closeBtn) {
-        closeBtn.addEventListener('click', closeSheetModal);
+        closeBtn.addEventListener('click', closePendingModal);
     }
 
     if (modalOverlay) {
         modalOverlay.addEventListener('click', (e) => {
             if (e.target === modalOverlay) {
-                closeSheetModal();
+                closePendingModal();
             }
         });
     }
 
     if (searchBtn && searchInput) {
         searchBtn.addEventListener('click', () => {
-            const results = searchSheetData(searchInput.value);
-            renderSheetResults(results);
+            const results = searchPendingData(searchInput.value);
+            renderPendingResults(results);
         });
     }
 
@@ -2868,8 +2784,8 @@ function setupSheetImport() {
         // Search on Enter key
         searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                const results = searchSheetData(searchInput.value);
-                renderSheetResults(results);
+                const results = searchPendingData(searchInput.value);
+                renderPendingResults(results);
             }
         });
 
@@ -2878,26 +2794,51 @@ function setupSheetImport() {
         searchInput.addEventListener('input', () => {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
-                const results = searchSheetData(searchInput.value);
-                renderSheetResults(results);
+                const results = searchPendingData(searchInput.value);
+                renderPendingResults(results);
             }, 300);
         });
     }
 
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => {
-            state.sheetDataLoaded = false;
-            fetchSheetData().then(data => {
-                renderSheetResults(data);
+            state.pendingDataLoaded = false;
+            fetchPendingReceipts().then(data => {
+                renderPendingResults(data);
             });
         });
+    }
+
+    // Setup Realtime subscription for new pending receipts
+    setupPendingRealtime();
+}
+
+// Listen for new pending receipts in real-time
+function setupPendingRealtime() {
+    try {
+        window.supabaseClient
+            .channel('pending-receipts-changes')
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'pending_receipts'
+            }, (payload) => {
+                console.log('🔔 New pending receipt:', payload.new.foreigner_name);
+                updatePendingBadge();
+                showToast(`🔔 ข้อมูลใหม่จาก VP: ${payload.new.foreigner_name || payload.new.appointment_no}`);
+            })
+            .subscribe();
+
+        console.log('✅ Realtime subscription for pending_receipts active');
+    } catch (e) {
+        console.log('Realtime subscription not available:', e.message);
     }
 }
 
 // Make functions globally accessible
-window.selectSheetRow = selectSheetRow;
-window.openSheetModal = openSheetModal;
-window.closeSheetModal = closeSheetModal;
+window.selectPendingReceipt = selectPendingReceipt;
+window.openPendingModal = openPendingModal;
+window.closePendingModal = closePendingModal;
 
 // ==================== //
 // Initialization (Supabase)
@@ -2936,7 +2877,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function initializeApp() {
     setupEventListeners();
     setupUserManagement();
-    setupSheetImport();
+    setupPendingImport();
 
     // Load registry data from Supabase
     await loadRegistryData();
@@ -2975,9 +2916,9 @@ async function initializeApp() {
     // Apply role-based permissions
     applyPermissions();
 
-    // Pre-load Google Sheet data in background
+    // Pre-load pending receipts count in background
     setTimeout(() => {
-        fetchSheetData();
+        updatePendingBadge();
     }, 1000);
 
     console.log('✅ App initialized successfully');
