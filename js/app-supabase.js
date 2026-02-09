@@ -121,6 +121,8 @@ const elements = {
     receiptCardImage: document.getElementById('receiptCardImage'),
     previewCardBox: document.getElementById('previewCardBox'),
     previewSignerName: document.getElementById('previewSignerName'),
+    previewCategoryBadge: document.getElementById('previewCategoryBadge'),
+    receiptDocument: document.getElementById('receiptDocument'),
 
     // Buttons
     clearBtn: document.getElementById('clearBtn'),
@@ -547,6 +549,13 @@ function batchPrint() {
 
     const selectedData = state.registryData.filter(row => state.selectedItems.includes(row.receiptNo));
 
+    // Sort A-Z by name (ข้าม prefix mr./mrs./miss/ms.) เพื่อให้ค้นหาง่ายเมื่อปริ้นออกมา
+    selectedData.sort((a, b) => {
+        const nameA = (a.name || '').trim().replace(/^(mr\.?|mrs\.?|miss|ms\.?)\s+/i, '').toUpperCase();
+        const nameB = (b.name || '').trim().replace(/^(mr\.?|mrs\.?|miss|ms\.?)\s+/i, '').toUpperCase();
+        return nameA.localeCompare(nameB);
+    });
+
     // Generate print content for all selected items
     let printContent = '';
     selectedData.forEach((rowData, index) => {
@@ -605,6 +614,20 @@ function batchPrint() {
     updateBatchPrintUI();
 }
 
+// Helper: ดึงตัวอักษรหมวดหมู่ + สี จากชื่อ (ข้าม prefix mr./mrs./miss/ms.)
+function getCategoryInfo(name) {
+    const cleaned = (name || '-').trim().replace(/^(mr\.?|mrs\.?|miss|ms\.?)\s+/i, '');
+    const letter = cleaned.charAt(0).toUpperCase() || '-';
+    const code = letter.charCodeAt(0);
+    let color = '#9ca3af'; // default gray
+    if (code >= 65 && code <= 69) color = '#dc2626';      // A-E แดง
+    else if (code >= 70 && code <= 74) color = '#16a34a';  // F-J เขียว
+    else if (code >= 75 && code <= 79) color = '#2563eb';  // K-O น้ำเงิน
+    else if (code >= 80 && code <= 84) color = '#ea580c';  // P-T ส้ม
+    else if (code >= 85 && code <= 90) color = '#9333ea';  // U-Z ม่วง
+    return { letter, color };
+}
+
 function generateSinglePrintContent(formData) {
     // ดึงชื่อเจ้าหน้าที่จาก session
     const session = window.AuthSystem ? window.AuthSystem.getSession() : null;
@@ -618,8 +641,14 @@ function generateSinglePrintContent(formData) {
     const safeReceiptNo = sanitizeHTML(formData.receiptNo || '-');
     const safeCardImage = formData.cardImage && /^(https?:\/\/|data:image\/)/i.test(formData.cardImage) ? sanitizeHTML(formData.cardImage) : '';
 
+    // Category letter + color (ข้าม prefix ใช้ชื่อจริง)
+    const categoryInfo = getCategoryInfo(formData.foreignerName);
+
     return `
-        <div class="print-receipt-page" style="font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.4; padding: 10mm 15mm;">
+        <div class="print-receipt-page" style="position: relative; font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.4; padding: 10mm 15mm; border-top: 4px solid ${categoryInfo.color};">
+            <!-- Category Letter Badge -->
+            <div style="position: absolute; top: 10mm; right: 15mm; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 800; color: ${categoryInfo.color}; border: 3px solid ${categoryInfo.color}; border-radius: 6px; background: #fff;">${categoryInfo.letter}</div>
+
             <!-- Header -->
             <div style="text-align: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 3px solid #2563eb;">
                 <h2 style="color: #2563eb; margin: 0; font-size: 24px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
@@ -691,9 +720,9 @@ function generateSinglePrintContent(formData) {
             </table>
 
             <!-- Footer with Org Name and Doc No -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 10px; border-top: 2px solid #d1d5db;">
                 <div style="font-size: 10px; color: #6b7280;">ศูนย์บริการ EWP อาคาร One Bangkok</div>
-                <div style="font-size: 10px; color: #6b7280;">Doc No.: ${safeReceiptNo}</div>
+                <div style="font-size: 16px; color: #111; font-weight: 700;">Doc No.: ${safeReceiptNo}</div>
             </div>
         </div>
     `;
@@ -1165,6 +1194,18 @@ function updateReceiptPreview() {
         elements.previewDocNo.textContent = state.formData.receiptNo || '-';
     }
 
+    // Update Category Badge + color band in preview
+    const categoryInfo = getCategoryInfo(state.formData.foreignerName);
+    if (elements.previewCategoryBadge) {
+        elements.previewCategoryBadge.textContent = categoryInfo.letter;
+        elements.previewCategoryBadge.style.color = categoryInfo.color;
+        elements.previewCategoryBadge.style.borderColor = categoryInfo.color;
+        elements.previewCategoryBadge.style.display = state.formData.foreignerName ? 'flex' : 'none';
+    }
+    if (elements.receiptDocument) {
+        elements.receiptDocument.style.borderTop = state.formData.foreignerName ? `4px solid ${categoryInfo.color}` : 'none';
+    }
+
     if (state.formData.cardImage) {
         elements.receiptCardImage.src = state.formData.cardImage;
         elements.previewCardBox.classList.add('has-image');
@@ -1479,8 +1520,14 @@ function generatePrintContent() {
     const safeReceiptNo = sanitizeHTML(state.formData.receiptNo || '-');
     const safeCardImage = state.formData.cardImage && /^(https?:\/\/|data:image\/)/i.test(state.formData.cardImage) ? sanitizeHTML(state.formData.cardImage) : '';
 
+    // Category letter + color (ข้าม prefix ใช้ชื่อจริง)
+    const categoryInfo = getCategoryInfo(state.formData.foreignerName);
+
     return `
-        <div class="print-receipt-page" style="font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.4; padding: 10mm 15mm;">
+        <div class="print-receipt-page" style="position: relative; font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.4; padding: 10mm 15mm; border-top: 4px solid ${categoryInfo.color};">
+            <!-- Category Letter Badge -->
+            <div style="position: absolute; top: 10mm; right: 15mm; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 800; color: ${categoryInfo.color}; border: 3px solid ${categoryInfo.color}; border-radius: 6px; background: #fff;">${categoryInfo.letter}</div>
+
             <!-- Header -->
             <div style="text-align: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 3px solid #2563eb;">
                 <h2 style="color: #2563eb; margin: 0; font-size: 24px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
@@ -1552,9 +1599,9 @@ function generatePrintContent() {
             </table>
 
             <!-- Footer -->
-            <div style="margin-top: 25px; display: flex; justify-content: space-between; border-top: 1px solid #e5e7eb; padding-top: 10px;">
+            <div style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center; border-top: 2px solid #d1d5db; padding-top: 10px;">
                 <span style="color: #9ca3af; font-size: 10px;">ศูนย์บริการวีซ่าและใบอนุญาตทำงาน BOI</span>
-                <span style="color: #9ca3af; font-size: 10px;">Doc No.: ${safeReceiptNo}</span>
+                <span style="font-size: 16px; color: #111; font-weight: 700;">Doc No.: ${safeReceiptNo}</span>
             </div>
         </div>
     `;
@@ -1910,10 +1957,13 @@ function renderRegistryTable() {
         const safeName = sanitizeHTML(row.name || '-');
         const safeDate = sanitizeHTML(row.date);
 
+        // Category color for row indicator
+        const rowCategoryInfo = getCategoryInfo(row.name);
+
         return `
             <tr class="${rowClass}">
                 <td>${batchCheckbox}</td>
-                <td>${row.number}</td>
+                <td style="border-left: 4px solid ${rowCategoryInfo.color}; font-weight: 600;">${row.number}</td>
                 <td>${safeReceiptNo}</td>
                 <td>${safeSN}</td>
                 <td>${safeName}</td>

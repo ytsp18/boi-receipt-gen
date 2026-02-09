@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบสร้างแบบฟอร์มรับบัตร - EWP Service Center</title>
-    <link rel="stylesheet" href="css/style.css?v=6.0">
+    <link rel="stylesheet" href="css/style.css?v=6.1">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -110,7 +110,10 @@
                 <h2>ตัวอย่างใบรับ</h2>
                 <div class="receipt-preview" id="receiptPreview">
                     <!-- Receipt Template -->
-                    <div class="receipt-document">
+                    <div class="receipt-document" id="receiptDocument">
+                        <!-- Category Letter Badge -->
+                        <div class="category-badge" id="previewCategoryBadge" style="display:none;">-</div>
+
                         <div class="receipt-header">
                             <h3>แบบรับใบอนุญาตทำงาน e-WorkPermit</h3>
                             <p>(e-WorkPermit Card Receipt)</p>
@@ -443,7 +446,7 @@
     <script src="js/supabase-config.js?v=6.0"></script>
     <script src="js/supabase-adapter.js?v=6.0"></script>
     <script src="js/auth.js?v=6.0"></script>
-    <script src="js/app-supabase.js?v=6.0"></script>
+    <script src="js/app-supabase.js?v=6.1"></script>
 
     <!-- Version Badge -->
     <div class="version-badge">v6.0.0</div>
