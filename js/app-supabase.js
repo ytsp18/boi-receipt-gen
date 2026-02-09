@@ -2497,8 +2497,8 @@ async function applyPermissions() {
         exportBtns.forEach(btn => btn.style.display = 'none');
     }
 
-    // Load pending receipts count for badge
-    await updatePendingBadge();
+    // VP API integration disabled until migration is complete
+    // await updatePendingBadge();
 
     // Hide delete buttons if no permission
     // Will be applied when rendering table
@@ -2809,8 +2809,8 @@ function setupPendingImport() {
         });
     }
 
-    // Setup Realtime subscription for new pending receipts
-    setupPendingRealtime();
+    // VP API integration disabled until migration is complete
+    // setupPendingRealtime();
 }
 
 // Listen for new pending receipts in real-time
@@ -2916,10 +2916,10 @@ async function initializeApp() {
     // Apply role-based permissions
     applyPermissions();
 
-    // Pre-load pending receipts count in background
-    setTimeout(() => {
-        updatePendingBadge();
-    }, 1000);
+    // VP API integration disabled until migration is complete
+    // setTimeout(() => {
+    //     updatePendingBadge();
+    // }, 1000);
 
     console.log('✅ App initialized successfully');
 }
