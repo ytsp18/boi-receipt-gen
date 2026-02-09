@@ -28,18 +28,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Data Loading Functions
 // ==================== //
 
-// Override loadRegistryFromStorage - Load from Supabase
-async function loadRegistryFromSupabase() {
+// Load from Supabase - filtered by date (default = today)
+// Pass date as 'YYYY-MM-DD' string, or null to load today
+async function loadRegistryFromSupabase(date = null) {
     try {
-        const { data, error } = await window.supabaseClient
+        // Default to today if no date provided
+        if (!date) {
+            const today = new Date();
+            date = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+        }
+
+        // Validate date format (YYYY-MM-DD)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            console.error('Invalid date format:', date);
+            return [];
+        }
+
+        const { data: records, error } = await window.supabaseClient
             .from('receipts')
             .select('*')
+            .eq('receipt_date', date)
             .order('created_at', { ascending: false });
 
         if (error) throw error;
 
+        console.log(`📋 Loaded ${(records || []).length} records for ${date}`);
+
         // Transform to match existing data structure
-        return (data || []).map(row => ({
+        return (records || []).map(row => ({
             receiptNo: row.receipt_no,
             date: formatThaiDateFromISO(row.receipt_date),
             name: row.foreigner_name,
@@ -56,6 +72,45 @@ async function loadRegistryFromSupabase() {
         }));
     } catch (e) {
         console.error('Error loading from Supabase:', e);
+        return [];
+    }
+}
+
+// Search across all dates (server-side) — for cross-date search
+async function searchRegistryFromSupabase(query) {
+    try {
+        if (!query || query.trim().length < 2) return [];
+
+        // Validate query (no HTML, no script injection)
+        const cleanQuery = query.trim().replace(/[<>"'`;]/g, '');
+
+        const { data, error } = await window.supabaseClient
+            .from('receipts')
+            .select('*')
+            .or(`foreigner_name.ilike.%${cleanQuery}%,receipt_no.ilike.%${cleanQuery}%,request_no.ilike.%${cleanQuery}%,sn_number.ilike.%${cleanQuery}%,appointment_no.ilike.%${cleanQuery}%`)
+            .order('created_at', { ascending: false })
+            .limit(100);
+
+        if (error) throw error;
+
+        console.log(`🔍 Search "${cleanQuery}": found ${(data || []).length} results`);
+
+        return (data || []).map(row => ({
+            receiptNo: row.receipt_no,
+            date: formatThaiDateFromISO(row.receipt_date),
+            name: row.foreigner_name,
+            sn: row.sn_number,
+            requestNo: row.request_no,
+            appointmentNo: row.appointment_no,
+            cardImage: row.card_image_url,
+            apiPhotoUrl: row.api_photo_url,
+            isPrinted: row.is_printed,
+            printedAt: row.printed_at,
+            isReceived: row.is_received,
+            receivedAt: row.received_at
+        }));
+    } catch (e) {
+        console.error('Error searching Supabase:', e);
         return [];
     }
 }
@@ -392,6 +447,7 @@ async function getNextReceiptNoFromSupabase() {
 
 window.SupabaseAdapter = {
     loadRegistry: loadRegistryFromSupabase,
+    searchRegistry: searchRegistryFromSupabase,
     saveReceipt: saveReceiptToSupabase,
     deleteReceipt: deleteReceiptFromSupabase,
     markPrinted: markPrintedInSupabase,

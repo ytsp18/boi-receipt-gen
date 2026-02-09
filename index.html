@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบสร้างแบบฟอร์มรับบัตร - EWP Service Center</title>
-    <link rel="stylesheet" href="css/style.css?v=6.1">
+    <link rel="stylesheet" href="css/style.css?v=6.2">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -242,6 +242,11 @@
                     <button class="btn btn-success btn-sm" id="addNewBtn">➕ เพิ่มข้อมูลใหม่</button>
                     <!-- Batch Print Button -->
                     <button class="btn btn-primary btn-sm" id="batchPrintBtn" disabled>🖨️ พิมพ์ที่เลือก (<span id="selectedCount">0</span>)</button>
+                    <!-- Date Filter -->
+                    <div class="date-filter-group">
+                        <input type="date" id="dateFilter" class="date-filter-input" title="เลือกวันที่">
+                        <button class="btn btn-outline btn-xs" id="todayBtn" title="กลับไปวันนี้">วันนี้</button>
+                    </div>
                     <!-- Search -->
                     <div class="search-box">
                         <input type="text" id="searchInput" placeholder="🔍 ค้นหา เลขรับที่, SN, ชื่อ..." class="search-input">
@@ -443,12 +448,12 @@
             setTimeout(initSupabase, 100);
         }
     </script>
-    <script src="js/supabase-config.js?v=6.0"></script>
-    <script src="js/supabase-adapter.js?v=6.0"></script>
-    <script src="js/auth.js?v=6.0"></script>
-    <script src="js/app-supabase.js?v=6.1"></script>
+    <script src="js/supabase-config.js?v=6.2"></script>
+    <script src="js/supabase-adapter.js?v=6.2"></script>
+    <script src="js/auth.js?v=6.2"></script>
+    <script src="js/app-supabase.js?v=6.2"></script>
 
     <!-- Version Badge -->
-    <div class="version-badge">v6.0.0</div>
+    <div class="version-badge">v6.2.0</div>
 </body>
 </html>

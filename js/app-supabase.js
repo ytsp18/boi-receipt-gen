@@ -83,6 +83,9 @@ const state = {
     isLoading: false,
     searchQuery: '',
     filterStatus: 'all',
+    currentDateFilter: null, // YYYY-MM-DD, null = today
+    isSearchMode: false, // true when searching across all dates
+    searchDebounceTimer: null,
     formMode: 'add', // 'add' or 'edit'
     editingReceiptNo: null,
     // VP Pending data
@@ -154,6 +157,8 @@ const elements = {
     // Search & Filter
     searchInput: document.getElementById('searchInput'),
     filterStatus: document.getElementById('filterStatus'),
+    dateFilter: document.getElementById('dateFilter'),
+    todayBtn: document.getElementById('todayBtn'),
 
     // Batch Print
     batchPrintBtn: document.getElementById('batchPrintBtn'),
@@ -214,12 +219,84 @@ function getTodayDateString() {
     return `${year}-${month}-${day}`;
 }
 
+// Image size limits
+const IMAGE_MAX_RAW_SIZE = 5 * 1024 * 1024;  // 5MB before compression
+const IMAGE_MAX_DIMENSION = 1200;              // max width or height in pixels
+const IMAGE_QUALITY = 0.7;                     // JPEG compression quality (0-1)
+
 function readImageAsBase64(file) {
     return new Promise((resolve, reject) => {
+        // Validate file size before reading
+        if (file.size > IMAGE_MAX_RAW_SIZE) {
+            reject(new Error(`ไฟล์ขนาด ${(file.size / 1024 / 1024).toFixed(1)} MB ใหญ่เกินไป (สูงสุด 5 MB)`));
+            return;
+        }
+
+        // Validate file type (only allow actual image types, block SVG)
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            reject(new Error(`ไม่รองรับไฟล์ประเภท ${file.type} (รองรับ: JPG, PNG, GIF, WebP)`));
+            return;
+        }
+
         const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
+        reader.onload = async (e) => {
+            try {
+                const compressed = await compressImage(e.target.result);
+                resolve(compressed);
+            } catch (err) {
+                reject(err);
+            }
+        };
         reader.onerror = (e) => reject(e);
         reader.readAsDataURL(file);
+    });
+}
+
+// Compress image using Canvas API
+// - Resize to max 1200px (longest side)
+// - Compress as JPEG quality 0.7
+// - Strips EXIF data (Canvas does not preserve EXIF)
+function compressImage(base64) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            try {
+                let { width, height } = img;
+
+                // Calculate new dimensions (keep aspect ratio)
+                if (width > IMAGE_MAX_DIMENSION || height > IMAGE_MAX_DIMENSION) {
+                    if (width > height) {
+                        height = Math.round(height * (IMAGE_MAX_DIMENSION / width));
+                        width = IMAGE_MAX_DIMENSION;
+                    } else {
+                        width = Math.round(width * (IMAGE_MAX_DIMENSION / height));
+                        height = IMAGE_MAX_DIMENSION;
+                    }
+                }
+
+                // Draw to canvas and compress
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Convert to JPEG (strips EXIF, good compression)
+                const compressed = canvas.toDataURL('image/jpeg', IMAGE_QUALITY);
+
+                // Log compression result
+                const originalSize = Math.round(base64.length * 0.75 / 1024); // approximate KB
+                const compressedSize = Math.round(compressed.length * 0.75 / 1024);
+                console.log(`Image compressed: ${originalSize}KB → ${compressedSize}KB (${Math.round((1 - compressedSize/originalSize) * 100)}% reduction)`);
+
+                resolve(compressed);
+            } catch (err) {
+                reject(new Error('ไม่สามารถบีบอัดรูปภาพได้'));
+            }
+        };
+        img.onerror = () => reject(new Error('ไม่สามารถอ่านรูปภาพได้'));
+        img.src = base64;
     });
 }
 
@@ -1073,7 +1150,8 @@ function setupImageUpload(uploadElement, inputElement, previewElement, placehold
             updateReceiptPreview();
         } catch (error) {
             console.error('Error reading image:', error);
-            alert('ไม่สามารถอ่านไฟล์รูปภาพได้');
+            alert(error.message || 'ไม่สามารถอ่านไฟล์รูปภาพได้');
+            inputElement.value = ''; // Reset file input
         }
     });
 
@@ -1125,7 +1203,7 @@ function setupImageUpload(uploadElement, inputElement, previewElement, placehold
                     showPasteSuccessFeedback(uploadElement);
                 } catch (error) {
                     console.error('Error reading pasted image:', error);
-                    alert('ไม่สามารถวางรูปภาพได้');
+                    alert(error.message || 'ไม่สามารถวางรูปภาพได้');
                 }
                 break;
             }
@@ -1397,9 +1475,10 @@ async function saveData() {
         // Clear form first
         clearForm(true);
 
-        // Reload data from Supabase to get latest data including image URLs
+        // Reload data from Supabase (filtered by current date)
         console.log('🔄 Reloading data from Supabase...');
-        const freshData = await SupabaseAdapter.loadRegistry();
+        const reloadDate = state.currentDateFilter || getTodayISO();
+        const freshData = await SupabaseAdapter.loadRegistry(reloadDate);
         state.registryData = freshData.map((r, index) => ({
             number: index + 1,
             receiptNo: r.receiptNo,
@@ -1412,9 +1491,11 @@ async function saveData() {
             isPrinted: r.isPrinted,
             isReceived: r.isReceived
         }));
-        console.log(`✅ Loaded ${state.registryData.length} records from Supabase`);
+        console.log(`✅ Loaded ${state.registryData.length} records for ${reloadDate}`);
 
         // Update UI
+        loadPrintedReceipts();
+        loadReceivedCards();
         renderRegistryTable();
         updateSummary();
 
@@ -1802,7 +1883,9 @@ function exportToPDF() {
 function getFilteredData() {
     let data = [...state.registryData];
 
-    if (state.searchQuery) {
+    // Only apply client-side search filter when NOT in server-side search mode
+    // (In search mode, data is already filtered by Supabase)
+    if (state.searchQuery && !state.isSearchMode) {
         const query = state.searchQuery.toLowerCase();
         data = data.filter(row => {
             return (
@@ -1856,13 +1939,23 @@ function getFilteredData() {
 // Data Loading (Supabase)
 // ==================== //
 
-async function loadRegistryData() {
+async function loadRegistryData(date = null) {
     state.isLoading = true;
+    state.isSearchMode = false;
     renderRegistryTable();
 
+    // Use provided date, or state's current filter, or today
+    const filterDate = date || state.currentDateFilter || getTodayISO();
+    state.currentDateFilter = filterDate;
+
+    // Update date picker UI
+    if (elements.dateFilter) {
+        elements.dateFilter.value = filterDate;
+    }
+
     try {
-        // Load from Supabase
-        const data = await SupabaseAdapter.loadRegistry();
+        // Load from Supabase filtered by date
+        const data = await SupabaseAdapter.loadRegistry(filterDate);
         state.registryData = data.map((row, index) => ({
             ...row,
             number: index + 1
@@ -1872,7 +1965,7 @@ async function loadRegistryData() {
         loadPrintedReceipts();
         loadReceivedCards();
 
-        console.log(`✅ Loaded ${state.registryData.length} records from Supabase`);
+        console.log(`✅ Loaded ${state.registryData.length} records for ${filterDate}`);
     } catch (e) {
         console.error('Error loading from Supabase:', e);
         alert('ไม่สามารถโหลดข้อมูลได้ กรุณาตรวจสอบการเชื่อมต่อ');
@@ -1883,8 +1976,8 @@ async function loadRegistryData() {
     renderRegistryTable();
     updateSummary();
 
-    // Generate next receipt number
-    if (!elements.receiptNo.value) {
+    // Generate next receipt number (only if viewing today)
+    if (filterDate === getTodayISO() && !elements.receiptNo.value) {
         try {
             const nextNo = await SupabaseAdapter.getNextReceiptNo();
             elements.receiptNo.value = nextNo;
@@ -1894,6 +1987,12 @@ async function loadRegistryData() {
             elements.receiptNo.value = generateNextReceiptNo(state.registryData);
         }
     }
+}
+
+// Helper: Get today's date in ISO format (YYYY-MM-DD)
+function getTodayISO() {
+    const today = new Date();
+    return `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
 }
 
 function renderRegistryTable() {
@@ -1909,9 +2008,17 @@ function renderRegistryTable() {
     const filteredData = getFilteredData();
 
     if (filteredData.length === 0) {
+        let emptyMessage = 'ไม่พบข้อมูล';
+        if (state.isSearchMode) {
+            emptyMessage = `ไม่พบผลลัพธ์สำหรับ "${sanitizeHTML(state.searchQuery)}"`;
+        } else if (state.currentDateFilter) {
+            const d = new Date(state.currentDateFilter + 'T00:00:00');
+            const thaiDate = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear() + 543}`;
+            emptyMessage = `ไม่มีข้อมูลวันที่ ${thaiDate}`;
+        }
         elements.registryBody.innerHTML = `
             <tr class="loading-row">
-                <td colspan="10">ไม่พบข้อมูล</td>
+                <td colspan="10">${emptyMessage}</td>
             </tr>
         `;
         return;
@@ -1936,7 +2043,7 @@ function renderRegistryTable() {
         const receivedStatusClass = received ? 'status-received' : 'status-waiting';
 
         const imageCell = row.cardImage
-            ? `<img src="${row.cardImage}" class="image-indicator" onclick="viewImage('${row.receiptNo}')" title="คลิกเพื่อดูรูป">`
+            ? `<img src="${row.cardImage}" class="image-indicator" loading="lazy" onclick="viewImage('${row.receiptNo}')" title="คลิกเพื่อดูรูป">`
             : '<span class="no-image">ไม่มีรูป</span>';
 
         let rowClass = '';
@@ -2096,7 +2203,7 @@ function setupEventListeners() {
     elements.clearBtn.addEventListener('click', clearForm);
     elements.saveBtn.addEventListener('click', saveData);
     elements.printBtn.addEventListener('click', printReceipt);
-    elements.refreshDataBtn.addEventListener('click', loadRegistryData);
+    elements.refreshDataBtn.addEventListener('click', () => loadRegistryData());
     elements.addNewBtn.addEventListener('click', () => {
         clearForm(true); // Skip confirmation for "Add New" button
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2106,9 +2213,76 @@ function setupEventListeners() {
     elements.exportCsvBtn.addEventListener('click', exportToCSV);
     elements.exportPdfBtn.addEventListener('click', exportToPDF);
 
+    // Date Filter
+    if (elements.dateFilter) {
+        elements.dateFilter.value = getTodayISO();
+        elements.dateFilter.addEventListener('change', (e) => {
+            const selectedDate = e.target.value;
+            if (selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) {
+                // Clear search when changing date
+                state.searchQuery = '';
+                elements.searchInput.value = '';
+                loadRegistryData(selectedDate);
+            }
+        });
+    }
+
+    // Today Button
+    if (elements.todayBtn) {
+        elements.todayBtn.addEventListener('click', () => {
+            state.searchQuery = '';
+            elements.searchInput.value = '';
+            loadRegistryData(getTodayISO());
+        });
+    }
+
+    // Search — server-side with debounce (searches across ALL dates)
     elements.searchInput.addEventListener('input', (e) => {
-        state.searchQuery = e.target.value;
-        renderRegistryTable();
+        const query = e.target.value.trim();
+        state.searchQuery = query;
+
+        // Clear previous debounce timer
+        if (state.searchDebounceTimer) {
+            clearTimeout(state.searchDebounceTimer);
+        }
+
+        if (query.length === 0) {
+            // Empty search → go back to date-filtered view
+            state.isSearchMode = false;
+            loadRegistryData();
+            return;
+        }
+
+        if (query.length < 2) {
+            // Too short for server search → filter locally
+            state.isSearchMode = false;
+            renderRegistryTable();
+            return;
+        }
+
+        // Debounce 400ms before server search
+        state.searchDebounceTimer = setTimeout(async () => {
+            state.isLoading = true;
+            state.isSearchMode = true;
+            renderRegistryTable();
+
+            try {
+                const results = await SupabaseAdapter.searchRegistry(query);
+                state.registryData = results.map((row, index) => ({
+                    ...row,
+                    number: index + 1
+                }));
+                loadPrintedReceipts();
+                loadReceivedCards();
+                console.log(`🔍 Search "${query}": ${state.registryData.length} results (all dates)`);
+            } catch (e) {
+                console.error('Error searching:', e);
+            }
+
+            state.isLoading = false;
+            renderRegistryTable();
+            updateSummary();
+        }, 400);
     });
 
     elements.filterStatus.addEventListener('change', (e) => {

@@ -986,6 +986,42 @@ body {
     border-color: var(--primary-color);
 }
 
+/* Date Filter */
+.date-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.date-filter-input {
+    padding: 7px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-size: 0.85rem;
+    background: white;
+    cursor: pointer;
+    color: var(--text-primary);
+}
+
+.date-filter-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.btn-xs {
+    padding: 5px 8px;
+    font-size: 0.75rem;
+    border-radius: var(--radius);
+}
+
+.date-filter-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
 .table-container {
     overflow-x: auto;
     border: 1px solid var(--border-color);
