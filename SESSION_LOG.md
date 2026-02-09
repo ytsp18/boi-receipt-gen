@@ -652,7 +652,9 @@ git push origin main --force
 | 5.0.0 | Supabase Cloud + GitHub Pages + Custom Domain |
 | 5.1.0 | UI Rebranding - EWP Service Center |
 | 5.1.1 | Security Audit & Hardening |
-| **5.2.0** | **Reset Password + Bug Fixes** |
+| 5.2.0 | Reset Password + Bug Fixes |
+| 6.0.0 | VP API Integration + ลบ Google Sheet |
+| **6.0.1** | **Critical Fix: SyntaxError + Recovery 38 records** |
 
 ---
 
@@ -714,3 +716,198 @@ git push origin main --force
 - **Current Version:** 5.2.0
 - **Live URL:** https://receipt.fts-internal.com
 - **New Features:** Reset Password (Admin), Bug Fixes
+
+---
+
+## Phase 16: VP API Integration (v6.0.0)
+
+**Session Date:** 9 February 2026
+
+### ความต้องการ
+1. เชื่อมต่อ VP/SWD API แทน Google Sheet สำหรับดึงข้อมูลนัดหมาย
+2. รองรับทั้ง Webhook (push) และ Polling (pull) จาก VP system
+
+### สิ่งที่ทำ
+
+**1. Edge Functions (Supabase)**
+- `vpapi-webhook` — รับข้อมูล push จาก VP ผ่าน webhook, validate x-api-key
+- `vpapi-sync` — polling ดึงข้อมูลจาก VP API ตาม schedule
+
+**2. SQL Migration**
+- `supabase-update-v6.0-api-integration.sql` — สร้างตาราง `pending_receipts`, เพิ่ม column `api_photo_url`
+
+**3. Frontend**
+- ลบ Google Sheet integration ทั้งหมด
+- เพิ่ม VP pending modal, pending badge, realtime subscription
+- เพิ่ม `_pendingId` และ `_apiPhotoUrl` ใน formData state
+
+**4. ฟีเจอร์ VP ปิดไว้ชั่วคราว** (รอ migration + API credentials)
+- ซ่อนปุ่ม VP ด้วย `display: none`
+- Comment out `updatePendingBadge()` / `setupPendingRealtime()`
+
+---
+
+## Phase 17: Critical Bug Fix & Data Recovery (v6.0.1)
+
+**Session Date:** 9 February 2026
+
+### 🔴 เหตุการณ์สำคัญ: ระบบล่มจาก SyntaxError
+
+**ปัญหา:**
+- หลัง push v6.0 ขึ้น production พบ `SyntaxError: Identifier 'receiptNo' has already been declared`
+- สาเหตุ: `printFromTable(receiptNo)` parameter ชื่อซ้ำกับ `const receiptNo` ภายในฟังก์ชัน
+- ทำให้ **ทั้งไฟล์ JS ไม่ทำงาน** → ไม่โหลดข้อมูล, ไม่แสดงชื่อผู้ใช้, เพิ่มข้อมูลไม่ได้
+
+**ผลกระทบ:**
+- เจ้าหน้าที่เข้าใจว่าเพิ่มข้อมูลไม่ได้เพราะ "เต็ม" จึงลบ record ไป **38 รายการ**
+- ข้อมูลถูก hard delete จาก DB + รูปภาพถูกลบจาก Storage
+
+### การแก้ไข
+
+**1. Fix SyntaxError**
+- เปลี่ยนตัวแปรภายใน `printFromTable()` จาก `receiptNo`/`foreignerName` เป็น `printReceiptNo`/`printName`
+- Commit: `d472092`
+
+**2. Fix api_photo_url**
+- ส่ง `api_photo_url` เฉพาะเมื่อมีค่า (ป้องกัน INSERT error ก่อนรัน migration)
+- Commit: `812689f`
+
+**3. ปิดฟีเจอร์ VP ชั่วคราว**
+- ซ่อนปุ่มด้วย `display: none`, comment out DB queries
+- Commit: `4074233`
+
+**4. เพิ่ม Version badge + Cache busting**
+- แสดง v6.0.0 มุมล่างขวา, อัพเดท `?v=6.0` ทุกไฟล์
+- Commit: `8d04f38`, `63829ef`
+
+### การกู้คืนข้อมูล 38 รายการ
+
+**พบข้อมูลใน activity_logs:**
+- 38 records ที่ถูกลบวันนี้ โดย "Sofia Sa-eh"
+- เก็บ `receipt_no` + `foreigner_name` (แต่ไม่มี SN, Request No., Appointment No.)
+
+**แผนกู้คืน:**
+1. ✅ ดึงรายการจาก `activity_logs` — ได้ receipt_no + ชื่อ ครบ 38 คน
+2. ✅ สร้าง Excel (`Recovery_38_records_20260209.xlsx`) ให้เจ้าหน้าที่กรอก SN/Request/Appointment
+3. ✅ สร้าง SQL INSERT template (`recovery-insert-template.sql`)
+4. ⏳ รอเจ้าหน้าที่กรอก Excel → INSERT กลับ DB ด้วยเลข receipt_no เดิม
+5. ⏳ เจ้าหน้าที่อัพโหลดรูปบัตรใหม่ผ่านหน้าเว็บ (กดแก้ไข → อัพโหลดรูป)
+
+**เลข receipt_no ที่ถูกลบ (38 รายการ):**
+```
+20260209-001, 002, 003, 004, 005, 006, 007, 008, 009, 010,
+011, 012, 013, 014, 015, 016, 017, 018, 019, 020,
+021, 023, 024, 025, 026, 027, 030, 031, 032, 034,
+035, 037, 039, 041, 042, 043, 067, 068
+```
+
+### RLS Policies ตรวจสอบแล้ว
+
+**activity_logs table:**
+- SELECT: "Allow authenticated users to read logs" + "Only admin can view activity logs"
+- INSERT: 2 policies (authenticated users + general insert)
+- **ผลลัพธ์:** Activity Log แสดงปกติบนหน้าเว็บ (ใช้ filter "ลบข้อมูล" ดูรายการที่ถูกลบ)
+
+### Git Commits (Session นี้)
+
+| Commit | Description |
+|--------|-------------|
+| `40ec564` | feat: v6.0 เชื่อมต่อ API VP/SWD |
+| `812689f` | fix: ไม่ส่ง api_photo_url ถ้าไม่มีค่า |
+| `4074233` | chore: ปิดฟีเจอร์ VP API ชั่วคราว |
+| `d472092` | fix: SyntaxError ตัวแปร receiptNo ซ้ำ |
+| `226cd63` | docs: อัพเดท CHANGELOG v6.0.0 |
+| `8d04f38` | chore: อัพเดท version เป็น v6.0 |
+| `63829ef` | feat: แสดง version badge มุมล่างขวา |
+
+### Files สำหรับกู้คืนข้อมูล
+
+| File | Description |
+|------|-------------|
+| `Recovery_38_records_20260209.xlsx` | Excel สำหรับเจ้าหน้าที่กรอก (อยู่ Desktop) |
+| `recovery-insert-template.sql` | SQL INSERT template (อยู่ใน project) |
+| `deleted-records-20260209.csv` | CSV รายชื่อ 38 คน (อยู่ใน project) |
+
+---
+
+## Session End (v6.0.1)
+- **Status:** Critical bug fixed ✅ | Data recovery in progress ⏳
+- **Current Version:** 6.0.1
+- **Live URL:** https://receipt.fts-internal.com
+- **DB Records:** 65 active (เดิม 95 → ลบ 38 → เพิ่มใหม่ 8)
+- **Pending:** รอเจ้าหน้าที่กรอก Excel → INSERT 38 records กลับ + อัพโหลดรูปใหม่
+- **VP Feature:** ปิดไว้ชั่วคราว (รอ migration + API credentials)
+
+---
+
+## Session Date: 9 February 2026 (ต่อ) — Security + Print Enhancement
+
+### Session Overview
+แก้ไข security vulnerabilities 10 จุด + เพิ่มระบบหมวดหมู่ตัวอักษร A-Z สำหรับค้นหาเอกสารที่ปริ้นออกมาได้ง่ายขึ้น
+
+---
+
+### Phase 1: Security Audit & Fix (v6.0.2)
+
+**ปัญหา:** พบ XSS vulnerabilities 10 จุด + permission ที่หลวมเกินไป
+
+**สิ่งที่แก้ไข:**
+1. `validateInput()` — เสริม regex block HTML tags, javascript: URI, event handlers
+2. `renderActivityLog()` — sanitize title + details
+3. `showUserManagement()` — sanitize username, name, role, id
+4. `showEditUserForm()` — sanitize input values
+5. `renderPendingResults()` — sanitize all fields + URL validation
+6. `generateSinglePrintContent()` — sanitize all fields + cardImage URL validation
+7. `generatePrintContent()` — เหมือน #6
+8. `viewImage()` — sanitize + URL validation (https/data:image only)
+9. `batchPrint()` — เปลี่ยนเป็น async `markAsPrinted()` (sync Supabase)
+10. `pending_receipts` RLS policy SQL — จำกัด INSERT เฉพาะ service_role (รอตารางถูกสร้าง)
+
+**Permission Fix (Fix 11):**
+- ลบ `delete` จาก manager permissions ใน auth.js
+- เพิ่ม admin check guard ใน `deleteRecord()`
+- ซ่อน delete button สำหรับ non-admin
+- แก้ timing bug: ย้าย `applyPermissions()` ก่อน `loadRegistryData()`
+
+**Deploy:** Commit `c7ccc9e` → pushed to main
+
+### Phase 2: Print Layout Enhancement (v6.1.0)
+
+**ปัญหาจากหน้างาน:** เจ้าหน้าที่ปริ้นเอกสารรอไว้ล่วงหน้า เมื่อลูกค้ามารับบัตร ต้องค้นหาเอกสารจากกองกระดาษ ทำให้เสียเวลา
+
+**4 ฟีเจอร์ที่เพิ่ม:**
+1. **ตัวอักษรหมวดหมู่ A-Z** — มุมขวาบน 36px กรอบสี (ข้าม prefix mr./mrs./miss/ms.)
+2. **แถบสี 5 กลุ่ม** — A-E แดง, F-J เขียว, K-O น้ำเงิน, P-T ส้ม, U-Z ม่วง
+3. **Doc No. ขยายใหญ่** — จาก 10px เทา เป็น 16px ตัวหนาดำ
+4. **Batch print เรียง A-Z** — อัตโนมัติตามชื่อจริง
+
+**เพิ่มเติม:**
+- แถบสีหมวดหมู่ในตาราง registry (border-left สีที่ column ลำดับ)
+- Preview อัปเดตแสดง category badge + แถบสี + Doc No. ใหญ่
+- Bump cache version เป็น v6.1
+
+**ไฟล์ที่แก้:**
+- `js/app-supabase.js` — getCategoryInfo(), generateSinglePrintContent(), generatePrintContent(), batchPrint(), updateReceiptPreview(), renderRegistryTable()
+- `index.html` — เพิ่ม category badge element, bump version v6.1
+- `css/style.css` — .category-badge, .receipt-document position, .footer-doc ขยาย
+
+**Deploy:** Commit `5253e75` → pushed to main
+
+### Git Commits (Session นี้)
+
+| Commit | Description |
+|--------|-------------|
+| `c7ccc9e` | security: แก้ไข XSS vulnerabilities + delete permission control |
+| `5253e75` | feat: ระบบหมวดหมู่ A-Z + แถบสี + Doc No. ขยาย + batch sort |
+
+### Notice
+- **pending_receipts RLS policy**: เมื่อเปิด VP API integration และสร้างตาราง `pending_receipts` ต้อง run `supabase-update-v6.0.2-security.sql` ทันที
+
+---
+
+## Session End (v6.1.0)
+- **Status:** Security patched ✅ | Print enhancement deployed ✅
+- **Current Version:** 6.1.0
+- **Live URL:** https://receipt.fts-internal.com
+- **VP Feature:** ปิดไว้ชั่วคราว (รอ migration + API credentials)
+- **Pending SQL:** `supabase-update-v6.0.2-security.sql` (รอตาราง pending_receipts ถูกสร้าง)
