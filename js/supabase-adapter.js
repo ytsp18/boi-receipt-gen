@@ -112,14 +112,18 @@ async function saveReceiptToSupabase(receiptData, cardImageFile = null) {
         };
 
         let result;
-        if (existing) {
-            // Update existing
+        if (existing && receiptData.isEdit) {
+            // Update existing (only when explicitly editing)
             result = await window.supabaseClient
                 .from('receipts')
                 .update(receiptPayload)
                 .eq('receipt_no', receiptData.receiptNo)
                 .select()
                 .single();
+        } else if (existing && !receiptData.isEdit) {
+            // Race condition: another user already saved this receipt number
+            // Throw error so the caller can handle it
+            throw new Error(`เลขรับที่ ${receiptData.receiptNo} ถูกใช้ไปแล้วโดยผู้ใช้อื่น กรุณาลองใหม่อีกครั้ง`);
         } else {
             // Insert new
             const user = await window.supabaseClient.auth.getUser();

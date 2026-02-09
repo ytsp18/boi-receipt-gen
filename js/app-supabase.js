@@ -1304,21 +1304,50 @@ async function saveData() {
     elements.saveBtn.textContent = '⏳ กำลังบันทึก...';
 
     try {
-        // Save to Supabase
-        const receiptData = {
-            receiptNo: state.formData.receiptNo,
-            receiptDate: state.formData.receiptDate,
-            foreignerName: state.formData.foreignerName,
-            snNumber: state.formData.snNumber,
-            requestNo: state.formData.requestNo,
-            appointmentNo: state.formData.appointmentNo
-        };
+        const isEdit = state.formMode === 'edit';
+        const maxRetries = 3;
+        let saved = false;
 
-        // Upload image if exists and save receipt
-        await SupabaseAdapter.saveReceipt(receiptData, state.formData.cardImage);
+        for (let attempt = 1; attempt <= maxRetries && !saved; attempt++) {
+            try {
+                // For new records, always re-generate receipt number before save
+                // to prevent race condition when 3 users get same number
+                if (!isEdit) {
+                    const freshReceiptNo = await SupabaseAdapter.getNextReceiptNo();
+                    if (freshReceiptNo !== state.formData.receiptNo) {
+                        console.log(`⚠️ Attempt ${attempt}: Receipt number updated: ${state.formData.receiptNo} → ${freshReceiptNo}`);
+                        state.formData.receiptNo = freshReceiptNo;
+                        elements.receiptNo.value = freshReceiptNo;
+                        updateReceiptPreview();
+                    }
+                }
+
+                // Save to Supabase
+                const receiptData = {
+                    receiptNo: state.formData.receiptNo,
+                    receiptDate: state.formData.receiptDate,
+                    foreignerName: state.formData.foreignerName,
+                    snNumber: state.formData.snNumber,
+                    requestNo: state.formData.requestNo,
+                    appointmentNo: state.formData.appointmentNo,
+                    isEdit: isEdit
+                };
+
+                // Upload image if exists and save receipt
+                await SupabaseAdapter.saveReceipt(receiptData, state.formData.cardImage);
+                saved = true;
+
+            } catch (retryError) {
+                console.warn(`⚠️ Save attempt ${attempt} failed:`, retryError.message);
+                if (attempt === maxRetries) {
+                    throw retryError; // All retries exhausted
+                }
+                // Small delay before retry to let other saves complete
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        }
 
         // Show success message
-        const isEdit = state.formMode === 'edit';
         const savedReceiptNo = state.formData.receiptNo;
         const savedName = state.formData.foreignerName;
 
