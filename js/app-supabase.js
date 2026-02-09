@@ -1974,8 +1974,8 @@ function printFromTable(receiptNo) {
     }
 
     // Store receipt info for confirmation
-    const receiptNo = state.formData.receiptNo;
-    const foreignerName = state.formData.foreignerName;
+    const printReceiptNo = state.formData.receiptNo;
+    const printName = state.formData.foreignerName;
 
     // Generate print content and print
     const printContent = generatePrintContent();
@@ -1985,8 +1985,8 @@ function printFromTable(receiptNo) {
     // Ask for confirmation after print dialog closes
     setTimeout(() => {
         if (confirm('พิมพ์ใบรับเรียบร้อยแล้วหรือไม่?')) {
-            markAsPrinted(receiptNo);
-            addActivity('print', `พิมพ์ใบรับ ${receiptNo}`, foreignerName);
+            markAsPrinted(printReceiptNo);
+            addActivity('print', `พิมพ์ใบรับ ${printReceiptNo}`, printName);
         }
     }, 500);
 }
