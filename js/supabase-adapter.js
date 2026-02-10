@@ -179,6 +179,10 @@ async function saveReceiptToSupabase(receiptData, cardImageFile = null) {
 
         let result;
         if (existing && receiptData.isEdit) {
+            // v7.1 - Set updated_at explicitly for update
+            receiptPayload.updated_at = new Date().toISOString();
+            console.log('📝 UPDATE mode - payload:', JSON.stringify(receiptPayload));
+
             // Update existing (only when explicitly editing)
             result = await window.supabaseClient
                 .from('receipts')
@@ -186,6 +190,12 @@ async function saveReceiptToSupabase(receiptData, cardImageFile = null) {
                 .eq('receipt_no', receiptData.receiptNo)
                 .select()
                 .single();
+
+            // v7.1 - Validate update actually succeeded
+            console.log('📝 UPDATE result:', result.data ? 'success' : 'no data returned', result.error ? 'error: ' + result.error.message : '');
+            if (!result.data && !result.error) {
+                throw new Error('ไม่สามารถอัพเดทข้อมูลได้ — ไม่พบรายการที่ต้องการแก้ไข');
+            }
         } else if (existing && !receiptData.isEdit) {
             // Race condition: another user already saved this receipt number
             // Throw error so the caller can handle it
@@ -434,6 +444,57 @@ async function loadAnalyticsSummary(days = 30) {
 }
 
 // ==================== //
+// Duplicate Check (v7.1)
+// ==================== //
+
+// Check if SN number already exists across all dates
+async function checkDuplicateSNFromSupabase(snNumber, excludeReceiptNo = null) {
+    try {
+        if (!snNumber || !snNumber.trim()) return [];
+
+        let query = window.supabaseClient
+            .from('receipts')
+            .select('receipt_no, foreigner_name, receipt_date')
+            .eq('sn_number', snNumber.trim());
+
+        if (excludeReceiptNo) {
+            query = query.neq('receipt_no', excludeReceiptNo);
+        }
+
+        const { data, error } = await query.limit(5);
+        if (error) throw error;
+        return data || [];
+    } catch (e) {
+        console.error('Error checking duplicate SN:', e);
+        return []; // Don't block save on check failure
+    }
+}
+
+// Check if same name exists on the same date
+async function checkDuplicateNameFromSupabase(foreignerName, receiptDate, excludeReceiptNo = null) {
+    try {
+        if (!foreignerName || !foreignerName.trim()) return [];
+
+        let query = window.supabaseClient
+            .from('receipts')
+            .select('receipt_no, foreigner_name, sn_number')
+            .eq('foreigner_name', foreignerName.trim())
+            .eq('receipt_date', receiptDate);
+
+        if (excludeReceiptNo) {
+            query = query.neq('receipt_no', excludeReceiptNo);
+        }
+
+        const { data, error } = await query.limit(5);
+        if (error) throw error;
+        return data || [];
+    } catch (e) {
+        console.error('Error checking duplicate name:', e);
+        return []; // Don't block save on check failure
+    }
+}
+
+// ==================== //
 // Get Next Receipt Number
 // ==================== //
 
@@ -484,7 +545,10 @@ window.SupabaseAdapter = {
     loadActivityLog: loadActivityLogFromSupabase,
     getNextReceiptNo: getNextReceiptNoFromSupabase,
     uploadImage: uploadImageToSupabase,
-    loadAnalyticsSummary: loadAnalyticsSummary
+    loadAnalyticsSummary: loadAnalyticsSummary,
+    // v7.1 - Duplicate check
+    checkDuplicateSN: checkDuplicateSNFromSupabase,
+    checkDuplicateName: checkDuplicateNameFromSupabase
 };
 
-console.log('✅ Supabase Adapter Loaded');
+console.log('✅ Supabase Adapter Loaded (v7.1)');

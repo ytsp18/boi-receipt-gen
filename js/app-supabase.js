@@ -1634,6 +1634,45 @@ async function saveData() {
         return;
     }
 
+    // v7.1 - Duplicate check before saving
+    const isEditMode = state.formMode === 'edit';
+    const excludeReceiptNo = isEditMode ? state.editingReceiptNo : null;
+    const duplicateWarnings = [];
+
+    try {
+        // Check duplicate SN across all dates
+        if (state.formData.snNumber) {
+            const snDuplicates = await SupabaseAdapter.checkDuplicateSN(state.formData.snNumber, excludeReceiptNo);
+            if (snDuplicates.length > 0) {
+                const details = snDuplicates.map(d => `${d.receipt_no} (${d.foreigner_name})`).join(', ');
+                duplicateWarnings.push(`SN "${state.formData.snNumber}" มีอยู่แล้วใน: ${details}`);
+            }
+        }
+
+        // Check duplicate name on same date
+        if (state.formData.foreignerName) {
+            const nameDuplicates = await SupabaseAdapter.checkDuplicateName(
+                state.formData.foreignerName,
+                state.formData.receiptDate,
+                excludeReceiptNo
+            );
+            if (nameDuplicates.length > 0) {
+                const details = nameDuplicates.map(d => d.receipt_no).join(', ');
+                duplicateWarnings.push(`ชื่อ "${state.formData.foreignerName}" มีอยู่แล้วในวันเดียวกัน: ${details}`);
+            }
+        }
+    } catch (dupError) {
+        console.warn('Duplicate check failed (non-blocking):', dupError.message);
+    }
+
+    if (duplicateWarnings.length > 0) {
+        const msg = '⚠️ พบข้อมูลที่อาจซ้ำ:\n\n' + duplicateWarnings.join('\n\n') + '\n\nต้องการบันทึกต่อหรือไม่?';
+        if (!confirm(msg)) {
+            UXAnalytics.trackError('duplicate_cancelled', { warnings: duplicateWarnings.length });
+            return;
+        }
+    }
+
     // Disable save button while saving
     elements.saveBtn.disabled = true;
     elements.saveBtn.textContent = '⏳ กำลังบันทึก...';
