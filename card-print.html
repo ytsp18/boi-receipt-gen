@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบล็อกพิมพ์บัตร - EWP Service Center</title>
+    <link rel="stylesheet" href="css/style.css?v=8.0">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Card Print Lock specific styles */
+        .card-print-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .lock-form-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .lock-form-card h2 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            color: #1e3a5f;
+        }
+
+        .lock-form-row {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1.5fr 2fr auto;
+            gap: 10px;
+            align-items: end;
+        }
+
+        .lock-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .lock-form-group label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .lock-form-group input {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-family: 'Sarabun', sans-serif;
+            transition: border-color 0.2s;
+        }
+
+        .lock-form-group input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .lock-form-group input.input-large {
+            font-size: 1.1rem;
+            padding: 10px 14px;
+            font-weight: 600;
+        }
+
+        .btn-lock {
+            padding: 10px 24px;
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Sarabun', sans-serif;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+
+        .btn-lock:hover { background: #1d4ed8; }
+        .btn-lock:disabled { background: #9ca3af; cursor: not-allowed; }
+
+        .officer-display {
+            font-size: 0.85rem;
+            color: #374151;
+            padding: 6px 0;
+        }
+
+        .officer-display strong {
+            color: #1e3a5f;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .stat-chip {
+            background: #f3f4f6;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: #374151;
+            font-weight: 500;
+        }
+
+        .stat-chip.total {
+            background: #1e3a5f;
+            color: #fff;
+        }
+
+        .stat-chip.spoiled {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        /* Locks table */
+        .locks-table-wrapper {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .locks-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.82rem;
+        }
+
+        .locks-table thead th {
+            background: #f8fafc;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+            position: sticky;
+            top: 0;
+            white-space: nowrap;
+        }
+
+        .locks-table tbody td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f3f4f6;
+            vertical-align: middle;
+        }
+
+        .locks-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .locks-table tbody tr.own-row {
+            font-weight: 500;
+        }
+
+        /* Officer color coding */
+        .officer-color-0 { background-color: #e8f5e9 !important; }
+        .officer-color-1 { background-color: #e3f2fd !important; }
+        .officer-color-2 { background-color: #fff3e0 !important; }
+        .officer-color-3 { background-color: #f3e5f5 !important; }
+        .officer-color-4 { background-color: #fce4ec !important; }
+        .officer-color-5 { background-color: #e0f2f1 !important; }
+        .officer-color-6 { background-color: #fff8e1 !important; }
+        .officer-color-7 { background-color: #f1f8e9 !important; }
+
+        /* Status badges */
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+
+        .status-locked {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-printed {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-completed {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        /* S/N inline form */
+        .sn-form-inline {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .sn-form-inline input {
+            width: 100px;
+            padding: 4px 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-family: 'Sarabun', sans-serif;
+        }
+
+        .sn-form-inline input:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .btn-sn-save {
+            padding: 4px 10px;
+            background: #10b981;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            font-family: 'Sarabun', sans-serif;
+        }
+
+        .btn-sn-add {
+            padding: 4px 10px;
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            font-family: 'Sarabun', sans-serif;
+        }
+
+        .btn-sn-add:hover { background: #e5e7eb; }
+
+        .btn-delete {
+            padding: 4px 8px;
+            background: none;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            cursor: pointer;
+        }
+
+        .btn-delete:hover { background: #fef2f2; }
+
+        /* Duplicate warning */
+        .duplicate-warning {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 10px 16px;
+            color: #dc2626;
+            font-weight: 500;
+            margin-top: 8px;
+            display: none;
+            font-size: 0.85rem;
+        }
+
+        .duplicate-warning.show {
+            display: block;
+        }
+
+        /* Toast notification */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+            max-width: 400px;
+        }
+
+        .toast-success { background: #10b981; color: #fff; }
+        .toast-error { background: #ef4444; color: #fff; }
+        .toast-info { background: #3b82f6; color: #fff; }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes toastOut {
+            from { opacity: 1; }
+            to { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .lock-form-row {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .lock-form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+
+        .empty-state p {
+            font-size: 0.9rem;
+        }
+
+        /* Keyboard shortcut hint */
+        .shortcut-hint {
+            font-size: 0.7rem;
+            color: #9ca3af;
+            margin-top: 8px;
+        }
+
+        kbd {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-size: 0.7rem;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>ระบบล็อกพิมพ์บัตร</h1>
+                <p class="subtitle">ป้องกันพิมพ์ซ้ำ - EWP Service Center</p>
+            </div>
+            <div class="header-right">
+                <div class="user-info" id="userInfo">
+                    <span class="user-name" id="currentUserName">-</span>
+                    <span class="user-role" id="currentUserRole">-</span>
+                </div>
+                <a id="backToMainBtn" class="btn btn-outline btn-sm" href="index.html">กลับหน้าหลัก</a>
+                <button class="btn btn-outline-danger btn-sm" id="logoutBtn">ออกจากระบบ</button>
+            </div>
+        </header>
+
+        <div class="card-print-container">
+            <!-- Lock Form -->
+            <div class="lock-form-card">
+                <h2>ล็อกรายการใหม่</h2>
+                <div class="officer-display">เจ้าหน้าที่: <strong id="officerNameDisplay">-</strong></div>
+                <form id="lockForm" autocomplete="off">
+                    <div class="lock-form-row">
+                        <div class="lock-form-group">
+                            <label for="appointmentInput">เลขนัดหมาย *</label>
+                            <input type="text" id="appointmentInput" class="input-large" placeholder="paste หรือ scan เลขนัดหมาย" required>
+                        </div>
+                        <div class="lock-form-group">
+                            <label for="requestNoInput">เลขที่คำขอ</label>
+                            <input type="text" id="requestNoInput" placeholder="เลขที่คำขอ (ถ้ามี)">
+                        </div>
+                        <div class="lock-form-group">
+                            <label for="passportInput">เลข Passport</label>
+                            <input type="text" id="passportInput" placeholder="เลข Passport (ถ้ามี)">
+                        </div>
+                        <div class="lock-form-group">
+                            <label for="nameInput">ชื่อ</label>
+                            <input type="text" id="nameInput" placeholder="ชื่อ (ถ้ามี)">
+                        </div>
+                        <button type="submit" class="btn-lock" id="lockBtn">ล็อก</button>
+                    </div>
+                </form>
+                <div class="duplicate-warning" id="duplicateWarning"></div>
+                <div class="shortcut-hint">
+                    <kbd>Enter</kbd> ล็อกทันที &nbsp; <kbd>Ctrl+L</kbd> focus ช่องนัดหมาย
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="stats-bar" id="statsBar">
+                <span class="stat-chip total" id="statTotal">วันนี้: 0 รายการ</span>
+            </div>
+
+            <!-- Locks Table -->
+            <div class="locks-table-wrapper">
+                <table class="locks-table" id="locksTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>เลขนัดหมาย</th>
+                            <th>เลขที่คำขอ</th>
+                            <th>Passport</th>
+                            <th>ชื่อ</th>
+                            <th>เจ้าหน้าที่</th>
+                            <th>S/N บัตรดี</th>
+                            <th>S/N บัตรเสีย</th>
+                            <th>สถานะ</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="locksTableBody">
+                        <tr><td colspan="10" class="empty-state"><p>ยังไม่มีรายการล็อกวันนี้</p></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Version Badge -->
+    <div class="version-badge">v8.0</div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js?v=8.0"></script>
+    <script>
+        // Ensure Supabase is initialized (retry if CDN loaded late)
+        if (!window.supabaseClient && window.supabase) {
+            window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+        if (!window.supabaseClient) {
+            setTimeout(() => {
+                if (!window.supabaseClient && window.supabase) {
+                    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                }
+            }, 100);
+        }
+    </script>
+    <script src="js/auth.js?v=8.0"></script>
+    <script src="js/card-print-app.js?v=8.0"></script>
+
+    <script>
+        // Show environment badge if not production
+        if (window.SUPABASE_ENV && window.SUPABASE_ENV.isSIT) {
+            const envBadge = document.createElement('div');
+            envBadge.className = 'version-badge';
+            envBadge.style.cssText = 'bottom: 28px; background: #f97316; color: #fff;';
+            envBadge.textContent = 'SIT ENV';
+            document.body.appendChild(envBadge);
+            document.title = '[SIT] ' + document.title;
+        }
+    </script>
+</body>
+</html>

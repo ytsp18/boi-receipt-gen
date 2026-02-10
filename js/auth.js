@@ -4,6 +4,15 @@
  */
 
 // ==================== //
+// Environment-aware redirect helper
+// ==================== //
+function getEnvParam() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const env = urlParams.get('env');
+    return env ? `?env=${env}` : '';
+}
+
+// ==================== //
 // Role Permissions
 // ==================== //
 const ROLE_PERMISSIONS = {
@@ -105,10 +114,10 @@ async function logout() {
             await client.auth.signOut();
         }
         cachedProfile = null;
-        window.location.href = 'login.html';
+        window.location.href = 'login.html' + getEnvParam();
     } catch (e) {
         console.error('Logout error:', e);
-        window.location.href = 'login.html';
+        window.location.href = 'login.html' + getEnvParam();
     }
 }
 
@@ -196,7 +205,7 @@ async function hasPermission(permission) {
 async function requireAuth() {
     const loggedIn = await isLoggedIn();
     if (!loggedIn) {
-        window.location.href = 'login.html';
+        window.location.href = 'login.html' + getEnvParam();
         return false;
     }
     return true;
@@ -468,7 +477,7 @@ if (document.getElementById('loginForm')) {
         const result = await login(email, password);
 
         if (result.success) {
-            window.location.href = 'index.html';
+            window.location.href = 'index.html' + getEnvParam();
         } else {
             errorEl.textContent = result.error;
             errorEl.classList.add('show');

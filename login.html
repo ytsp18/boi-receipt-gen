@@ -262,22 +262,44 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // Wait for Supabase to load, then initialize
-        function initSupabase() {
-            const SUPABASE_URL = 'https://pyyltrcqeyfhidpcdtvc.supabase.co';
-            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5eWx0cmNxZXlmaGlkcGNkdHZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMjE0MzcsImV4cCI6MjA4NTc5NzQzN30.vRJk8x6Kmo2rFYrJ6ZGqPWf3LSjLmb41COLJAP5glYo';
+        // Environment switching - same as supabase-config.js
+        const SUPABASE_ENVIRONMENTS = {
+            production: {
+                url: 'https://pyyltrcqeyfhidpcdtvc.supabase.co',
+                anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5eWx0cmNxZXlmaGlkcGNkdHZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMjE0MzcsImV4cCI6MjA4NTc5NzQzN30.vRJk8x6Kmo2rFYrJ6ZGqPWf3LSjLmb41COLJAP5glYo',
+                label: 'Production'
+            },
+            sit: {
+                url: 'https://cctzbereqvuaunweuqho.supabase.co',
+                anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjdHpiZXJlcXZ1YXVud2V1cWhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2ODg0MDAsImV4cCI6MjA4NjI2NDQwMH0.jUEWda9uWtsJPak73fqvRZKnk6Qi2ciYNio3B3ex5Yo',
+                label: 'SIT (Testing)'
+            }
+        };
 
+        function detectEnvironment() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const envParam = urlParams.get('env');
+            if (envParam && SUPABASE_ENVIRONMENTS[envParam]) return envParam;
+            return 'production';
+        }
+
+        const CURRENT_ENV = detectEnvironment();
+        const SUPABASE_URL = SUPABASE_ENVIRONMENTS[CURRENT_ENV].url;
+        const SUPABASE_ANON_KEY = SUPABASE_ENVIRONMENTS[CURRENT_ENV].anonKey;
+
+        // Store env for redirect
+        window.SUPABASE_LOGIN_ENV = CURRENT_ENV;
+
+        function initSupabase() {
             if (window.supabase && window.supabase.createClient) {
                 window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                console.log('✅ Supabase initialized');
+                console.log(`✅ Supabase initialized [${SUPABASE_ENVIRONMENTS[CURRENT_ENV].label}]`);
                 return true;
             }
             return false;
         }
 
-        // Try to init immediately
         if (!initSupabase()) {
-            // If not ready, wait and retry
             setTimeout(initSupabase, 100);
         }
     </script>

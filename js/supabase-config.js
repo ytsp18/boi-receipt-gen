@@ -1,21 +1,63 @@
 /**
  * Supabase Configuration
  * ระบบเชื่อมต่อ Supabase - BOI Work Permit Receipt System
+ *
+ * Environment Switching:
+ * - Production (default): ใช้งานจริง
+ * - SIT: สำหรับทดสอบ v7.0 features
+ *
+ * วิธีสลับ environment:
+ * 1. เปลี่ยน SUPABASE_ENV ด้านล่าง
+ * 2. หรือเพิ่ม ?env=sit ใน URL (e.g. index.html?env=sit)
  */
 
-// Supabase Configuration
-const SUPABASE_URL = 'https://pyyltrcqeyfhidpcdtvc.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5eWx0cmNxZXlmaGlkcGNkdHZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMjE0MzcsImV4cCI6MjA4NTc5NzQzN30.vRJk8x6Kmo2rFYrJ6ZGqPWf3LSjLmb41COLJAP5glYo';
+// Environment configs
+const SUPABASE_ENVIRONMENTS = {
+    production: {
+        url: 'https://pyyltrcqeyfhidpcdtvc.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5eWx0cmNxZXlmaGlkcGNkdHZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMjE0MzcsImV4cCI6MjA4NTc5NzQzN30.vRJk8x6Kmo2rFYrJ6ZGqPWf3LSjLmb41COLJAP5glYo',
+        label: 'Production'
+    },
+    sit: {
+        url: 'https://cctzbereqvuaunweuqho.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjdHpiZXJlcXZ1YXVud2V1cWhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2ODg0MDAsImV4cCI6MjA4NjI2NDQwMH0.jUEWda9uWtsJPak73fqvRZKnk6Qi2ciYNio3B3ex5Yo',
+        label: 'SIT (Testing)'
+    }
+};
+
+// Default environment - change this to switch
+const SUPABASE_DEFAULT_ENV = 'production';
+
+// Detect environment from URL param or use default
+function detectEnvironment() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const envParam = urlParams.get('env');
+    if (envParam && SUPABASE_ENVIRONMENTS[envParam]) {
+        return envParam;
+    }
+    return SUPABASE_DEFAULT_ENV;
+}
+
+const CURRENT_ENV = detectEnvironment();
+const SUPABASE_URL = SUPABASE_ENVIRONMENTS[CURRENT_ENV].url;
+const SUPABASE_ANON_KEY = SUPABASE_ENVIRONMENTS[CURRENT_ENV].anonKey;
 
 // Initialize Supabase Client - check if already initialized or library is loaded
 if (!window.supabaseClient) {
     if (window.supabase && typeof window.supabase.createClient === 'function') {
         window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log('✅ Supabase client initialized from config');
+        console.log(`✅ Supabase client initialized [${SUPABASE_ENVIRONMENTS[CURRENT_ENV].label}]`);
     } else {
         console.error('❌ Supabase library not loaded');
     }
 }
+
+// Store current environment info for UI display
+window.SUPABASE_ENV = {
+    name: CURRENT_ENV,
+    label: SUPABASE_ENVIRONMENTS[CURRENT_ENV].label,
+    isSIT: CURRENT_ENV === 'sit'
+};
 
 // Helper function to get the client
 function getSupabase() {
@@ -421,12 +463,134 @@ const SupabaseUsers = {
     }
 };
 
+// ==================== //
+// Card Print Lock Functions
+// ==================== //
+
+const SupabaseCardPrintLock = {
+    // Get today's locks (all officers)
+    async getToday() {
+        const client = getSupabase();
+        const today = new Date().toISOString().split('T')[0];
+        const { data, error } = await client
+            .from('card_print_locks')
+            .select('*')
+            .eq('lock_date', today)
+            .order('created_at', { ascending: true });
+        if (error) throw error;
+        return data || [];
+    },
+
+    // Create a new lock
+    async create(lockData) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('card_print_locks')
+            .insert(lockData)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    // Update serial number and status
+    async updateSN(id, snData) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('card_print_locks')
+            .update({ ...snData, status: 'printed' })
+            .eq('id', id)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    // Mark as completed
+    async complete(id) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('card_print_locks')
+            .update({ status: 'completed' })
+            .eq('id', id)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    // Delete lock (admin only — RLS enforced)
+    async delete(id) {
+        const client = getSupabase();
+        const { error } = await client
+            .from('card_print_locks')
+            .delete()
+            .eq('id', id);
+        if (error) throw error;
+    },
+
+    // Search locks (current + recent)
+    async search(query) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('card_print_locks')
+            .select('*')
+            .or(`appointment_id.ilike.%${query}%,foreigner_name.ilike.%${query}%,request_no.ilike.%${query}%`)
+            .order('created_at', { ascending: false })
+            .limit(50);
+        if (error) throw error;
+        return data || [];
+    },
+
+    // Get by appointment_id (for cross-use auto-fill)
+    async getByAppointment(appointmentId) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('card_print_locks')
+            .select('*')
+            .ilike('appointment_id', appointmentId.trim())
+            .single();
+        if (error && error.code !== 'PGRST116') throw error;
+        return data;
+    },
+
+    // Search archive (for S/N history lookup)
+    async searchArchive(query) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('card_print_locks_archive')
+            .select('*')
+            .or(`sn_good.ilike.%${query}%,sn_spoiled.ilike.%${query}%,appointment_id.ilike.%${query}%`)
+            .order('created_at', { ascending: false })
+            .limit(20);
+        if (error) throw error;
+        return data || [];
+    },
+
+    // Get summary stats for today
+    async getTodayStats() {
+        const data = await this.getToday();
+        const stats = {
+            total: data.length,
+            byOfficer: {},
+            spoiledCount: 0
+        };
+        data.forEach(lock => {
+            const name = lock.officer_name || 'Unknown';
+            stats.byOfficer[name] = (stats.byOfficer[name] || 0) + 1;
+            if (lock.sn_spoiled) stats.spoiledCount++;
+        });
+        return stats;
+    }
+};
+
 // Export for use
 window.SupabaseAuth = SupabaseAuth;
 window.SupabaseReceipts = SupabaseReceipts;
 window.SupabaseStorage = SupabaseStorage;
 window.SupabaseActivityLog = SupabaseActivityLog;
 window.SupabaseUsers = SupabaseUsers;
+window.SupabaseCardPrintLock = SupabaseCardPrintLock;
 window.getSupabase = getSupabase;
 
 console.log('✅ Supabase Config Loaded');

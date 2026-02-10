@@ -99,6 +99,32 @@ body {
     white-space: nowrap;
 }
 
+/* Header buttons — high contrast on dark background */
+.header .btn-outline {
+    border-color: rgba(255, 255, 255, 0.5);
+    color: white;
+    background-color: rgba(255, 255, 255, 0.1);
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.header .btn-outline:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+.header .btn-outline-danger {
+    border-color: rgba(255, 120, 120, 0.6);
+    color: #fecaca;
+    background-color: rgba(220, 38, 38, 0.2);
+}
+
+.header .btn-outline-danger:hover {
+    background-color: rgba(220, 38, 38, 0.4);
+    border-color: rgba(255, 120, 120, 0.9);
+    color: white;
+}
+
 /* ==================== */
 /* Modal */
 /* ==================== */
@@ -971,6 +997,75 @@ body {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
+/* Recent Receipts Dropdown */
+.recent-receipts-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 100;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.recent-receipts-dropdown .recent-header {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    color: #6b7280;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.recent-receipts-dropdown .recent-header button {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+}
+
+.recent-receipts-dropdown .recent-header button:hover {
+    color: #ef4444;
+}
+
+.recent-receipts-dropdown .recent-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    border-bottom: 1px solid #f9fafb;
+}
+
+.recent-receipts-dropdown .recent-item:hover,
+.recent-receipts-dropdown .recent-item.active {
+    background: #eff6ff;
+}
+
+.recent-receipts-dropdown .recent-item .recent-name {
+    color: #374151;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recent-receipts-dropdown .recent-item .recent-no {
+    color: #6b7280;
+    font-size: 0.75rem;
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
 .filter-select {
     padding: 8px 12px;
     border: 1px solid var(--border-color);
@@ -1271,7 +1366,7 @@ tr:last-child td {
 
     /* Force single page per receipt */
     .print-receipt-page {
-        page-break-after: always;
+        page-break-after: auto;
         page-break-inside: avoid;
         width: 190mm !important;
         max-width: 190mm !important;
@@ -1281,10 +1376,6 @@ tr:last-child td {
         margin: 0 auto !important;
         padding: 3mm 8mm !important;
         box-sizing: border-box !important;
-    }
-
-    .print-receipt-page:last-child {
-        page-break-after: auto;
     }
 
     /* Compact print: reduce image and spacing */
@@ -1949,6 +2040,197 @@ tr:last-child td {
 
 @media print {
     .version-badge {
+        display: none;
+    }
+}
+
+/* ==================== */
+/* v7.0 - Webcam & Signature Pad */
+/* ==================== */
+
+/* Webcam Capture Area */
+.webcam-capture-area {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius);
+    padding: 12px;
+    background: #fafbfc;
+}
+
+.webcam-container {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    aspect-ratio: 4/3;
+    background: #1f2937;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.webcam-video,
+.webcam-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.webcam-canvas {
+    display: none;
+}
+
+.webcam-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.webcam-placeholder .upload-icon {
+    font-size: 2rem;
+}
+
+.webcam-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.camera-select {
+    flex: 1;
+    min-width: 120px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    background: white;
+}
+
+/* Signature Pad */
+.signature-pad-wrapper {
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    background: white;
+    padding: 8px;
+}
+
+.signature-pad-canvas {
+    width: 100%;
+    height: 150px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.signature-pad-modal .signature-pad-canvas {
+    height: 200px;
+}
+
+.signature-pad-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* Officer Signature Display */
+.officer-signature-display {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius);
+    padding: 12px;
+    text-align: center;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fafbfc;
+}
+
+.officer-signature-img {
+    max-width: 200px;
+    max-height: 80px;
+    object-fit: contain;
+}
+
+.officer-signature-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--warning-color);
+    font-size: 0.85rem;
+}
+
+/* Officer Signature Modal */
+.modal-description {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+}
+
+.current-signature-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.current-signature-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.current-signature-img {
+    max-width: 250px;
+    max-height: 100px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 8px;
+    background: white;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    justify-content: flex-end;
+}
+
+/* Receipt Preview - Photo & Signature */
+.receipt-photo-box {
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.receipt-photo-box img {
+    max-width: 120px;
+    max-height: 120px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.signature-img-preview {
+    max-width: 80%;
+    max-height: 40px;
+    object-fit: contain;
+    margin-bottom: 4px;
+}
+
+/* Print styles for photo & signature */
+@media print {
+    .webcam-capture-area,
+    .signature-pad-wrapper,
+    .officer-signature-display,
+    .webcam-controls,
+    .signature-pad-controls {
         display: none;
     }
 }

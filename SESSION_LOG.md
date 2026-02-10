@@ -1,5 +1,39 @@
 # Session Log - Work Permit Receipt System
 
+## Session Date: 10 February 2026 (Evening) — v8.1.0 Production Deploy
+
+### สิ่งที่ทำ
+1. **ตรวจสอบ uncommitted work** จาก session ก่อน (~2,600 lines, v7.0-v8.1)
+2. **ซ่อน v7.0 E-Sign** (webcam, signature pad, officer signature) ด้วย display:none + JS guard
+   - รอ hardware testing (RAPOO C280) ก่อนเปิดใช้
+3. **แก้ layout bug** — preview panel หลุดจาก grid เพราะ unclosed `<div>` ใน webcam section
+4. **ปรับ header UX** — เปลี่ยนสี buttons ให้ตัดกับพื้นน้ำเงิน (high contrast white borders)
+5. **ซ่อน v7.0 filter/summary** — ลบ "เซ็นชื่อแล้ว/ยังไม่เซ็นชื่อ" จาก filter + summary card
+6. **Bump version** — v6.3.0 → v8.1.0, cache bust ?v=8.1 ทุกไฟล์
+7. **อัปเดตเอกสาร** — CHANGELOG, DEVELOPMENT_ROADMAP, SESSION_LOG, MEMORY.md
+
+### Production Deploy Checklist
+- [x] v7.0 E-Sign hidden (form, filter, summary, JS init)
+- [x] v8.0-8.1 features complete (batch optimization, cache, recent receipts, journey, quick print, card print link)
+- [x] Header buttons high contrast
+- [x] Layout verified (form + preview side-by-side)
+- [x] No console errors
+- [x] Version badge v8.1.0
+- [x] Cache bust ?v=8.1
+
+### ⚠️ SQL ที่ต้อง run บน Production Supabase (แยกจาก code deploy)
+- `supabase-update-v8.0-card-print-lock.sql` — ตาราง card_print_locks + archive + cleanup
+- `supabase-update-v8.1-fuzzy-search.sql` — pg_trgm extension + fuzzy search function
+
+### งานคงค้าง
+- v7.0 E-Sign: รอ hardware testing (RAPOE C280 webcam)
+- Security test plan v7.0: 43/45 items ยังไม่ได้ทดสอบ
+- Card Print Lock: ต้อง run SQL v8.0 + ทดสอบ cross-browser Realtime
+- Fuzzy Search: ต้อง run SQL v8.1 บน Production
+- 38 deleted records recovery (รอ staff Excel)
+
+---
+
 ## Session Date: 4 February 2026
 
 ### Session Overview
@@ -911,3 +945,294 @@ git push origin main --force
 - **Live URL:** https://receipt.fts-internal.com
 - **VP Feature:** ปิดไว้ชั่วคราว (รอ migration + API credentials)
 - **Pending SQL:** `supabase-update-v6.0.2-security.sql` (รอตาราง pending_receipts ถูกสร้าง)
+
+---
+
+## Phase 18: Image Compression & Date Filter (v6.2.0)
+
+**Session Date:** 10 February 2026
+
+### ความต้องการ
+รองรับ 250 ใบ/วัน — ลดขนาด storage, ลด bandwidth, ให้ค้นหาข้ามวันได้
+
+### สิ่งที่ทำ
+
+**1. Image Compression**
+- บีบอัดรูปก่อน upload ≤1200px, ≤800KB
+- Block SVG/HTML files (ป้องกัน XSS via image upload)
+- แสดงขนาดไฟล์หลังบีบอัด
+
+**2. Date-Based Loading**
+- Date picker default วันที่ปัจจุบัน
+- โหลดเฉพาะข้อมูลวันที่เลือก (ลด bandwidth)
+- สรุปรายวันเปลี่ยนตามวันที่
+
+**3. Server-Side Search**
+- ค้นหาข้ามวันที่ได้ (ไม่จำกัดเฉพาะวันที่เลือก)
+- ค้นหาด้วยชื่อ, SN, เลขรับที่
+
+**4. SQL Indexes**
+- สร้างไฟล์ `supabase-update-v6.2-indexes.sql`
+- Indexes: `created_at DESC`, `receipt_no`, `foreigner_name`
+
+### Git Commits
+
+| Commit | Description |
+|--------|-------------|
+| — | feat: v6.2.0 image compression + date filter + search |
+
+### Deploy
+- Commit → push to main → GitHub Pages auto-deploy
+- Cache version bump: v6.1 → v6.2
+
+---
+
+## Session End (v6.2.0)
+- **Status:** Deployed ✅
+- **Current Version:** 6.2.0
+- **Live URL:** https://receipt.fts-internal.com
+
+---
+
+## Phase 19: Pagination, Barcode, UX Analytics (v6.3.0)
+
+**Session Date:** 10 February 2026
+
+### ความต้องการ
+1. Pagination 50/หน้า — ตาราง registry + Activity Log
+2. Barcode Code 128 — พิมพ์บนใบรับ + ยิง scanner ค้นหา
+3. UX Analytics — เก็บข้อมูลการใช้งานสำหรับวิเคราะห์
+
+### Git Strategy
+- สร้าง Tag `v6.2.0` เป็น rollback point
+- สร้าง Branch `v6.3-dev` สำหรับพัฒนา
+- เมื่อ test ผ่าน → merge เข้า main
+
+### สิ่งที่ทำ
+
+**1. Pagination (50 ต่อหน้า)**
+- เพิ่ม state: `currentPage`, `pageSize`, `activityPage`, `activityPageSize`
+- แก้ `renderRegistryTable()` → slice ข้อมูลตามหน้า
+- สร้าง `renderPagination()` + `goToPage()` — แสดง "แสดง 1-50 จาก N รายการ"
+- สร้าง `renderActivityPagination()` + `goToActivityPage()`
+- Reset page 1 เมื่อ search/filter/date เปลี่ยน
+- Select All เลือกเฉพาะหน้าปัจจุบัน
+- ซ่อน pagination ใน print
+- เพิ่ม HTML containers + CSS styles
+
+**2. Barcode Code 128**
+- เพิ่ม JsBarcode CDN ใน index.html
+- แก้ `generatePrintContent()` + `generateSinglePrintContent()` — เพิ่ม barcode SVG ที่ footer
+- สร้าง `renderBarcodes()` helper — ใช้ JsBarcode render + fallback
+- เรียก `renderBarcodes()` ใน print paths ทั้ง 3 จุด
+- Barcode config: Code128, width 1.5, height 28, displayValue true
+
+**3. Barcode Scan Detection**
+- เพิ่ม `barcodeScanLastKeyTime` ใน state
+- เพิ่ม `keydown` listener บน search input
+- ตรวจ pattern: พิมพ์เร็ว < 100ms + Enter → bypass debounce, search ทันที
+
+**4. UX Analytics**
+- สร้าง `UXAnalytics` module (IIFE pattern)
+- Functions: `log()`, `startTimer()`, `endTimer()`, `trackFeature()`, `trackJourney()`, `trackError()`
+- Batching: queue + flush ทุก 30s หรือ 50 events + beforeunload
+- Instrument ~20 จุด: save, print, search, filter, export, tab switch, etc.
+- SQL: สร้างตาราง `ux_analytics` + indexes + RLS
+- เพิ่ม `loadAnalyticsSummary()` ใน supabase-adapter.js
+
+**5. Bug Fixes**
+- S1: Search query injection — sanitize input ใน supabase-adapter
+- F1: Batch print selection loss — คง checkbox state หลัง re-render
+- P1: Analytics batching — flush ทุก 30s/50 events แทน immediate INSERT
+
+### Testing (Live Site)
+
+| Test | ผลลัพธ์ |
+|------|---------|
+| Registry Pagination (97 records) | ✅ 50/หน้า, เปลี่ยนหน้าได้ |
+| Activity Log Pagination (454 entries) | ✅ 50/หน้า, 10 หน้า |
+| Barcode on print receipt | ✅ แสดง Code 128 + text |
+| UX Analytics batching | ✅ POST 201 หลัง 30s |
+| Console errors | ✅ ไม่มี errors |
+
+### Print Layout Fixes (4 รอบ)
+
+**ปัญหา:** Print preview แสดง 2 หน้า — barcode/footer ถูกดันไปหน้าที่ 2
+
+**รอบ 1:** ลด padding, margins, font sizes, barcode height → ยังเป็น 2 หน้า
+**รอบ 2:** ลด CSS max-height 277→260mm, padding 5→3mm, image 210→170px → ยังเป็น 2 หน้า
+**รอบ 3:** User feedback "ต้องการให้ขนาดรูปเท่าเดิม ลด header แทน" → คืน image 210px, ลด header 24→18px, info table padding 12→5px, page padding 10→5mm
+**Root cause:** CSS `!important` override JS inline styles + browser "Print headers and footers" กิน ~15mm
+
+**Badge Alignment Fix:**
+- ปัญหา: ตัวอักษรหมวดหมู่ (H, M, X) ไม่อยู่กลางกรอบ header
+- สาเหตุ: `position: absolute; top: 5mm` เปลี่ยนตำแหน่งเมื่อ padding เปลี่ยน
+- แก้: เปลี่ยนเป็น flexbox layout ใน header div (`align-items: center`)
+- แก้ทั้ง 2 templates: `generateSinglePrintContent()` + `generatePrintContent()`
+
+### Git Commits
+
+| Commit | Description |
+|--------|-------------|
+| `8a85941` | docs: เพิ่มแผนพัฒนา (Development Roadmap) สำหรับ v6.3+ |
+| — | feat: v6.3.0 pagination + barcode + UX analytics (on v6.3-dev) |
+| — | merge v6.3-dev → main |
+| `d0dc59d` | fix: ปรับ print layout ให้พอดี 1 หน้า A4 |
+| `07c4d23` | fix: ปรับ print layout รอบ 2 — แก้ยังออก 2 หน้า |
+| `c2872fa` | fix: ปรับ print layout รอบ 3 — คืนขนาดรูป 210px, ลด header/info แทน |
+| `23ef724` | fix: แก้ตัวอักษรหมวดหมู่ไม่อยู่กลางกรอบ header |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `js/app-supabase.js` | +UXAnalytics module, +renderBarcodes(), +barcode scan, +pagination ×2, +instrument ~20 จุด, print layout fixes, badge alignment fix |
+| `js/supabase-adapter.js` | +activity log limit 500, +loadAnalyticsSummary(), search sanitize |
+| `index.html` | +JsBarcode CDN, +pagination containers ×2, version bump v6.3 |
+| `css/style.css` | +pagination CSS, +barcode print CSS, print layout adjustments |
+
+---
+
+## Session End (v6.3.0)
+- **Status:** Deployed ✅ | All features tested ✅
+- **Current Version:** 6.3.0
+- **Live URL:** https://receipt.fts-internal.com
+- **Features:** Pagination 50/หน้า, Barcode Code 128, UX Analytics, Print layout fixed
+- **SQL Ran:** v6.2 indexes ✅, v6.3 ux_analytics table ✅
+- **VP Feature:** ปิดไว้ชั่วคราว (รอ migration + API credentials)
+
+---
+
+## Version Summary (Updated)
+
+| Version | Features |
+|---------|----------|
+| 1.0.0 | ฟอร์มกรอก + พิมพ์ + สรุปรายวัน + Export |
+| 2.0.0 | เพิ่ม/แก้ไข/ลบข้อมูล + บันทึกรูปภาพ |
+| 2.1.0 | ปุ่มพิมพ์ในตาราง |
+| 3.0.0 | Batch Print + รายงานรายเดือน + Activity Log |
+| 4.0.0 | Login System + User Management + Role-based Permissions |
+| 4.1.0 | Google Sheets Integration + Print Layout Improvements |
+| 4.1.1 | Print Layout Optimization (Full A4 page) |
+| 5.0.0 | Supabase Cloud + GitHub Pages + Custom Domain |
+| 5.1.0 | UI Rebranding - EWP Service Center |
+| 5.1.1 | Security Audit & Hardening |
+| 5.2.0 | Reset Password + Bug Fixes |
+| 6.0.0 | VP API Integration + ลบ Google Sheet |
+| 6.0.1 | Critical Fix: SyntaxError + Recovery 38 records |
+| **6.1.0** | **Print category A-Z + color bands + Doc No. ขยาย** |
+| **6.2.0** | **Image compression + date filter + server-side search** |
+| **6.3.0** | **Pagination + Barcode Code 128 + UX Analytics + print layout fix** |
+| **7.0.0** | **E-Sign Workflow: Webcam + Digital Signature + SIT Environment** |
+| **8.0.0** | **UX Optimization + Card Print Lock (แทน Google Sheet)** |
+| **8.1.0** | **Fuzzy Search (pg_trgm) + Quick Print Mode** |
+
+---
+
+## Phase 20: UX Optimization & Performance (v8.0.0)
+
+**Session Date:** 10 February 2026 (Session 2+3)
+
+### บริบท
+จากข้อมูล UX Analytics จริง (1,485 events, 9-10 ก.พ.) พบ 3 จุดปรับปรุงหลัก:
+- **30 sessions** เปิดมาแค่ search → print → ออก → ต้องมี Quick Print
+- **Search** ใช้มากสุด (415 ครั้ง) → ควรมี fuzzy search, ประวัติการค้นหา
+- **print_from_table** (306) ใช้มากกว่า print_single (58) ถึง 5 เท่า → batch workflow ต้องเร็วขึ้น
+- **Batch markAsPrinted** ทำ N รอบ Supabase call + N ครั้ง re-render → performance issue
+
+### สิ่งที่ทำ (Session ก่อนหน้า — v8.0 Part 1)
+
+**1. 3A. Batch markAsPrinted — Performance Fix**
+- เพิ่ม `markPrintedBatch(receiptNos[])` ใน `supabase-adapter.js` — 1 Supabase call แทน N calls
+- แก้ `batchPrint()` post-confirmation ใช้ batch call + update local state + render 1 ครั้ง
+
+**2. 3B. Cache getFilteredData()**
+- เพิ่ม `state.filteredDataCache` + `state.filteredDataDirty`
+- getFilteredData() return cached result ถ้า cache ยัง valid
+- Invalidate cache เมื่อ data/search/filter เปลี่ยน
+
+**3. 2A. Recent Receipts (Frontend)**
+- `state.recentReceipts = []` — เก็บ 10 เลขใบรับล่าสุดใน localStorage
+- Dropdown ใต้ช่องค้นหาเมื่อ focus + ช่องว่าง
+- Arrow keys + Enter เลือก
+- ปุ่มล้างประวัติ
+
+**4. 2C. Search Query Hash**
+- เพิ่ม `hashQuery()` ใช้ SHA-256 (12 ตัวแรก)
+- Track `query_hash` ใน analytics — ย้อนกลับไม่ได้ (privacy)
+
+### สิ่งที่ทำ (Session นี้ — v8.0 Part 2)
+
+**5. Card Print Lock — แทน Google Sheet "บันทึกรายการห้ามซ้ำ V3"**
+- สร้าง `supabase-update-v8.0-card-print-lock.sql`:
+  - ตาราง `card_print_locks` + UNIQUE(appointment_id)
+  - Trigger normalize: LOWER(TRIM(REGEXP_REPLACE))
+  - Indexes, RLS, Realtime, Archive table
+  - `cleanup_old_card_locks()` function (48hr → archive, 90d → delete)
+- สร้าง `card-print.html` — หน้า standalone สำหรับล็อกพิมพ์บัตร
+- สร้าง `js/card-print-app.js` — 3-layer lock, Realtime, barcode scan, S/N edit, officer colors
+- แก้ `js/supabase-config.js` — เพิ่ม `SupabaseCardPrintLock` module (CRUD + search + archive)
+- แก้ `index.html` — เพิ่มลิงก์ "ล็อกพิมพ์บัตร" ใน header
+- แก้ `js/app-supabase.js` — cross-use auto-fill (appointmentNo blur → lookup lock → fill name/requestNo)
+
+**6. 3C. Batch Print UX**
+- เพิ่มปุ่ม "เลือกที่ยังไม่พิมพ์" ใน index.html
+- สร้าง `selectAllNotPrinted()` function
+- Keyboard shortcut: Ctrl+P → batchPrint() เมื่อมีรายการเลือก
+
+**7. 4A. Journey Tracking**
+- เพิ่ม `_journeyMilestones` ใน state (hasSearched, hasPrinted, hasFormAdd, startTime)
+- Track milestones: journey_search, journey_print, journey_form_add
+- journey_complete ที่ beforeunload — classify journey type
+
+### สิ่งที่ทำ — v8.1
+
+**8. 2B. Fuzzy Search (pg_trgm)**
+- สร้าง `supabase-update-v8.1-fuzzy-search.sql`:
+  - CREATE EXTENSION pg_trgm
+  - GIN indexes สำหรับ foreigner_name + receipt_no
+  - `search_receipts_fuzzy()` RPC function
+- แก้ `js/supabase-adapter.js` — try fuzzy RPC first, fallback to ilike
+
+**9. 1. Quick Print Mode** — **อยู่ระหว่างทำ**
+- URL param detection เพิ่มแล้ว: `?mode=quick-print` → `initQuickPrintMode()`
+- `initQuickPrintMode()` function ยังไม่ได้สร้าง
+
+### ไฟล์ที่สร้าง/แก้ไข
+
+| File | Action | หมายเหตุ |
+|------|--------|----------|
+| `supabase-update-v8.0-card-print-lock.sql` | สร้างใหม่ | Card print lock table + archive + cleanup |
+| `supabase-update-v8.1-fuzzy-search.sql` | สร้างใหม่ | pg_trgm + fuzzy search function |
+| `card-print.html` | สร้างใหม่ | หน้า Card Print Lock |
+| `js/card-print-app.js` | สร้างใหม่ | Logic: lock, S/N, Realtime, barcode scan |
+| `js/supabase-config.js` | แก้ไข | เพิ่ม SupabaseCardPrintLock module |
+| `js/supabase-adapter.js` | แก้ไข | เพิ่ม markPrintedBatch(), fuzzy search RPC |
+| `js/app-supabase.js` | แก้ไข | Recent receipts, cache, batch UX, journey, cross-use, quick print detection |
+| `index.html` | แก้ไข | ลิงก์ล็อกบัตร, ปุ่มเลือกที่ยังไม่พิมพ์ |
+
+### Lock Mechanism — 3 ชั้น
+
+| ชั้น | กลไก | จุดประสงค์ |
+|------|-------|-----------|
+| Layer 1 | ตรวจ local state ก่อน insert | UX — แจ้งเตือนทันที |
+| Layer 2 | DB UNIQUE(appointment_id) | หลัก — ป้องกัน race condition, error 23505 |
+| Layer 3 | Supabase Realtime subscription | Live update ข้าม browser |
+
+### งานค้าง
+
+| รายการ | สถานะ |
+|--------|--------|
+| Quick Print Mode (`initQuickPrintMode()`) | อยู่ระหว่างทำ |
+| ทดสอบทุก feature บน SIT | รอ |
+| รัน SQL v8.0 + v8.1 บน SIT | รอ |
+
+---
+
+## Session End (v8.0-8.1 development)
+- **Status:** Development in progress
+- **Current Dev Version:** 8.1.0-dev
+- **Production Version:** ยังไม่ deploy (production เป็น v7.0 หรือก่อนหน้า)
+- **Features Done:** Batch optimization, cache, recent receipts, query hash, card print lock, batch UX, journey tracking, fuzzy search
+- **Features In Progress:** Quick Print Mode
+- **SQL Pending:** v8.0 card-print-lock + v8.1 fuzzy-search → ต้องรันบน SIT ก่อน test

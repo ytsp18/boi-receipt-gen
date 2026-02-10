@@ -68,7 +68,11 @@ async function loadRegistryFromSupabase(date = null) {
             isPrinted: row.is_printed,
             printedAt: row.printed_at,
             isReceived: row.is_received,
-            receivedAt: row.received_at
+            receivedAt: row.received_at,
+            // v7.0 - Photo & Signature
+            recipientPhotoUrl: row.recipient_photo_url || null,
+            recipientSignatureUrl: row.recipient_signature_url || null,
+            officerSignatureUrl: row.officer_signature_url || null
         }));
     } catch (e) {
         console.error('Error loading from Supabase:', e);
@@ -89,16 +93,39 @@ async function searchRegistryFromSupabase(query) {
 
         if (cleanQuery.length < 2) return [];
 
-        const { data, error } = await window.supabaseClient
-            .from('receipts')
-            .select('*')
-            .or(`foreigner_name.ilike.%${cleanQuery}%,receipt_no.ilike.%${cleanQuery}%,request_no.ilike.%${cleanQuery}%,sn_number.ilike.%${cleanQuery}%,appointment_no.ilike.%${cleanQuery}%`)
-            .order('created_at', { ascending: false })
-            .limit(100);
+        let data = null;
+        let searchMethod = 'ilike';
 
-        if (error) throw error;
+        // Try fuzzy search first (requires pg_trgm extension)
+        try {
+            const { data: fuzzyData, error: fuzzyError } = await window.supabaseClient
+                .rpc('search_receipts_fuzzy', {
+                    search_query: cleanQuery,
+                    max_results: 100
+                });
 
-        console.log(`🔍 Search "${cleanQuery}": found ${(data || []).length} results`);
+            if (!fuzzyError && fuzzyData) {
+                data = fuzzyData;
+                searchMethod = 'fuzzy';
+            }
+        } catch (e) {
+            // Fuzzy search not available — fallback to ilike
+        }
+
+        // Fallback to ilike if fuzzy not available
+        if (!data) {
+            const { data: ilikeData, error } = await window.supabaseClient
+                .from('receipts')
+                .select('*')
+                .or(`foreigner_name.ilike.%${cleanQuery}%,receipt_no.ilike.%${cleanQuery}%,request_no.ilike.%${cleanQuery}%,sn_number.ilike.%${cleanQuery}%,appointment_no.ilike.%${cleanQuery}%`)
+                .order('created_at', { ascending: false })
+                .limit(100);
+
+            if (error) throw error;
+            data = ilikeData;
+        }
+
+        console.log(`🔍 Search "${cleanQuery}" [${searchMethod}]: found ${(data || []).length} results`);
 
         return (data || []).map(row => ({
             receiptNo: row.receipt_no,
@@ -112,7 +139,11 @@ async function searchRegistryFromSupabase(query) {
             isPrinted: row.is_printed,
             printedAt: row.printed_at,
             isReceived: row.is_received,
-            receivedAt: row.received_at
+            receivedAt: row.received_at,
+            // v7.0 - Photo & Signature
+            recipientPhotoUrl: row.recipient_photo_url || null,
+            recipientSignatureUrl: row.recipient_signature_url || null,
+            officerSignatureUrl: row.officer_signature_url || null
         }));
     } catch (e) {
         console.error('Error searching Supabase:', e);
@@ -176,6 +207,22 @@ async function saveReceiptToSupabase(receiptData, cardImageFile = null) {
         if (receiptData.apiPhotoUrl) {
             receiptPayload.api_photo_url = receiptData.apiPhotoUrl;
         }
+
+        // v7.0 - Include photo & signature URLs if provided
+        if (receiptData.recipientPhotoUrl) {
+            receiptPayload.recipient_photo_url = receiptData.recipientPhotoUrl;
+        }
+        if (receiptData.recipientSignatureUrl) {
+            receiptPayload.recipient_signature_url = receiptData.recipientSignatureUrl;
+        }
+        if (receiptData.officerSignatureUrl) {
+            receiptPayload.officer_signature_url = receiptData.officerSignatureUrl;
+        }
+        console.log('📋 saveReceipt payload v7.0 fields:', {
+            recipient_photo_url: receiptPayload.recipient_photo_url || '(none)',
+            recipient_signature_url: receiptPayload.recipient_signature_url || '(none)',
+            officer_signature_url: receiptPayload.officer_signature_url || '(none)'
+        });
 
         let result;
         if (existing && receiptData.isEdit) {
@@ -325,6 +372,30 @@ async function markPrintedInSupabase(receiptNo) {
         return true;
     } catch (e) {
         console.error('Error marking as printed:', e);
+        return false;
+    }
+}
+
+async function markPrintedBatchInSupabase(receiptNos) {
+    try {
+        const { error } = await window.supabaseClient
+            .from('receipts')
+            .update({
+                is_printed: true,
+                printed_at: new Date().toISOString()
+            })
+            .in('receipt_no', receiptNos);
+
+        if (error) throw error;
+
+        // Log activity for batch
+        await logActivity('batch_print', receiptNos.join(','), {
+            count: receiptNos.length,
+            receipt_nos: receiptNos
+        });
+        return true;
+    } catch (e) {
+        console.error('Error batch marking as printed:', e);
         return false;
     }
 }
@@ -535,17 +606,149 @@ async function getNextReceiptNoFromSupabase() {
 // Export for global use
 // ==================== //
 
+// ==================== //
+// Photo & Signature Upload (v7.0)
+// ==================== //
+
+// Upload recipient photo to Storage
+async function uploadPhotoToStorage(base64Data, receiptNo) {
+    try {
+        console.log('📷 uploadPhotoToStorage called, receiptNo:', receiptNo, 'dataLen:', base64Data?.length);
+        if (!base64Data || !base64Data.startsWith('data:')) {
+            console.warn('📷 uploadPhoto: Invalid data - not a data URL');
+            return null;
+        }
+
+        const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches) {
+            console.warn('📷 uploadPhoto: Regex did not match data URL');
+            return null;
+        }
+
+        const mimeType = matches[1];
+        const base64 = matches[2];
+        const fileName = `photos/${receiptNo}_photo.jpg`;
+        console.log('📷 uploadPhoto: mimeType:', mimeType, 'fileName:', fileName, 'base64Len:', base64.length);
+
+        const byteCharacters = atob(base64);
+        const byteArray = new Uint8Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteArray[i] = byteCharacters.charCodeAt(i);
+        }
+        const blob = new Blob([byteArray], { type: mimeType });
+        console.log('📷 uploadPhoto: blob size:', blob.size, 'bytes');
+
+        const { data, error } = await window.supabaseClient.storage
+            .from('card-images')
+            .upload(fileName, blob, { contentType: mimeType, upsert: true });
+
+        if (error) {
+            console.error('📷 uploadPhoto: Storage upload error:', error);
+            throw error;
+        }
+        console.log('📷 uploadPhoto: Upload success, data:', data);
+
+        const { data: urlData } = window.supabaseClient.storage
+            .from('card-images')
+            .getPublicUrl(fileName);
+
+        console.log('📷 uploadPhoto: Public URL:', urlData.publicUrl);
+        return urlData.publicUrl;
+    } catch (e) {
+        console.error('📷 uploadPhoto: EXCEPTION:', e);
+        return null;
+    }
+}
+
+// Upload signature image to Storage
+async function uploadSignatureToStorage(base64Data, fileName) {
+    try {
+        if (!base64Data || !base64Data.startsWith('data:')) return null;
+
+        const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches) return null;
+
+        const mimeType = matches[1];
+        const base64 = matches[2];
+
+        const byteCharacters = atob(base64);
+        const byteArray = new Uint8Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteArray[i] = byteCharacters.charCodeAt(i);
+        }
+        const blob = new Blob([byteArray], { type: mimeType });
+
+        const { data, error } = await window.supabaseClient.storage
+            .from('card-images')
+            .upload(fileName, blob, { contentType: mimeType, upsert: true });
+
+        if (error) throw error;
+
+        const { data: urlData } = window.supabaseClient.storage
+            .from('card-images')
+            .getPublicUrl(fileName);
+
+        return urlData.publicUrl;
+    } catch (e) {
+        console.error('Error uploading signature:', e);
+        return null;
+    }
+}
+
+// Save officer signature to profile
+async function saveOfficerSignatureToProfile(userId, base64Data) {
+    try {
+        const fileName = `officer-signatures/${userId}.png`;
+        const signatureUrl = await uploadSignatureToStorage(base64Data, fileName);
+        if (!signatureUrl) throw new Error('Upload failed');
+
+        const { error } = await window.supabaseClient
+            .from('profiles')
+            .update({ signature_url: signatureUrl })
+            .eq('id', userId);
+
+        if (error) throw error;
+        return signatureUrl;
+    } catch (e) {
+        console.error('Error saving officer signature:', e);
+        throw e;
+    }
+}
+
+// Get officer signature from profile
+async function getOfficerSignatureFromProfile(userId) {
+    try {
+        const { data, error } = await window.supabaseClient
+            .from('profiles')
+            .select('signature_url')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (error) throw error;
+        return data?.signature_url || null;
+    } catch (e) {
+        console.error('Error getting officer signature:', e);
+        return null;
+    }
+}
+
 window.SupabaseAdapter = {
     loadRegistry: loadRegistryFromSupabase,
     searchRegistry: searchRegistryFromSupabase,
     saveReceipt: saveReceiptToSupabase,
     deleteReceipt: deleteReceiptFromSupabase,
     markPrinted: markPrintedInSupabase,
+    markPrintedBatch: markPrintedBatchInSupabase,
     toggleReceived: toggleReceivedInSupabase,
     loadActivityLog: loadActivityLogFromSupabase,
     getNextReceiptNo: getNextReceiptNoFromSupabase,
     uploadImage: uploadImageToSupabase,
     loadAnalyticsSummary: loadAnalyticsSummary,
+    // v7.0 - Photo & Signature
+    uploadPhoto: uploadPhotoToStorage,
+    uploadSignature: uploadSignatureToStorage,
+    saveOfficerSignature: saveOfficerSignatureToProfile,
+    getOfficerSignature: getOfficerSignatureFromProfile,
     // v7.1 - Duplicate check
     checkDuplicateSN: checkDuplicateSNFromSupabase,
     checkDuplicateName: checkDuplicateNameFromSupabase

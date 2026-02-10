@@ -1,5 +1,273 @@
 # Change Log - Work Permit Receipt System
 
+## [8.1.0] - 2026-02-10
+
+> **สถานะ: Production — deployed**
+> **⚠️ SQL v8.0 (card_print_locks) + v8.1 (pg_trgm) ต้อง run บน Production Supabase แยก**
+
+### Added — Fuzzy Search (pg_trgm)
+- **pg_trgm extension** สำหรับ fuzzy/similarity search
+  - GIN indexes บน `foreigner_name` และ `receipt_no`
+  - `search_receipts_fuzzy()` RPC function — handles typos (e.g. "Jhon" → "John")
+  - Fallback อัตโนมัติไป ilike ถ้า RPC error (backwards compatible)
+
+### Added — Quick Print Mode (อยู่ระหว่างทำ)
+- URL param detection: `?mode=quick-print`
+- `initQuickPrintMode()` function ยังไม่สมบูรณ์
+
+### SQL Migration
+- **supabase-update-v8.1-fuzzy-search.sql**
+  - `CREATE EXTENSION IF NOT EXISTS pg_trgm`
+  - GIN indexes: `idx_receipts_name_trgm`, `idx_receipts_receipt_no_trgm`
+  - Function: `search_receipts_fuzzy(search_query, max_results)`
+
+### Files Modified
+| File | Action | หมายเหตุ |
+|------|--------|----------|
+| `supabase-update-v8.1-fuzzy-search.sql` | สร้างใหม่ | pg_trgm + fuzzy function |
+| `js/supabase-adapter.js` | แก้ไข | เพิ่ม fuzzy RPC call + fallback |
+
+---
+
+### Added — Production Readiness
+- ซ่อน v7.0 E-Sign UI (webcam, signature pad, officer signature) — display:none + JS guard
+- ปรับ header buttons ให้มองเห็นชัดบนพื้นน้ำเงิน (high contrast white borders)
+- ซ่อน filter "เซ็นชื่อแล้ว/ยังไม่เซ็นชื่อ" และ summary card "เซ็นชื่อแล้ว"
+- Quick Print Mode (`?mode=quick-print`) สมบูรณ์
+- Cache bust: `?v=8.1` ทุกไฟล์
+
+---
+
+## [8.0.0] - 2026-02-10
+
+> **สถานะ: Production — deployed**
+> **⚠️ SQL v8.0 (card_print_locks) ต้อง run บน Production Supabase แยก**
+
+### Added — Card Print Lock (แทน Google Sheet "บันทึกรายการห้ามซ้ำ V3")
+
+#### Card Print Lock System
+- **หน้า `card-print.html`** — standalone page สำหรับ 5 เจ้าหน้าที่ล็อกพิมพ์บัตร work permit
+- **3-layer lock mechanism:**
+  - Layer 1: Optimistic UI check (local state)
+  - Layer 2: DB UNIQUE constraint on `appointment_id` (error 23505)
+  - Layer 3: Supabase Realtime subscription (live update ข้าม browser)
+- **Officer auto-fill** จาก `profiles.name` (ไม่ต้องเลือกจาก dropdown)
+- **Officer color coding** — แต่ละเจ้าหน้าที่มีสีแถวเฉพาะ (8 สี)
+- **S/N tracking** — กรอก S/N บัตรดี/บัตรเสีย inline
+- **Barcode scan detection** — auto-detect + auto-submit (80ms threshold)
+- **Archive system** — ข้อมูลเกิน 48 ชม. ย้ายไป archive, ลบ archive เกิน 90 วัน
+- **Keyboard shortcuts:** Enter = lock, Ctrl+L = focus appointment input
+
+#### Cross-use Integration ("ทำ 1 เรื่อง ใช้ได้หลายส่วน")
+- **Lock → auto-fill receipt form** — appointmentNo blur → lookup card_print_locks → fill name/requestNo
+- **S/N archive search** — ค้นหา S/N ย้อนหลังจาก archive
+
+### Added — UX Optimization (จาก Analytics Data)
+
+#### 3A. Batch markAsPrinted — Performance Fix
+- `markPrintedBatch(receiptNos[])` — 1 Supabase call แทน N calls
+- update local state + render 1 ครั้ง (แทน N re-renders)
+
+#### 3B. Cache getFilteredData()
+- `state.filteredDataCache` + `state.filteredDataDirty`
+- ลดจาก 3 calls/render เหลือ 1 call/render
+
+#### 2A. Recent Receipts (Frontend)
+- เก็บ 10 เลขใบรับล่าสุดใน localStorage
+- Dropdown ใต้ช่องค้นหา (focus + empty) — Arrow keys + Enter
+
+#### 2C. Search Query Hash
+- SHA-256 hash (12 ตัวแรก) สำหรับวิเคราะห์ว่า search ซ้ำคำเดิมบ่อยแค่ไหน
+- ย้อนกลับไม่ได้ (privacy-preserving)
+
+#### 3C. Batch Print UX
+- ปุ่ม "เลือกที่ยังไม่พิมพ์" — เลือกเฉพาะรายการ is_printed=false ในหน้าปัจจุบัน
+- Keyboard shortcut: Ctrl+P → batchPrint() เมื่อมีรายการเลือก
+
+#### 4A. Journey Tracking
+- Track session journey milestones: journey_search, journey_print, journey_form_add
+- Classify journey type ตอน beforeunload: search_then_print, form_add_then_print, browse_only, etc.
+
+### SQL Migration
+- **supabase-update-v8.0-card-print-lock.sql**
+  - ตาราง `card_print_locks` (appointment_id UNIQUE, officer_id, sn_good, sn_spoiled, status)
+  - Trigger `normalize_appointment_id()` — LOWER(TRIM(REGEXP_REPLACE))
+  - Indexes: lock_date DESC, officer_id, appointment_id, status
+  - RLS: read all, insert all, update own, delete admin
+  - Realtime enabled
+  - ตาราง `card_print_locks_archive` + indexes
+  - Function `cleanup_old_card_locks()` — 48hr archive, 90d delete
+
+### Files Modified
+| File | Action | หมายเหตุ |
+|------|--------|----------|
+| `supabase-update-v8.0-card-print-lock.sql` | สร้างใหม่ | Card print lock table + archive + cleanup |
+| `card-print.html` | สร้างใหม่ | หน้า Card Print Lock (HTML + inline CSS) |
+| `js/card-print-app.js` | สร้างใหม่ | 3-layer lock, Realtime, barcode, S/N, colors |
+| `js/supabase-config.js` | แก้ไข | เพิ่ม SupabaseCardPrintLock module (CRUD + search + archive) |
+| `js/supabase-adapter.js` | แก้ไข | เพิ่ม markPrintedBatch() |
+| `js/app-supabase.js` | แก้ไข | Recent receipts, cache, batch UX, journey, cross-use, quick print detect |
+| `index.html` | แก้ไข | ลิงก์ล็อกบัตร, ปุ่มเลือกที่ยังไม่พิมพ์ |
+
+### Deployment Notes
+ก่อน deploy ต้อง:
+1. รัน `supabase-update-v8.0-card-print-lock.sql` บน SIT
+2. รัน `supabase-update-v8.1-fuzzy-search.sql` บน SIT
+3. ทดสอบ Card Print Lock: lock, duplicate (23505), Realtime, S/N, barcode
+4. ทดสอบ batch print optimization + fuzzy search
+5. ทดสอบ cross-use: lock → receipt form auto-fill
+6. ผ่าน SIT → รัน SQL บน Production → deploy
+
+---
+
+## [7.0.0-dev] - 2026-02-10
+
+> **สถานะ: Development / SIT Testing — ยังไม่ deploy production**
+> **Branch: แยกจาก main — ห้าม merge จนกว่าจะทดสอบครบ**
+
+### Added — E-Sign Workflow: Webcam + Digital Signature
+
+#### Webcam Photo Capture (RAPOO C280)
+- **ถ่ายรูปผู้รับบัตร** จากกล้อง USB ผ่าน getUserMedia API
+  - Dropdown เลือกกล้อง (`enumerateDevices()`) — รองรับกล้องหลายตัว
+  - Capture ที่ 1280x960 (ไม่ใช้ full 2K เพื่อประหยัด storage)
+  - Compress เป็น JPEG 0.8 ก่อน upload (~100-200KB/รูป)
+  - ปุ่ม: เปิดกล้อง / ถ่ายรูป / ถ่ายใหม่
+  - Fallback: แสดงข้อความเมื่อไม่พบกล้อง หรือ permission denied
+
+#### Recipient Digital Signature (Phase 1: Canvas)
+- **ลายเซ็นดิจิทัลผู้รับบัตร** ผ่าน signature_pad library v4.2.0
+  - Canvas 400x200px, penColor: #000, minWidth: 1.5, maxWidth: 3
+  - ปุ่ม: ล้าง / Undo (undo last stroke)
+  - Export เป็น PNG via `toDataURL('image/png')`
+  - **Phase 2 (อนาคต):** เปลี่ยนเป็น WAC-0503 hardware signature pad ผ่าน WebSocket Pro SDK
+
+#### Officer Signature (Profile Settings)
+- **ลายเซ็นเจ้าหน้าที่** ตั้งค่าครั้งเดียว ใช้ซ้ำทุกรายการ
+  - Modal ตั้งค่าลายเซ็น (เข้าจากปุ่ม header)
+  - บันทึก PNG ไป Supabase Storage → URL ใน profiles.signature_url
+  - Auto-fill ลายเซ็นเจ้าหน้าที่ในฟอร์มทุกรายการ
+  - แจ้งเตือนถ้ายังไม่ได้ตั้งค่าลายเซ็น
+
+#### E-Sign Workflow
+- **Flow ใหม่:** กรอกข้อมูล → ถ่ายรูป → ผู้รับเซ็น → Save → Mark Received
+- **Print เป็น optional** — ไม่บังคับปริ้นกระดาษอีกต่อไป
+- **Status ใหม่:** Created → Signed → Received (แทน Printed/Not Printed)
+- **Receipt preview** แสดงรูปถ่าย + ลายเซ็นทั้ง 2 ฝ่าย
+
+#### SIT Environment
+- **Supabase SIT project** แยกจาก Production สำหรับทดสอบ
+  - URL param `?env=sit` สลับ environment ได้
+  - SIT badge แสดงที่มุมบนซ้ายเมื่ออยู่ใน SIT mode
+  - Database schema ครบถ้วน (supabase-sit-full-setup.sql)
+
+### Changed
+- **login.html** — เพิ่ม environment switching (เดิม hardcode production)
+- **auth.js** — เพิ่ม `getEnvParam()` รักษา `?env=` param ผ่านทุก redirect
+- **Receipt preview** — แสดงรูปถ่าย + ลายเซ็นจริงแทนเส้นว่าง
+- **Status filter** — เปลี่ยนจาก Printed/Not Printed เป็น Created/Signed/Received
+- **Summary panel** — ปรับตัวเลขเป็น Total, Signed, Received, Pending
+
+### Fixed (พบระหว่าง SIT Testing)
+- **BUG: login.html hardcoded Production Supabase** — `?env=sit` ไม่ทำงาน เพราะ login.html มี config ตายตัว → เพิ่ม environment switching
+- **BUG: Redirect loses `?env=sit` param** — login → index → login วนลูปโดยสูญเสีย env param → เพิ่ม `getEnvParam()` ใน auth.js
+- **BUG: Profiles RLS infinite recursion** — Admin policy query profiles ภายใน profiles RLS → สร้าง `is_admin()` SECURITY DEFINER function (แก้บน SIT, Production อาจต้องแก้เหมือนกัน)
+- **BUG: `session.id` ไม่มีค่า** — ใช้ `session.id` แต่ AuthSystem.getSession() คืน `.userId` → แก้เป็น `session.userId` (2 จุด)
+- **BUG: ไม่ await getSession()** — เรียก async function โดยไม่ await → ได้ Promise object แทนข้อมูลจริง → เพิ่ม `await` (2 จุด)
+
+### SQL Migration
+- **supabase-update-v7.0-photo-signature.sql**
+  - เพิ่ม `recipient_photo_url TEXT` ใน receipts
+  - เพิ่ม `recipient_signature_url TEXT` ใน receipts
+  - เพิ่ม `officer_signature_url TEXT` ใน receipts
+  - เพิ่ม `signature_url TEXT` ใน profiles
+  - เพิ่ม index `idx_receipts_signature_status`
+- **SIT-only: `is_admin()` function** — SECURITY DEFINER function แก้ RLS recursion
+- **supabase-sit-full-setup.sql** — Full schema สำหรับ SIT environment
+
+### External Dependencies (ใหม่)
+- `signature_pad@4.2.0` — CDN จาก jsDelivr (~30KB)
+
+### Files Modified
+| File | Action | หมายเหตุ |
+|------|--------|----------|
+| `index.html` | แก้ไข | เพิ่ม webcam UI, signature pads, officer signature modal, CDN script |
+| `js/app-supabase.js` | แก้ไข | เพิ่ม webcam/signature modules, แก้ save/preview/clear/filter, fix session bugs |
+| `js/supabase-adapter.js` | แก้ไข | เพิ่ม upload functions สำหรับ photo/signature, แก้ save payload |
+| `js/supabase-config.js` | แก้ไข | เพิ่ม SIT environment config |
+| `js/auth.js` | แก้ไข | เพิ่ม `getEnvParam()`, fix redirects |
+| `login.html` | แก้ไข | เพิ่ม environment switching |
+| `css/style.css` | แก้ไข | เพิ่ม styles สำหรับ webcam, signature pad, modal |
+| `supabase-update-v7.0-photo-signature.sql` | สร้างใหม่ | Migration script |
+| `supabase-sit-full-setup.sql` | สร้างใหม่ | Full SIT schema |
+
+### Deployment Notes
+> **ยังไม่ deploy production** — ทดสอบบน SIT เท่านั้น
+> - Local testing: `python3 -m http.server 8080` → `http://localhost:8080/index.html?env=sit`
+> - Production ที่ `receipt.fts-internal.com` ยังเป็น v6.3.0
+> - ต้องทดสอบ hardware จริง (RAPOO C280 + WAC-0503) ก่อน deploy
+> - ต้อง run `is_admin()` function บน Production Supabase ก่อน deploy (fix RLS recursion)
+
+---
+
+## [6.3.0] - 2026-02-10
+
+### Added — Pagination, Barcode, UX Analytics
+- **Pagination 50 รายการ/หน้า** สำหรับทั้ง Registry Table และ Activity Log
+  - แสดง "แสดง 1-50 จาก N รายการ" + ปุ่มเปลี่ยนหน้า
+  - Reset หน้า 1 อัตโนมัติเมื่อ search/filter เปลี่ยน
+  - Select All เลือกเฉพาะหน้าปัจจุบัน
+  - ซ่อน pagination เมื่อ ≤ 50 รายการ
+- **Barcode Code 128** พิมพ์ที่ footer ของใบรับทุกใบ
+  - ใช้ JsBarcode library (CDN)
+  - แสดง receipt_no ใต้ barcode (displayValue)
+  - Fallback: แสดง "Doc No." เป็นข้อความถ้า JsBarcode ไม่โหลด
+- **Barcode Scan Detection** ที่ช่องค้นหา
+  - ตรวจจับ pattern พิมพ์เร็ว (< 100ms ระหว่างตัว) + Enter
+  - Bypass debounce เมื่อเป็น barcode scan → ค้นหาทันที
+- **UX Analytics** (batched, fire-and-forget)
+  - เก็บ timing, feature usage, user journey, errors
+  - Batching: flush ทุก 30 วินาที หรือ 50 events
+  - flush ก่อน beforeunload
+  - ไม่เก็บ PII — ใช้ session ID แทน
+  - ตาราง `ux_analytics` + indexes + RLS (INSERT authenticated, SELECT admin only)
+
+### Fixed
+- **S1: Search query injection** — sanitize search input ใน supabase-adapter.js
+- **F1: Batch print selection loss** — คงสถานะ checkbox หลัง re-render
+- **P1: Analytics batching** — flush ทุก 30s/50 events แทน immediate INSERT
+- **Print layout overflow 2 หน้า** — ปรับ header (24→18px), info table padding (12→5px), page padding (10→5mm) ให้พอดี 1 หน้า A4 (คงรูปภาพ 210px)
+- **ตัวอักษรหมวดหมู่ไม่อยู่กลางกรอบ** — เปลี่ยนจาก `position: absolute` เป็น flexbox layout
+
+### Changed
+- **Cache version** bump จาก v6.2 เป็น v6.3
+- **Version badge** อัพเดทเป็น v6.3.0
+- **Activity Log limit** เพิ่มจาก 100 เป็น 500
+
+### SQL Migration
+- สร้างตาราง `ux_analytics` + indexes (`created_at`, `event_type + event_name`)
+- RLS: INSERT สำหรับ authenticated, SELECT สำหรับ admin only
+
+---
+
+## [6.2.0] - 2026-02-10
+
+### Added — Image Compression, Date Filter, Search Enhancement
+- **Image compression** — บีบอัดรูปก่อน upload (≤1200px, ≤800KB)
+  - Block SVG/HTML files (ป้องกัน XSS via image upload)
+  - แสดงขนาดไฟล์หลังบีบอัด
+- **Date picker** — default วันที่ปัจจุบัน, เปลี่ยนวันที่ดูข้อมูลได้
+- **Date-based loading** — โหลดเฉพาะข้อมูลวันที่เลือก (ลด bandwidth)
+- **Server-side search** — ค้นหาข้ามวันที่ได้ (ไม่จำกัดเฉพาะวันที่เลือก)
+
+### Changed
+- **Cache version** bump จาก v6.1 เป็น v6.2
+
+### SQL Migration
+- เพิ่ม indexes: `created_at DESC`, `receipt_no`, `foreigner_name`
+
+---
+
 ## [6.1.0] - 2026-02-09
 
 ### Added - Print Layout Enhancement (ค้นหาเอกสารง่ายขึ้น)
@@ -472,8 +740,37 @@
 - [x] ~~Activity Log (ประวัติการทำงาน)~~ (v3.0.0)
 - [x] ~~Cloud Deployment~~ (v5.0.0 - GitHub Pages + Custom Domain)
 - [x] ~~VP/SWD API Integration~~ (v6.0.0 - Edge Functions + pending_receipts)
+- [x] ~~Image Compression + Date Filter~~ (v6.2.0)
+- [x] ~~Pagination + Barcode + UX Analytics~~ (v6.3.0)
 - [ ] เปิดใช้งาน VP API (รอ migration + credentials)
 - [ ] กู้คืน 38 รายการที่ถูกลบ (รอเจ้าหน้าที่กรอก Excel → INSERT กลับ)
+- [ ] **v7.0 E-Sign Workflow** (อยู่ระหว่างทดสอบ — ยังไม่ deploy prod)
+  - [x] Webcam photo capture (RAPOO C280)
+  - [x] Digital signature pad (Phase 1: canvas)
+  - [x] Officer signature from profile
+  - [x] SIT environment setup
+  - [ ] ทดสอบ hardware จริง (RAPOO C280 + WAC-0503)
+  - [ ] ทดสอบ Mark Received flow
+  - [ ] ทดสอบ Status filters (Created/Signed/Received)
+  - [ ] ทดสอบ Print with signatures
+  - [ ] Security testing
+  - [ ] Deploy to production
+- [ ] **v8.0 UX Optimization + Card Print Lock** (อยู่ระหว่างทดสอบ)
+  - [x] 3A. Batch markAsPrinted (1 call แทน N)
+  - [x] 3B. Cache getFilteredData()
+  - [x] 2A. Recent Receipts (localStorage)
+  - [x] 2C. Search Query Hash (SHA-256)
+  - [x] Card Print Lock (3-layer lock, Realtime, barcode, S/N, archive)
+  - [x] Cross-use auto-fill (lock → receipt form)
+  - [x] 3C. Batch Print UX (เลือกที่ยังไม่พิมพ์ + Ctrl+P)
+  - [x] 4A. Journey Tracking (milestones + classify)
+  - [x] 2B. Fuzzy Search (pg_trgm + RPC + fallback)
+  - [ ] 1. Quick Print Mode (`?mode=quick-print`) — อยู่ระหว่างทำ
+  - [ ] ทดสอบทุก feature บน SIT
+  - [ ] Deploy to production
+- [ ] Phase 2: WAC-0503 hardware signature pad (รอ SDK จาก WAC)
+- [ ] Admin Analytics Dashboard (ใช้ข้อมูลจาก ux_analytics)
+- [ ] CDN Subresource Integrity (SRI hash)
 - [ ] Multi-device real-time sync
 - [ ] Mobile responsive improvements
 - [ ] QR Code verification integration

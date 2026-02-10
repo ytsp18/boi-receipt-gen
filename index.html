@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบสร้างแบบฟอร์มรับบัตร - EWP Service Center</title>
-    <link rel="stylesheet" href="css/style.css?v=6.3">
+    <link rel="stylesheet" href="css/style.css?v=8.1">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -21,6 +21,9 @@
                     <span class="user-role" id="currentUserRole">-</span>
                 </div>
                 <button class="btn btn-outline btn-sm" id="userManagementBtn" style="display: none;">👥 จัดการผู้ใช้</button>
+                <a class="btn btn-outline btn-sm" id="cardPrintBtn" href="card-print.html">ล็อกพิมพ์บัตร</a>
+                <a class="btn btn-outline btn-sm" id="quickPrintBtn" href="index.html?mode=quick-print">พิมพ์ด่วน</a>
+                <button class="btn btn-outline btn-sm" id="officerSignatureBtn" style="display:none;">✍️ ลายเซ็น</button>
                 <button class="btn btn-outline-danger btn-sm" id="logoutBtn">🚪 ออกจากระบบ</button>
             </div>
         </header>
@@ -93,6 +96,54 @@
                             <img id="cardPreview" class="image-preview" alt="Card">
                         </div>
                     </div>
+
+                    <!-- Webcam Photo Capture Section (v7.0 - hidden until hardware testing) -->
+                    <div class="form-group" style="display:none;" id="webcamSection">
+                        <label>ภาพถ่ายผู้รับบัตร (Recipient Photo)</label>
+                        <div class="webcam-capture-area" id="webcamArea">
+                            <div class="webcam-container">
+                                <video id="webcamVideo" autoplay playsinline class="webcam-video" style="display:none;"></video>
+                                <canvas id="webcamCanvas" class="webcam-canvas" style="display:none;"></canvas>
+                                <img id="webcamPreview" class="webcam-preview" alt="Captured Photo" style="display:none;">
+                                <div class="webcam-placeholder" id="webcamPlaceholder">
+                                    <span class="upload-icon">📸</span>
+                                    <span>กดปุ่มเปิดกล้องเพื่อถ่ายรูป</span>
+                                </div>
+                            </div>
+                            <div class="webcam-controls">
+                                <select id="cameraSelect" class="camera-select" style="display:none;">
+                                    <option value="">เลือกกล้อง...</option>
+                                </select>
+                                <button type="button" class="btn btn-outline btn-sm" id="startCameraBtn">📷 เปิดกล้อง</button>
+                                <button type="button" class="btn btn-success btn-sm" id="capturePhotoBtn" style="display:none;">📸 ถ่ายรูป</button>
+                                <button type="button" class="btn btn-outline btn-sm" id="retakePhotoBtn" style="display:none;">🔄 ถ่ายใหม่</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recipient Signature Pad Section (v7.0 - hidden until hardware testing) -->
+                    <div class="form-group" style="display:none;" id="recipientSignatureSection">
+                        <div class="signature-pad-wrapper" id="recipientSignatureWrapper">
+                            <canvas id="recipientSignatureCanvas" class="signature-pad-canvas"></canvas>
+                            <div class="signature-pad-controls">
+                                <button type="button" class="btn btn-outline btn-xs" id="clearSignatureBtn">ล้าง</button>
+                                <button type="button" class="btn btn-outline btn-xs" id="undoSignatureBtn">Undo</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Officer Signature Display (v7.0 - hidden until hardware testing) -->
+                    <div class="form-group" style="display:none;" id="officerSignatureSection">
+                        <div class="officer-signature-display" id="officerSignatureDisplay">
+                            <img id="officerSignatureImg" class="officer-signature-img" alt="Officer Signature" style="display:none;">
+                            <div class="officer-signature-placeholder" id="officerSignaturePlaceholder">
+                                <span>⚠️ ยังไม่ได้ตั้งค่าลายเซ็น</span>
+                                <button type="button" class="btn btn-outline btn-xs" id="goToSignatureSetup">ไปตั้งค่า</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="divider">
 
                     <!-- Action Buttons -->
                     <div class="form-actions">
@@ -171,14 +222,22 @@
                             <p class="confirmation-text-en">I have checked that all the information on the card is correct. and confirm that you received the card at One Stop Service Center at One Bangkok.</p>
                         </div>
 
+                        <!-- Recipient Photo in Preview -->
+                        <div class="receipt-photo-box" id="previewPhotoBox" style="display:none;">
+                            <span class="image-label">ภาพถ่ายผู้รับบัตร</span>
+                            <img id="previewRecipientPhoto" alt="Recipient Photo">
+                        </div>
+
                         <div class="receipt-footer">
                             <div class="signature-box">
-                                <div class="signature-line"></div>
+                                <img id="previewRecipientSignature" class="signature-img-preview" alt="Recipient Signature" style="display:none;">
+                                <div class="signature-line" id="previewSignatureLine"></div>
                                 <p>ลงชื่อผู้รับบัตร / Cardholder Signature</p>
                                 <p class="signer-name" id="previewSignerName">-</p>
                             </div>
                             <div class="signature-box">
-                                <div class="signature-line"></div>
+                                <img id="previewOfficerSignature" class="signature-img-preview" alt="Officer Signature" style="display:none;">
+                                <div class="signature-line" id="previewOfficerSignatureLine"></div>
                                 <p>ลงชื่อเจ้าหน้าที่ / Officer Signature</p>
                                 <p class="signer-name">&nbsp;</p>
                             </div>
@@ -230,6 +289,14 @@
                     <div class="summary-number" id="summaryWaiting">0</div>
                     <div class="summary-label">รอรับบัตร</div>
                 </div>
+                <!-- v7.0 E-Sign summary card - hidden until deployed -->
+                <!--
+                <div class="summary-card" style="border-left: 3px solid #8b5cf6;">
+                    <div class="summary-icon">✍️</div>
+                    <div class="summary-number" id="summarySigned">0</div>
+                    <div class="summary-label">เซ็นชื่อแล้ว</div>
+                </div>
+                -->
             </div>
         </section>
 
@@ -240,7 +307,8 @@
                 <div class="data-controls">
                     <!-- Add New Button -->
                     <button class="btn btn-success btn-sm" id="addNewBtn">➕ เพิ่มข้อมูลใหม่</button>
-                    <!-- Batch Print Button -->
+                    <!-- Batch Print Buttons -->
+                    <button class="btn btn-outline btn-sm" id="selectNotPrintedBtn" title="เลือกเฉพาะรายการที่ยังไม่พิมพ์ในหน้านี้">เลือกที่ยังไม่พิมพ์</button>
                     <button class="btn btn-primary btn-sm" id="batchPrintBtn" disabled>🖨️ พิมพ์ที่เลือก (<span id="selectedCount">0</span>)</button>
                     <!-- Date Filter -->
                     <div class="date-filter-group">
@@ -248,16 +316,20 @@
                         <button class="btn btn-outline btn-xs" id="todayBtn" title="กลับไปวันนี้">วันนี้</button>
                     </div>
                     <!-- Search -->
-                    <div class="search-box">
-                        <input type="text" id="searchInput" placeholder="🔍 ค้นหา เลขรับที่, SN, ชื่อ..." class="search-input">
+                    <div class="search-box" style="position: relative;">
+                        <input type="text" id="searchInput" placeholder="🔍 ค้นหา เลขรับที่, SN, ชื่อ..." class="search-input" autocomplete="off">
+                        <div id="recentReceiptsDropdown" class="recent-receipts-dropdown" style="display: none;"></div>
                     </div>
                     <!-- Filter -->
                     <select id="filterStatus" class="filter-select">
                         <option value="all">ทั้งหมด</option>
-                        <option value="printed">✅ พิมพ์แล้ว</option>
-                        <option value="not-printed">⏳ รอพิมพ์</option>
+                        <!-- v7.0 E-Sign filters - hidden until deployed -->
+                        <!-- <option value="signed">✍️ เซ็นชื่อแล้ว</option> -->
+                        <!-- <option value="not-signed">📝 ยังไม่เซ็นชื่อ</option> -->
                         <option value="received">🎫 รับบัตรแล้ว</option>
                         <option value="not-received">📦 รอรับบัตร</option>
+                        <option value="printed">✅ พิมพ์แล้ว</option>
+                        <option value="not-printed">⏳ รอพิมพ์</option>
                     </select>
                     <button class="btn btn-outline btn-sm" id="refreshDataBtn">🔄 รีเฟรช</button>
                 </div>
@@ -429,34 +501,69 @@
         </div>
     </div>
 
+    <!-- Officer Signature Settings Modal -->
+    <div class="modal-overlay" id="officerSignatureModalOverlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✍️ ตั้งค่าลายเซ็นเจ้าหน้าที่</h3>
+                <button class="modal-close" id="closeOfficerSignatureModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">เซ็นชื่อด้านล่าง ลายเซ็นนี้จะถูกใช้อัตโนมัติในทุกใบรับ</p>
+                <div class="signature-pad-wrapper signature-pad-modal">
+                    <canvas id="officerSignatureCanvas" class="signature-pad-canvas"></canvas>
+                    <div class="signature-pad-controls">
+                        <button type="button" class="btn btn-outline btn-xs" id="clearOfficerSignatureBtn">ล้าง</button>
+                        <button type="button" class="btn btn-outline btn-xs" id="undoOfficerSignatureBtn">Undo</button>
+                    </div>
+                </div>
+                <div class="current-signature-section" id="currentSignatureSection" style="display:none;">
+                    <p class="current-signature-label">ลายเซ็นปัจจุบัน:</p>
+                    <img id="currentOfficerSignature" class="current-signature-img" alt="Current Signature">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-primary" id="saveOfficerSignatureBtn">💾 บันทึกลายเซ็น</button>
+                    <button type="button" class="btn btn-outline" id="cancelOfficerSignatureBtn">ปิด</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Supabase config handles initialization + environment switching -->
+    <script src="js/supabase-config.js?v=8.1"></script>
     <script>
-        // Initialize Supabase before other scripts
-        function initSupabase() {
-            const SUPABASE_URL = 'https://pyyltrcqeyfhidpcdtvc.supabase.co';
-            const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5eWx0cmNxZXlmaGlkcGNkdHZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMjE0MzcsImV4cCI6MjA4NTc5NzQzN30.vRJk8x6Kmo2rFYrJ6ZGqPWf3LSjLmb41COLJAP5glYo';
-
-            if (window.supabase && window.supabase.createClient && !window.supabaseClient) {
-                window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                console.log('✅ Supabase initialized');
-                return true;
-            }
-            return !!window.supabaseClient;
+        // Ensure Supabase is initialized (retry if CDN loaded late)
+        if (!window.supabaseClient && window.supabase) {
+            window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         }
-
-        // Try to init immediately
-        if (!initSupabase()) {
-            setTimeout(initSupabase, 100);
+        if (!window.supabaseClient) {
+            setTimeout(() => {
+                if (!window.supabaseClient && window.supabase) {
+                    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                }
+            }, 100);
         }
     </script>
-    <script src="js/supabase-config.js?v=6.3"></script>
-    <script src="js/supabase-adapter.js?v=6.3"></script>
-    <script src="js/auth.js?v=6.3"></script>
-    <script src="js/app-supabase.js?v=6.3"></script>
+    <script src="js/supabase-adapter.js?v=8.1"></script>
+    <script src="js/auth.js?v=8.1"></script>
+    <script src="js/app-supabase.js?v=8.1"></script>
 
-    <!-- Version Badge -->
-    <div class="version-badge">v6.3.0</div>
+    <!-- Version Badge + Environment Indicator -->
+    <div class="version-badge">v8.1.0</div>
+    <script>
+        // Show environment badge if not production
+        if (window.SUPABASE_ENV && window.SUPABASE_ENV.isSIT) {
+            const envBadge = document.createElement('div');
+            envBadge.className = 'version-badge';
+            envBadge.style.cssText = 'bottom: 28px; background: #f97316; color: #fff;';
+            envBadge.textContent = 'SIT ENV';
+            document.body.appendChild(envBadge);
+            document.title = '[SIT] ' + document.title;
+        }
+    </script>
 </body>
 </html>

@@ -98,7 +98,29 @@ const UXAnalytics = (() => {
 
     // Flush on page unload
     if (typeof window !== 'undefined') {
-        window.addEventListener('beforeunload', flush);
+        window.addEventListener('beforeunload', () => {
+            // Journey complete — classify session type
+            try {
+                const m = (typeof state !== 'undefined') ? state._journeyMilestones : null;
+                if (m) {
+                    const duration = Date.now() - m.startTime;
+                    let journeyType = 'browse_only';
+                    if (m.hasSearched && m.hasPrinted && !m.hasFormAdd) journeyType = 'search_then_print';
+                    else if (m.hasFormAdd && m.hasPrinted) journeyType = 'form_add_then_print';
+                    else if (m.hasFormAdd) journeyType = 'form_add_only';
+                    else if (m.hasPrinted) journeyType = 'print_only';
+                    else if (m.hasSearched) journeyType = 'search_only';
+                    log('user_journey', 'journey_complete', {
+                        journey_type: journeyType,
+                        duration_ms: duration,
+                        searched: m.hasSearched,
+                        printed: m.hasPrinted,
+                        form_added: m.hasFormAdd
+                    });
+                }
+            } catch (e) { /* never throw from analytics */ }
+            flush();
+        });
     }
 
     function log(eventType, eventName, eventData = {}, durationMs = null) {
@@ -190,8 +212,69 @@ const state = {
     activityPage: 1,
     activityPageSize: 50,
     // Barcode scan detection
-    barcodeScanLastKeyTime: 0
+    barcodeScanLastKeyTime: 0,
+    // Cache for getFilteredData
+    _filteredDataCache: null,
+    _filteredDataCacheKey: null,
+    // Journey tracking
+    _journeyMilestones: {
+        hasSearched: false,
+        hasPrinted: false,
+        hasFormAdd: false,
+        startTime: Date.now()
+    }
 };
+
+// ==================== //
+// Recent Receipts (localStorage)
+// ==================== //
+const RECENT_RECEIPTS_KEY = 'boi_recent_receipts';
+const RECENT_RECEIPTS_MAX = 10;
+
+const RecentReceipts = {
+    _items: null,
+
+    load() {
+        if (this._items) return this._items;
+        try {
+            this._items = JSON.parse(localStorage.getItem(RECENT_RECEIPTS_KEY) || '[]');
+        } catch { this._items = []; }
+        return this._items;
+    },
+
+    add(receiptNo, name) {
+        const items = this.load();
+        // Remove existing entry for same receiptNo
+        const filtered = items.filter(r => r.receiptNo !== receiptNo);
+        filtered.unshift({ receiptNo, name: name || '-', ts: Date.now() });
+        // Keep max items
+        this._items = filtered.slice(0, RECENT_RECEIPTS_MAX);
+        localStorage.setItem(RECENT_RECEIPTS_KEY, JSON.stringify(this._items));
+    },
+
+    getRecent(limit = 5) {
+        return this.load().slice(0, limit);
+    },
+
+    clear() {
+        this._items = [];
+        localStorage.removeItem(RECENT_RECEIPTS_KEY);
+    }
+};
+
+// ==================== //
+// Query Hash Helper (for analytics)
+// ==================== //
+async function hashQuery(text) {
+    try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(text);
+        const hash = await crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 12);
+    } catch {
+        return null;
+    }
+}
 
 // ==================== //
 // DOM Elements
@@ -262,6 +345,7 @@ const elements = {
     batchPrintBtn: document.getElementById('batchPrintBtn'),
     selectedCount: document.getElementById('selectedCount'),
     selectAllCheckbox: document.getElementById('selectAllCheckbox'),
+    selectNotPrintedBtn: document.getElementById('selectNotPrintedBtn'),
 
     // Monthly Report
     reportMonth: document.getElementById('reportMonth'),
@@ -778,6 +862,34 @@ function toggleSelectAll() {
     updateBatchPrintUI();
 }
 
+// Select only not-printed items on current page
+function selectAllNotPrinted() {
+    UXAnalytics.trackFeature('select_not_printed');
+    const filteredData = getFilteredData();
+    const startIndex = (state.currentPage - 1) * state.pageSize;
+    const endIndex = Math.min(startIndex + state.pageSize, filteredData.length);
+    const pageData = filteredData.slice(startIndex, endIndex);
+
+    // Select items that are not printed
+    const notPrintedOnPage = pageData.filter(r => !r.isPrinted).map(r => r.receiptNo);
+
+    if (notPrintedOnPage.length === 0) {
+        showToast('ไม่มีรายการที่ยังไม่พิมพ์ในหน้านี้', 'info');
+        return;
+    }
+
+    // Add to selection (don't duplicate)
+    notPrintedOnPage.forEach(rn => {
+        if (!state.selectedItems.includes(rn)) {
+            state.selectedItems.push(rn);
+        }
+    });
+
+    renderRegistryTable();
+    updateBatchPrintUI();
+    showToast(`เลือก ${notPrintedOnPage.length} รายการที่ยังไม่พิมพ์`, 'success');
+}
+
 function updateBatchPrintUI() {
     const count = state.selectedItems.length;
     if (elements.selectedCount) {
@@ -798,8 +910,16 @@ function updateBatchPrintUI() {
     }
 }
 
+function trackJourneyPrint() {
+    if (!state._journeyMilestones.hasPrinted) {
+        state._journeyMilestones.hasPrinted = true;
+        UXAnalytics.trackJourney('journey_print', { ms_since_start: Date.now() - state._journeyMilestones.startTime });
+    }
+}
+
 function batchPrint() {
     UXAnalytics.trackFeature('batch_print', { count: state.selectedItems.length });
+    trackJourneyPrint();
     if (state.selectedItems.length === 0) {
         alert('กรุณาเลือกรายการที่ต้องการพิมพ์');
         return;
@@ -824,7 +944,11 @@ function batchPrint() {
             snNumber: rowData.sn,
             requestNo: rowData.requestNo,
             appointmentNo: rowData.appointmentNo,
-            cardImage: rowData.cardImage
+            cardImage: rowData.cardImage,
+            // v7.0 - Photo & Signature
+            recipientPhotoUrl: rowData.recipientPhotoUrl || null,
+            recipientSignatureUrl: rowData.recipientSignatureUrl || null,
+            officerSignatureUrl: rowData.officerSignatureUrl || null
         };
 
         // Parse date
@@ -857,12 +981,29 @@ function batchPrint() {
     // Ask for confirmation after print dialog closes
     setTimeout(async () => {
         if (confirm(`พิมพ์ใบรับ ${count} รายการ เรียบร้อยแล้วหรือไม่?`)) {
-            // Mark all as printed (async - syncs to Supabase)
-            for (const receiptNo of itemsToPrint) {
-                await markAsPrinted(receiptNo);
+            // Batch mark as printed — 1 Supabase call instead of N
+            const success = await SupabaseAdapter.markPrintedBatch(itemsToPrint);
+            if (success) {
+                // Update local state in memory
+                itemsToPrint.forEach(rn => {
+                    const record = state.registryData.find(r => r.receiptNo === rn);
+                    if (record) {
+                        record.isPrinted = true;
+                        record.printedAt = new Date().toISOString();
+                    }
+                    // Update printedReceipts array
+                    const existingIndex = state.printedReceipts.findIndex(r => r.receiptNo === rn);
+                    if (existingIndex >= 0) {
+                        state.printedReceipts[existingIndex].printCount++;
+                    } else {
+                        state.printedReceipts.push({ receiptNo: rn, printedAt: new Date().toISOString(), printCount: 1 });
+                    }
+                });
+                addActivity('print', `พิมพ์ใบรับ ${count} รายการ (Batch)`, receiptNos);
+                updateSummary();
+            } else {
+                alert('เกิดข้อผิดพลาดในการบันทึกสถานะพิมพ์');
             }
-            addActivity('print', `พิมพ์ใบรับ ${count} รายการ (Batch)`, receiptNos);
-            updateSummary();
         }
         // Clear selection after confirm/cancel (not before)
         state.selectedItems = [];
@@ -958,17 +1099,28 @@ function generateSinglePrintContent(formData) {
                 <p style="font-size: 9px; line-height: 1.3; color: #6b7280; font-style: italic; margin: 0;">I have verified that all information on the work permit card is correct and confirm receipt at the Visa and Work Permit Service Center, One Bangkok Building.</p>
             </div>
 
+            <!-- v7.0 - Recipient Photo (if available) -->
+            ${formData.recipientPhotoUrl ? `
+            <div style="text-align: center; margin-bottom: 6px;">
+                <p style="font-size: 10px; font-weight: 600; color: #374151; margin: 0 0 4px 0;">ภาพถ่ายผู้รับบัตร / Recipient Photo</p>
+                <img src="${sanitizeHTML(formData.recipientPhotoUrl)}" style="max-width: 100px; max-height: 100px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e7eb;">
+            </div>` : ''}
+
             <!-- ช่องลงชื่อ -->
             <table style="width: 100%; margin-top: 10px;">
                 <tr>
                     <td style="width: 50%; text-align: center; padding: 0 15px;">
-                        <div style="border-bottom: 1px solid #374151; height: 28px; margin-bottom: 4px;"></div>
+                        ${formData.recipientSignatureUrl ?
+                            `<img src="${sanitizeHTML(formData.recipientSignatureUrl)}" style="max-width: 80%; max-height: 28px; object-fit: contain; margin-bottom: 4px;">` :
+                            `<div style="border-bottom: 1px solid #374151; height: 28px; margin-bottom: 4px;"></div>`}
                         <p style="color: #374151; margin: 0; font-size: 10px; font-weight: 600;">ลงชื่อผู้รับบัตร / Cardholder</p>
                         <p style="color: #1f2937; font-weight: 600; margin: 3px 0; font-size: 10px;">(${safeName !== '-' ? safeName : '___________________'})</p>
                         <p style="color: #6b7280; margin: 0; font-size: 9px;">Tel: ________________________</p>
                     </td>
                     <td style="width: 50%; text-align: center; padding: 0 15px;">
-                        <div style="border-bottom: 1px solid #374151; height: 28px; margin-bottom: 4px;"></div>
+                        ${formData.officerSignatureUrl ?
+                            `<img src="${sanitizeHTML(formData.officerSignatureUrl)}" style="max-width: 80%; max-height: 28px; object-fit: contain; margin-bottom: 4px;">` :
+                            `<div style="border-bottom: 1px solid #374151; height: 28px; margin-bottom: 4px;"></div>`}
                         <p style="color: #374151; margin: 0; font-size: 10px; font-weight: 600;">ลงชื่อเจ้าหน้าที่ / Officer</p>
                         <p style="color: #1f2937; font-weight: 600; margin: 3px 0; font-size: 10px;">(${officerName || '___________________'})</p>
                         <p style="color: #6b7280; margin: 0; font-size: 9px;">Date: ${formatDateForDisplay(formData.receiptDate)}</p>
@@ -1505,6 +1657,20 @@ function updateReceiptPreview() {
         elements.receiptCardImage.src = '';
         elements.previewCardBox.classList.remove('has-image');
     }
+
+    // v7.0 - Update recipient photo in preview
+    const previewPhotoBox = document.getElementById('previewPhotoBox');
+    const previewRecipientPhoto = document.getElementById('previewRecipientPhoto');
+    if (previewPhotoBox && previewRecipientPhoto) {
+        const photoSrc = (typeof webcamState !== 'undefined' && webcamState.capturedPhoto) ? webcamState.capturedPhoto : null;
+        if (photoSrc) {
+            previewRecipientPhoto.src = photoSrc;
+            previewPhotoBox.style.display = '';
+        } else {
+            previewRecipientPhoto.src = '';
+            previewPhotoBox.style.display = 'none';
+        }
+    }
 }
 
 async function clearForm(skipConfirm = false) {
@@ -1529,6 +1695,11 @@ async function clearForm(skipConfirm = false) {
 
     elements.cardPreview.src = '';
     elements.cardImageUpload.classList.remove('has-image');
+
+    // v7.0 - Clear photo and signature
+    if (typeof clearPhotoAndSignature === 'function') {
+        clearPhotoAndSignature();
+    }
 
     // Auto-generate date and receipt number
     setDefaultDate();
@@ -1591,6 +1762,39 @@ function loadFromRegistry(rowData) {
             const year = parseInt(parts[2]) - CONFIG.BUDDHIST_YEAR_OFFSET;
             elements.receiptDate.value = `${year}-${month}-${day}`;
         }
+    }
+
+    // v7.0 - Load recipient photo from saved URL
+    if (rowData.recipientPhotoUrl) {
+        if (typeof webcamState !== 'undefined') {
+            webcamState.capturedPhoto = rowData.recipientPhotoUrl;
+        }
+        const webcamPreview = document.getElementById('webcamPreview');
+        const webcamVideo = document.getElementById('webcamVideo');
+        if (webcamPreview) {
+            webcamPreview.src = rowData.recipientPhotoUrl;
+            webcamPreview.style.display = '';
+        }
+        if (webcamVideo) webcamVideo.style.display = 'none';
+        if (typeof updateRecipientPhotoPreview === 'function') {
+            updateRecipientPhotoPreview();
+        }
+    }
+
+    // v7.0 - Load recipient signature from saved URL
+    if (rowData.recipientSignatureUrl) {
+        const previewSig = document.getElementById('previewRecipientSignature');
+        const previewLine = document.getElementById('previewSignatureLine');
+        if (previewSig) { previewSig.src = rowData.recipientSignatureUrl; previewSig.style.display = ''; }
+        if (previewLine) previewLine.style.display = 'none';
+    }
+
+    // v7.0 - Load officer signature from saved URL (or use cached)
+    if (rowData.officerSignatureUrl) {
+        const previewOfficerSig = document.getElementById('previewOfficerSignature');
+        const previewOfficerLine = document.getElementById('previewOfficerSignatureLine');
+        if (previewOfficerSig) { previewOfficerSig.src = rowData.officerSignatureUrl; previewOfficerSig.style.display = ''; }
+        if (previewOfficerLine) previewOfficerLine.style.display = 'none';
     }
 
     setFormMode('edit', rowData.receiptNo);
@@ -1696,6 +1900,69 @@ async function saveData() {
                     }
                 }
 
+                // v7.0 - Upload photo & signature in parallel
+                let recipientPhotoUrl = null;
+                let recipientSignatureUrl = null;
+                let officerSignatureUrl = cachedOfficerSignatureUrl || null;
+
+                const hasPhoto = typeof webcamState !== 'undefined' && webcamState.capturedPhoto;
+                const hasSig = typeof recipientSignaturePad !== 'undefined' && recipientSignaturePad && !recipientSignaturePad.isEmpty();
+                console.log('📷 v7.0 Save - hasPhoto:', !!hasPhoto, 'hasSig:', !!hasSig, 'officerSig:', !!officerSignatureUrl);
+                if (hasPhoto) {
+                    console.log('📷 Photo data type:', webcamState.capturedPhoto.substring(0, 50) + '...');
+                }
+
+                const uploadPromises = [];
+                if (hasPhoto) {
+                    // If photo is already a URL (loaded from DB), don't re-upload
+                    if (webcamState.capturedPhoto.startsWith('http')) {
+                        recipientPhotoUrl = webcamState.capturedPhoto;
+                        console.log('📷 Photo already uploaded, using existing URL');
+                    } else {
+                        uploadPromises.push(
+                            SupabaseAdapter.uploadPhoto(webcamState.capturedPhoto, state.formData.receiptNo)
+                                .then(url => {
+                                    recipientPhotoUrl = url;
+                                    console.log('📷 Photo uploaded successfully:', url);
+                                })
+                                .catch(e => {
+                                    console.error('📷 Photo upload FAILED:', e);
+                                })
+                        );
+                    }
+                }
+                if (hasSig) {
+                    const sigData = recipientSignaturePad.toDataURL('image/png');
+                    const sigFileName = `signatures/${state.formData.receiptNo}_recipient.png`;
+                    // If re-saving, check if signature pad has new data
+                    uploadPromises.push(
+                        SupabaseAdapter.uploadSignature(sigData, sigFileName)
+                            .then(url => {
+                                recipientSignatureUrl = url;
+                                console.log('✍️ Signature uploaded successfully:', url);
+                            })
+                            .catch(e => {
+                                console.error('✍️ Signature upload FAILED:', e);
+                            })
+                    );
+                }
+                if (uploadPromises.length > 0) {
+                    console.log('📷 Uploading', uploadPromises.length, 'file(s)...');
+                    await Promise.all(uploadPromises);
+                }
+                console.log('📷 v7.0 Final URLs - photo:', recipientPhotoUrl, 'sig:', recipientSignatureUrl, 'officer:', officerSignatureUrl);
+
+                // v7.1 - Preserve existing photo/signature URLs in edit mode
+                if (isEdit) {
+                    const existingRecord = state.registryData.find(r => r.receiptNo === state.editingReceiptNo);
+                    if (existingRecord) {
+                        if (!recipientPhotoUrl) recipientPhotoUrl = existingRecord.recipientPhotoUrl || null;
+                        if (!recipientSignatureUrl) recipientSignatureUrl = existingRecord.recipientSignatureUrl || null;
+                        if (!officerSignatureUrl) officerSignatureUrl = existingRecord.officerSignatureUrl || null;
+                        console.log('📝 v7.1 Edit mode - preserved URLs from existing record');
+                    }
+                }
+
                 // Save to Supabase
                 const receiptData = {
                     receiptNo: state.formData.receiptNo,
@@ -1705,7 +1972,11 @@ async function saveData() {
                     requestNo: state.formData.requestNo,
                     appointmentNo: state.formData.appointmentNo,
                     apiPhotoUrl: state.formData._apiPhotoUrl || null,
-                    isEdit: isEdit
+                    isEdit: isEdit,
+                    // v7.0 - Photo & Signature URLs
+                    recipientPhotoUrl: recipientPhotoUrl,
+                    recipientSignatureUrl: recipientSignatureUrl,
+                    officerSignatureUrl: officerSignatureUrl
                 };
 
                 // Upload image if exists and save receipt
@@ -1750,7 +2021,11 @@ async function saveData() {
             appointmentNo: r.appointmentNo,
             cardImage: r.cardImage,
             isPrinted: r.isPrinted,
-            isReceived: r.isReceived
+            isReceived: r.isReceived,
+            // v7.0 - Photo & Signature
+            recipientPhotoUrl: r.recipientPhotoUrl,
+            recipientSignatureUrl: r.recipientSignatureUrl,
+            officerSignatureUrl: r.officerSignatureUrl
         }));
         console.log(`✅ Loaded ${state.registryData.length} records for ${reloadDate}`);
 
@@ -1769,6 +2044,11 @@ async function saveData() {
             alert('บันทึกข้อมูลเรียบร้อยแล้ว!');
         }
         UXAnalytics.trackJourney('save', { mode: isEdit ? 'edit' : 'add' });
+        // Journey: first form add
+        if (!isEdit && !state._journeyMilestones.hasFormAdd) {
+            state._journeyMilestones.hasFormAdd = true;
+            UXAnalytics.trackJourney('journey_form_add', { ms_since_start: Date.now() - state._journeyMilestones.startTime });
+        }
 
     } catch (e) {
         console.error('Error saving data:', e);
@@ -1827,6 +2107,7 @@ window.deleteRecord = deleteRecord;
 
 function printReceipt() {
     UXAnalytics.trackFeature('print_single');
+    trackJourneyPrint();
     updateFormState();
 
     if (!state.formData.receiptNo || !state.formData.foreignerName) {
@@ -1854,106 +2135,23 @@ function printReceipt() {
 }
 
 function generatePrintContent() {
-    // ดึงชื่อเจ้าหน้าที่จาก session
-    const session = window.AuthSystem ? window.AuthSystem.getSession() : null;
-    const officerName = sanitizeHTML(session ? session.name : '');
+    // v7.0 - Delegate to generateSinglePrintContent with v7.0 fields
+    // Resolve photo: from webcam capture (new) or saved URL (existing)
+    const photoUrl = (typeof webcamState !== 'undefined' && webcamState.capturedPhoto) || null;
+    // Resolve recipient signature: from signature pad (new) or saved (existing)
+    let recipientSigUrl = null;
+    if (typeof recipientSignaturePad !== 'undefined' && recipientSignaturePad && !recipientSignaturePad.isEmpty()) {
+        recipientSigUrl = recipientSignaturePad.toDataURL('image/png');
+    }
 
-    // Sanitize all user-sourced data
-    const safeSN = sanitizeHTML(state.formData.snNumber || '-');
-    const safeName = sanitizeHTML(state.formData.foreignerName || '-');
-    const safeRequestNo = sanitizeHTML(state.formData.requestNo || '-');
-    const safeAppointmentNo = sanitizeHTML(state.formData.appointmentNo || '-');
-    const safeReceiptNo = sanitizeHTML(state.formData.receiptNo || '-');
-    const safeCardImage = state.formData.cardImage && /^(https?:\/\/|data:image\/)/i.test(state.formData.cardImage) ? sanitizeHTML(state.formData.cardImage) : '';
+    const formDataForPrint = {
+        ...state.formData,
+        recipientPhotoUrl: photoUrl,
+        recipientSignatureUrl: recipientSigUrl,
+        officerSignatureUrl: cachedOfficerSignatureUrl || null
+    };
 
-    // Category letter + color (ข้าม prefix ใช้ชื่อจริง)
-    const categoryInfo = getCategoryInfo(state.formData.foreignerName);
-
-    return `
-        <div class="print-receipt-page" style="font-family: 'Sarabun', sans-serif; font-size: 14px; line-height: 1.2; padding: 5mm 10mm; border-top: 3px solid ${categoryInfo.color};">
-            <!-- Header with Category Badge -->
-            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 2px solid #2563eb;">
-                <div style="text-align: center; flex: 1;">
-                    <h2 style="color: #2563eb; margin: 0; font-size: 18px; font-weight: 700;">แบบรับใบอนุญาตทำงาน e-WorkPermit</h2>
-                    <p style="color: #6b7280; margin: 2px 0 0 0; font-size: 12px;">(e-WorkPermit Card Receipt)</p>
-                </div>
-                <div style="width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; color: ${categoryInfo.color}; border: 2px solid ${categoryInfo.color}; border-radius: 5px; background: #fff; flex-shrink: 0; margin-left: 10px;">${categoryInfo.letter}</div>
-            </div>
-
-            <!-- ข้อมูลหลัก -->
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 8px; background: #f8fafc; border: 1px solid #e5e7eb;">
-                <tr>
-                    <td style="padding: 5px 10px; border-bottom: 1px dotted #ddd; width: 50%;">
-                        <div style="font-weight: 600; color: #374151; font-size: 10px;">วันที่รับบัตร / Receipt Date:</div>
-                        <div style="color: #111; font-size: 14px; font-weight: 500;">${formatDateForDisplay(state.formData.receiptDate)}</div>
-                    </td>
-                    <td style="padding: 5px 10px; border-bottom: 1px dotted #ddd;">
-                        <div style="font-weight: 600; color: #374151; font-size: 10px;">หมายเลข SN / Serial No.:</div>
-                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeSN}</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td style="padding: 5px 10px; border-bottom: 1px dotted #ddd;">
-                        <div style="font-weight: 600; color: #374151; font-size: 10px;">ชื่อผู้รับบัตร / Name:</div>
-                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeName}</div>
-                    </td>
-                    <td style="padding: 5px 10px; border-bottom: 1px dotted #ddd;">
-                        <div style="font-weight: 600; color: #374151; font-size: 10px;">เลขที่คำขอ / Request No.:</div>
-                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeRequestNo}</div>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2" style="padding: 5px 10px;">
-                        <div style="font-weight: 600; color: #374151; font-size: 10px;">เลขที่นัดหมาย / Appointment No.:</div>
-                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeAppointmentNo}</div>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- รูปบัตร -->
-            <div style="margin-bottom: 6px;">
-                <p style="text-align: center; font-weight: 600; color: #374151; margin: 0 0 4px 0; font-size: 11px;">รูปบัตรอนุญาตทำงาน / Work Permit Card Image</p>
-                <div style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px; text-align: center; min-height: 200px; background: #fff; display: flex; align-items: center; justify-content: center;">
-                    ${safeCardImage ?
-                        `<img src="${safeCardImage}" style="max-width: 100%; max-height: 210px; object-fit: contain;">` :
-                        `<div style="color: #9ca3af;"><p style="font-size: 40px; margin: 0;">📷</p><p style="font-size: 14px; margin: 10px 0 0 0;">ไม่มีรูปภาพ / No Image</p></div>`}
-                </div>
-            </div>
-
-            <!-- ข้อความยืนยัน -->
-            <div style="margin: 5px 0; padding: 8px 12px; background: #f0f9ff; border-radius: 6px; border-left: 3px solid #2563eb;">
-                <p style="font-size: 11px; line-height: 1.4; color: #1f2937; margin: 0 0 3px 0;">ข้าพเจ้าตรวจความถูกต้องของใบอนุญาตทำงานแล้ว และยืนยันว่าได้รับใบอนุญาตทำงาน ณ ศูนย์บริการวีซ่าและใบอนุญาตทำงาน อาคาร One Bangkok</p>
-                <p style="font-size: 9px; line-height: 1.3; color: #6b7280; font-style: italic; margin: 0;">I have verified that all information on the work permit card is correct and confirm receipt at the Visa and Work Permit Service Center, One Bangkok Building.</p>
-            </div>
-
-            <!-- ช่องลงชื่อ -->
-            <table style="width: 100%; margin-top: 10px;">
-                <tr>
-                    <td style="width: 50%; text-align: center; padding: 0 15px;">
-                        <div style="border-bottom: 1px solid #374151; height: 28px; margin-bottom: 4px;"></div>
-                        <p style="color: #374151; margin: 0; font-size: 10px; font-weight: 600;">ลงชื่อผู้รับบัตร / Cardholder</p>
-                        <p style="color: #1f2937; font-weight: 600; margin: 3px 0; font-size: 10px;">(${safeName !== '-' ? safeName : '___________________'})</p>
-                        <p style="color: #6b7280; margin: 0; font-size: 9px;">Tel: ________________________</p>
-                    </td>
-                    <td style="width: 50%; text-align: center; padding: 0 15px;">
-                        <div style="border-bottom: 1px solid #374151; height: 28px; margin-bottom: 4px;"></div>
-                        <p style="color: #374151; margin: 0; font-size: 10px; font-weight: 600;">ลงชื่อเจ้าหน้าที่ / Officer</p>
-                        <p style="color: #1f2937; font-weight: 600; margin: 3px 0; font-size: 10px;">(${officerName || '___________________'})</p>
-                        <p style="color: #6b7280; margin: 0; font-size: 9px;">Date: ${formatDateForDisplay(state.formData.receiptDate)}</p>
-                    </td>
-                </tr>
-            </table>
-
-            <!-- Footer -->
-            <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #d1d5db; padding-top: 4px;">
-                <span style="color: #9ca3af; font-size: 8px;">ศูนย์บริการวีซ่าและใบอนุญาตทำงาน BOI</span>
-                <div style="text-align: right;">
-                    <div style="font-size: 13px; color: #111; font-weight: 700; margin-bottom: 1px;">Doc No.: ${safeReceiptNo}</div>
-                    <svg class="receipt-barcode" data-receipt-no="${safeReceiptNo}"></svg>
-                </div>
-            </div>
-        </div>
-    `;
+    return generateSinglePrintContent(formDataForPrint);
 }
 
 // ==================== //
@@ -1976,10 +2174,13 @@ function updateSummary() {
     const total = filteredData.length;
     let printed = 0;
     let received = 0;
+    let signed = 0;
 
     filteredData.forEach(row => {
         if (isPrinted(row.receiptNo)) printed++;
         if (isCardReceived(row.receiptNo)) received++;
+        // v7.0 - Count signed (has photo + signature)
+        if (row.recipientSignatureUrl && row.recipientPhotoUrl) signed++;
     });
 
     const pendingPrint = total - printed;
@@ -1990,6 +2191,10 @@ function updateSummary() {
     elements.summaryPendingPrint.textContent = pendingPrint;
     elements.summaryReceived.textContent = received;
     elements.summaryWaiting.textContent = waiting;
+
+    // v7.0 - Signed count
+    const summarySigned = document.getElementById('summarySigned');
+    if (summarySigned) summarySigned.textContent = signed;
 }
 
 // ==================== //
@@ -2151,6 +2356,21 @@ function exportToPDF() {
 // ==================== //
 
 function getFilteredData() {
+    // Cache key based on inputs that affect the result
+    const cacheKey = JSON.stringify({
+        dataLen: state.registryData.length,
+        dataHash: state.registryData.length > 0 ? state.registryData[0].receiptNo + state.registryData[state.registryData.length - 1].receiptNo : '',
+        search: state.searchQuery,
+        filter: state.filterStatus,
+        isSearchMode: state.isSearchMode,
+        printedCount: state.printedReceipts.length,
+        receivedCount: state.receivedCards.length
+    });
+
+    if (state._filteredDataCache && state._filteredDataCacheKey === cacheKey) {
+        return state._filteredDataCache;
+    }
+
     let data = [...state.registryData];
 
     // Only apply client-side search filter when NOT in server-side search mode
@@ -2173,11 +2393,16 @@ function getFilteredData() {
             const printed = isPrinted(row.receiptNo);
             const received = isCardReceived(row.receiptNo);
 
+            // v7.0 - Check signed status
+            const signed = !!(row.recipientSignatureUrl && row.recipientPhotoUrl);
+
             switch (state.filterStatus) {
                 case 'printed': return printed;
                 case 'not-printed': return !printed;
                 case 'received': return received;
                 case 'not-received': return !received;
+                case 'signed': return signed;
+                case 'not-signed': return !signed;
                 default: return true;
             }
         });
@@ -2202,7 +2427,17 @@ function getFilteredData() {
         row.number = index + 1;
     });
 
+    // Cache result
+    state._filteredDataCache = data;
+    state._filteredDataCacheKey = cacheKey;
+
     return data;
+}
+
+// Invalidate filtered data cache (call when data changes)
+function invalidateFilteredCache() {
+    state._filteredDataCache = null;
+    state._filteredDataCacheKey = null;
 }
 
 // ==================== //
@@ -2439,6 +2674,7 @@ window.goToPage = goToPage;
 function selectRow(receiptNo) {
     const rowData = state.registryData.find(r => r.receiptNo === receiptNo);
     if (rowData) {
+        RecentReceipts.add(receiptNo, rowData.name);
         loadFromRegistry(rowData);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -2471,8 +2707,12 @@ function viewImage(receiptNo) {
  */
 function printFromTable(receiptNo) {
     UXAnalytics.trackFeature('print_from_table');
+    trackJourneyPrint();
     const rowData = state.registryData.find(r => r.receiptNo === receiptNo);
     if (!rowData) return;
+
+    // Save to recent receipts
+    RecentReceipts.add(receiptNo, rowData.name);
 
     // Set form data from row
     state.formData = {
@@ -2496,12 +2736,23 @@ function printFromTable(receiptNo) {
         }
     }
 
+    // v7.0 - Set photo/signature data for print
+    if (typeof webcamState !== 'undefined') {
+        webcamState.capturedPhoto = rowData.recipientPhotoUrl || null;
+    }
+
     // Store receipt info for confirmation
     const printReceiptNo = state.formData.receiptNo;
     const printName = state.formData.foreignerName;
 
-    // Generate print content and print
-    const printContent = generatePrintContent();
+    // Generate print content with v7.0 data
+    const formDataForPrint = {
+        ...state.formData,
+        recipientPhotoUrl: rowData.recipientPhotoUrl || null,
+        recipientSignatureUrl: rowData.recipientSignatureUrl || null,
+        officerSignatureUrl: rowData.officerSignatureUrl || cachedOfficerSignatureUrl || null
+    };
+    const printContent = generateSinglePrintContent(formDataForPrint);
     elements.printTemplate.innerHTML = printContent;
     renderBarcodes();
     window.print();
@@ -2535,6 +2786,33 @@ function setupEventListeners() {
     ['receiptDate', 'receiptNo', 'foreignerName', 'snNumber', 'requestNo', 'appointmentNo'].forEach(id => {
         elements[id].addEventListener('input', updateReceiptPreview);
     });
+
+    // Cross-use: auto-fill from Card Print Lock when appointmentNo is entered
+    if (elements.appointmentNo) {
+        elements.appointmentNo.addEventListener('blur', async () => {
+            const val = elements.appointmentNo.value.trim();
+            if (!val || val.length < 3) return;
+            // Only auto-fill if name/requestNo are empty (don't overwrite user input)
+            if (elements.foreignerName.value.trim() && elements.requestNo.value.trim()) return;
+            try {
+                if (!window.SupabaseCardPrintLock) return;
+                const lock = await window.SupabaseCardPrintLock.getByAppointment(val);
+                if (lock) {
+                    if (!elements.foreignerName.value.trim() && lock.foreigner_name) {
+                        elements.foreignerName.value = lock.foreigner_name;
+                    }
+                    if (!elements.requestNo.value.trim() && lock.request_no) {
+                        elements.requestNo.value = lock.request_no;
+                    }
+                    updateReceiptPreview();
+                    showToast('ดึงข้อมูลจากระบบล็อกบัตรสำเร็จ', 'success');
+                }
+            } catch (e) {
+                // Silent fail — auto-fill is optional
+                console.log('Card lock lookup:', e.message);
+            }
+        });
+    }
 
     elements.clearBtn.addEventListener('click', clearForm);
     elements.saveBtn.addEventListener('click', saveData);
@@ -2661,7 +2939,13 @@ function setupEventListeners() {
                 loadPrintedReceipts();
                 loadReceivedCards();
                 console.log(`🔍 Search "${query}": ${state.registryData.length} results (all dates)`);
-                UXAnalytics.trackFeature('search', { query_length: query.length, result_count: state.registryData.length });
+                const qHash = await hashQuery(query.toLowerCase().trim());
+                UXAnalytics.trackFeature('search', { query_length: query.length, result_count: state.registryData.length, query_hash: qHash });
+                // Journey: first search
+                if (!state._journeyMilestones.hasSearched) {
+                    state._journeyMilestones.hasSearched = true;
+                    UXAnalytics.trackJourney('journey_search', { ms_since_start: Date.now() - state._journeyMilestones.startTime });
+                }
             } catch (e) {
                 console.error('Error searching:', e);
                 UXAnalytics.trackError('search_error', { message: e.message });
@@ -2671,6 +2955,75 @@ function setupEventListeners() {
             renderRegistryTable();
             updateSummary();
         }, 400);
+    });
+
+    // Recent Receipts Dropdown
+    const recentDropdown = document.getElementById('recentReceiptsDropdown');
+    let recentActiveIndex = -1;
+
+    function showRecentDropdown() {
+        if (elements.searchInput.value.trim()) return; // Don't show when typing
+        const recent = RecentReceipts.getRecent(5);
+        if (recent.length === 0) return;
+
+        recentActiveIndex = -1;
+        recentDropdown.innerHTML = `
+            <div class="recent-header">
+                <span>ใบรับล่าสุด</span>
+                <button onclick="RecentReceipts.clear(); hideRecentDropdown();">ล้าง</button>
+            </div>
+            ${recent.map((r, i) => `
+                <div class="recent-item" data-index="${i}" data-receipt="${r.receiptNo}"
+                     onmousedown="selectRecentReceipt('${r.receiptNo}')">
+                    <span class="recent-name">${r.name}</span>
+                    <span class="recent-no">${r.receiptNo}</span>
+                </div>
+            `).join('')}
+        `;
+        recentDropdown.style.display = 'block';
+    }
+
+    function hideRecentDropdown() {
+        recentDropdown.style.display = 'none';
+        recentActiveIndex = -1;
+    }
+
+    window.selectRecentReceipt = function(receiptNo) {
+        elements.searchInput.value = receiptNo;
+        hideRecentDropdown();
+        elements.searchInput.dispatchEvent(new Event('input'));
+    };
+
+    elements.searchInput.addEventListener('focus', () => {
+        if (!elements.searchInput.value.trim()) showRecentDropdown();
+    });
+
+    elements.searchInput.addEventListener('blur', () => {
+        // Delay to allow click on dropdown item
+        setTimeout(hideRecentDropdown, 200);
+    });
+
+    // Arrow keys navigation for recent dropdown
+    elements.searchInput.addEventListener('keydown', (e) => {
+        if (recentDropdown.style.display === 'none') return;
+        const items = recentDropdown.querySelectorAll('.recent-item');
+        if (items.length === 0) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            recentActiveIndex = Math.min(recentActiveIndex + 1, items.length - 1);
+            items.forEach((el, i) => el.classList.toggle('active', i === recentActiveIndex));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            recentActiveIndex = Math.max(recentActiveIndex - 1, 0);
+            items.forEach((el, i) => el.classList.toggle('active', i === recentActiveIndex));
+        } else if (e.key === 'Enter' && recentActiveIndex >= 0) {
+            e.preventDefault();
+            const selected = items[recentActiveIndex];
+            if (selected) selectRecentReceipt(selected.dataset.receipt);
+        } else if (e.key === 'Escape') {
+            hideRecentDropdown();
+        }
     });
 
     elements.filterStatus.addEventListener('change', (e) => {
@@ -2687,6 +3040,17 @@ function setupEventListeners() {
     if (elements.batchPrintBtn) {
         elements.batchPrintBtn.addEventListener('click', batchPrint);
     }
+    if (elements.selectNotPrintedBtn) {
+        elements.selectNotPrintedBtn.addEventListener('click', selectAllNotPrinted);
+    }
+
+    // Ctrl+P shortcut: batch print when items selected
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'p' && state.selectedItems.length > 0) {
+            e.preventDefault();
+            batchPrint();
+        }
+    });
 
     // Monthly Report
     if (elements.generateReportBtn) {
@@ -2757,6 +3121,23 @@ function setupUserManagement() {
     // Show/hide user management button based on permission
     if (window.AuthSystem && window.AuthSystem.hasPermission('user_management')) {
         userManagementBtn.style.display = 'inline-block';
+    }
+
+    // Card Print Lock link — preserve env param
+    const cardPrintBtn = document.getElementById('cardPrintBtn');
+    if (cardPrintBtn && typeof getEnvParam === 'function') {
+        const envParam = getEnvParam();
+        if (envParam) {
+            cardPrintBtn.href = 'card-print.html' + envParam;
+        }
+    }
+
+    // Quick Print link — preserve env param
+    const quickPrintBtn = document.getElementById('quickPrintBtn');
+    if (quickPrintBtn && typeof getEnvParam === 'function') {
+        const envParam = getEnvParam();
+        const base = envParam ? 'index.html' + envParam + '&mode=quick-print' : 'index.html?mode=quick-print';
+        quickPrintBtn.href = base;
     }
 
     // User Management button
@@ -3505,7 +3886,7 @@ window.closePendingModal = closePendingModal;
 // ==================== //
 
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('Work Permit Receipt System v6.3.0 (Supabase) initialized');
+    console.log('Work Permit Receipt System v8.1.0 (Supabase) initialized');
 
     // Check Supabase authentication
     try {
@@ -3584,4 +3965,519 @@ async function initializeApp() {
     // }, 1000);
 
     console.log('✅ App initialized successfully');
+
+    // Quick Print Mode: ?mode=quick-print
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'quick-print') {
+        initQuickPrintMode();
+    }
+
+    // v7.0 - Initialize Photo & Signature modules (hidden until hardware testing)
+    const webcamSection = document.getElementById('webcamSection');
+    if (webcamSection && webcamSection.style.display !== 'none') {
+        initWebcamModule();
+        initRecipientSignaturePad();
+        initOfficerSignatureModule();
+    } else {
+        console.log('ℹ️ v7.0 E-Sign modules disabled (hidden in production)');
+    }
+}
+
+// ==================== //
+// Quick Print Mode
+// ==================== //
+
+function initQuickPrintMode() {
+    console.log('🚀 Quick Print Mode activated');
+    UXAnalytics.trackFeature('quick_print_mode');
+
+    // Hide sections not needed for quick print
+    const formPanel = document.querySelector('.form-panel');
+    const summaryPanel = document.querySelector('.summary-panel');
+    const reportsSection = document.getElementById('reportsSection');
+
+    if (formPanel) formPanel.style.display = 'none';
+    if (summaryPanel) summaryPanel.style.display = 'none';
+    if (reportsSection) reportsSection.style.display = 'none';
+
+    // Make data-panel full width
+    const dataPanel = document.querySelector('.data-panel');
+    if (dataPanel) {
+        dataPanel.style.gridColumn = '1 / -1';
+        dataPanel.style.maxWidth = '100%';
+    }
+
+    // Make main-content single column
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+        mainContent.style.display = 'block';
+    }
+
+    // Simplify header for quick print
+    const headerLeft = document.querySelector('.header-left');
+    if (headerLeft) {
+        headerLeft.querySelector('h1').textContent = 'พิมพ์ด่วน';
+        headerLeft.querySelector('.subtitle').textContent = 'Quick Print Mode — EWP Service Center';
+    }
+
+    // Hide buttons not needed in quick print
+    const addNewBtn = document.getElementById('addNewBtn');
+    if (addNewBtn) addNewBtn.style.display = 'none';
+    const quickPrintBtn = document.getElementById('quickPrintBtn');
+    if (quickPrintBtn) quickPrintBtn.style.display = 'none';
+    const officerSignatureBtn = document.getElementById('officerSignatureBtn');
+    if (officerSignatureBtn) officerSignatureBtn.style.display = 'none';
+
+    // Add "กลับหน้าเต็ม" link in header
+    const headerRight = document.querySelector('.header-right');
+    if (headerRight) {
+        const envParam = (typeof getEnvParam === 'function') ? (getEnvParam() || '') : '';
+        const fullModeLink = document.createElement('a');
+        fullModeLink.href = 'index.html' + envParam;
+        fullModeLink.className = 'btn btn-outline btn-sm';
+        fullModeLink.textContent = '↩ หน้าเต็ม';
+        headerRight.insertBefore(fullModeLink, headerRight.firstChild);
+    }
+
+    // Auto-focus search input
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        setTimeout(() => searchInput.focus(), 300);
+    }
+
+    // Update page title
+    document.title = 'พิมพ์ด่วน — EWP Service Center';
+}
+
+// ==================== //
+// v7.0 - Webcam Module (RAPOO C280)
+// ==================== //
+
+const webcamState = {
+    stream: null,
+    capturedPhoto: null, // base64 data URL
+    selectedDeviceId: null
+};
+
+function initWebcamModule() {
+    const startBtn = document.getElementById('startCameraBtn');
+    const captureBtn = document.getElementById('capturePhotoBtn');
+    const retakeBtn = document.getElementById('retakePhotoBtn');
+    const cameraSelect = document.getElementById('cameraSelect');
+
+    if (startBtn) startBtn.addEventListener('click', startWebcam);
+    if (captureBtn) captureBtn.addEventListener('click', captureWebcamPhoto);
+    if (retakeBtn) retakeBtn.addEventListener('click', retakeWebcamPhoto);
+    if (cameraSelect) cameraSelect.addEventListener('change', (e) => {
+        webcamState.selectedDeviceId = e.target.value;
+        if (webcamState.stream) startWebcam();
+    });
+
+    console.log('📷 Webcam module initialized');
+}
+
+async function enumerateCameras() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        const cameraSelect = document.getElementById('cameraSelect');
+        if (!cameraSelect) return;
+
+        cameraSelect.innerHTML = '';
+        videoDevices.forEach((device, i) => {
+            const option = document.createElement('option');
+            option.value = device.deviceId;
+            option.textContent = device.label || `Camera ${i + 1}`;
+            cameraSelect.appendChild(option);
+        });
+
+        if (videoDevices.length > 1) {
+            cameraSelect.style.display = '';
+        }
+
+        // Auto-select first camera
+        if (videoDevices.length > 0 && !webcamState.selectedDeviceId) {
+            webcamState.selectedDeviceId = videoDevices[0].deviceId;
+        }
+    } catch (e) {
+        console.error('Error enumerating cameras:', e);
+    }
+}
+
+async function startWebcam() {
+    const video = document.getElementById('webcamVideo');
+    const placeholder = document.getElementById('webcamPlaceholder');
+    const preview = document.getElementById('webcamPreview');
+    const startBtn = document.getElementById('startCameraBtn');
+    const captureBtn = document.getElementById('capturePhotoBtn');
+    const retakeBtn = document.getElementById('retakePhotoBtn');
+
+    if (!video) return;
+
+    // Stop existing stream
+    stopWebcam();
+
+    try {
+        const constraints = {
+            video: {
+                width: { ideal: 1280 },
+                height: { ideal: 960 },
+                facingMode: 'user'
+            }
+        };
+
+        if (webcamState.selectedDeviceId) {
+            constraints.video.deviceId = { exact: webcamState.selectedDeviceId };
+        }
+
+        webcamState.stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = webcamState.stream;
+        video.style.display = '';
+        if (placeholder) placeholder.style.display = 'none';
+        if (preview) preview.style.display = 'none';
+
+        if (startBtn) startBtn.style.display = 'none';
+        if (captureBtn) captureBtn.style.display = '';
+        if (retakeBtn) retakeBtn.style.display = 'none';
+
+        // Enumerate cameras after permission granted
+        await enumerateCameras();
+
+    } catch (e) {
+        console.error('Error starting webcam:', e);
+        if (e.name === 'NotAllowedError') {
+            alert('ไม่ได้รับอนุญาตให้เข้าถึงกล้อง กรุณาอนุญาตในเบราว์เซอร์');
+        } else if (e.name === 'NotFoundError') {
+            alert('ไม่พบกล้อง กรุณาเสียบกล้อง USB แล้วลองใหม่');
+        } else {
+            alert('ไม่สามารถเปิดกล้องได้: ' + e.message);
+        }
+    }
+}
+
+function captureWebcamPhoto() {
+    const video = document.getElementById('webcamVideo');
+    const canvas = document.getElementById('webcamCanvas');
+    const preview = document.getElementById('webcamPreview');
+    const captureBtn = document.getElementById('capturePhotoBtn');
+    const retakeBtn = document.getElementById('retakePhotoBtn');
+
+    if (!video || !canvas) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+
+    // Compress to JPEG
+    const maxWidth = 1200;
+    if (canvas.width > maxWidth) {
+        const ratio = maxWidth / canvas.width;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = maxWidth;
+        tempCanvas.height = canvas.height * ratio;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+        webcamState.capturedPhoto = tempCanvas.toDataURL('image/jpeg', 0.8);
+    } else {
+        webcamState.capturedPhoto = canvas.toDataURL('image/jpeg', 0.8);
+    }
+
+    // Show preview
+    if (preview) {
+        preview.src = webcamState.capturedPhoto;
+        preview.style.display = '';
+    }
+    video.style.display = 'none';
+
+    if (captureBtn) captureBtn.style.display = 'none';
+    if (retakeBtn) retakeBtn.style.display = '';
+
+    // Stop stream to free camera
+    stopWebcam();
+
+    // Update receipt preview
+    updateRecipientPhotoPreview();
+}
+
+function retakeWebcamPhoto() {
+    webcamState.capturedPhoto = null;
+    const preview = document.getElementById('webcamPreview');
+    if (preview) preview.style.display = 'none';
+
+    updateRecipientPhotoPreview();
+    startWebcam();
+}
+
+function stopWebcam() {
+    if (webcamState.stream) {
+        webcamState.stream.getTracks().forEach(track => track.stop());
+        webcamState.stream = null;
+    }
+}
+
+function updateRecipientPhotoPreview() {
+    const previewPhotoBox = document.getElementById('previewPhotoBox');
+    const previewPhoto = document.getElementById('previewRecipientPhoto');
+    if (previewPhotoBox && previewPhoto) {
+        if (webcamState.capturedPhoto) {
+            previewPhoto.src = webcamState.capturedPhoto;
+            previewPhotoBox.style.display = '';
+        } else {
+            previewPhoto.src = '';
+            previewPhotoBox.style.display = 'none';
+        }
+    }
+}
+
+// ==================== //
+// v7.0 - Recipient Signature Pad
+// ==================== //
+
+let recipientSignaturePad = null;
+
+function initRecipientSignaturePad() {
+    const canvas = document.getElementById('recipientSignatureCanvas');
+    if (!canvas || typeof SignaturePad === 'undefined') {
+        console.warn('SignaturePad library not loaded or canvas not found');
+        return;
+    }
+
+    recipientSignaturePad = new SignaturePad(canvas, {
+        penColor: '#000000',
+        minWidth: 1.5,
+        maxWidth: 3,
+        backgroundColor: 'rgb(255, 255, 255)'
+    });
+
+    // Resize canvas to match CSS dimensions
+    function resizeCanvas() {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        canvas.getContext('2d').scale(ratio, ratio);
+        recipientSignaturePad.clear();
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Listen for signature changes to update preview
+    canvas.addEventListener('pointerup', updateRecipientSignaturePreview);
+
+    // Clear & Undo buttons
+    const clearBtn = document.getElementById('clearSignatureBtn');
+    const undoBtn = document.getElementById('undoSignatureBtn');
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+        recipientSignaturePad.clear();
+        updateRecipientSignaturePreview();
+    });
+    if (undoBtn) undoBtn.addEventListener('click', () => {
+        const data = recipientSignaturePad.toData();
+        if (data.length > 0) {
+            data.pop();
+            recipientSignaturePad.fromData(data);
+            updateRecipientSignaturePreview();
+        }
+    });
+
+    console.log('✍️ Recipient Signature Pad initialized');
+}
+
+function updateRecipientSignaturePreview() {
+    const previewSig = document.getElementById('previewRecipientSignature');
+    const previewLine = document.getElementById('previewSignatureLine');
+    if (previewSig && recipientSignaturePad) {
+        if (!recipientSignaturePad.isEmpty()) {
+            previewSig.src = recipientSignaturePad.toDataURL('image/png');
+            previewSig.style.display = '';
+            if (previewLine) previewLine.style.display = 'none';
+        } else {
+            previewSig.style.display = 'none';
+            if (previewLine) previewLine.style.display = '';
+        }
+    }
+}
+
+// ==================== //
+// v7.0 - Officer Signature Module
+// ==================== //
+
+let officerSignaturePad = null;
+let cachedOfficerSignatureUrl = null;
+
+function initOfficerSignatureModule() {
+    // Open modal button
+    const openBtn = document.getElementById('officerSignatureBtn');
+    const goToSetupBtn = document.getElementById('goToSignatureSetup');
+    const closeBtn = document.getElementById('closeOfficerSignatureModal');
+    const cancelBtn = document.getElementById('cancelOfficerSignatureBtn');
+    const saveBtn = document.getElementById('saveOfficerSignatureBtn');
+    const clearBtn = document.getElementById('clearOfficerSignatureBtn');
+    const undoBtn = document.getElementById('undoOfficerSignatureBtn');
+
+    if (openBtn) openBtn.addEventListener('click', openOfficerSignatureModal);
+    if (goToSetupBtn) goToSetupBtn.addEventListener('click', openOfficerSignatureModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeOfficerSignatureModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeOfficerSignatureModal);
+    if (saveBtn) saveBtn.addEventListener('click', saveOfficerSignature);
+    if (clearBtn) clearBtn.addEventListener('click', () => officerSignaturePad && officerSignaturePad.clear());
+    if (undoBtn) undoBtn.addEventListener('click', () => {
+        if (officerSignaturePad) {
+            const data = officerSignaturePad.toData();
+            if (data.length > 0) {
+                data.pop();
+                officerSignaturePad.fromData(data);
+            }
+        }
+    });
+
+    // Load officer signature on init
+    loadOfficerSignature();
+
+    console.log('✍️ Officer Signature module initialized');
+}
+
+function openOfficerSignatureModal() {
+    const overlay = document.getElementById('officerSignatureModalOverlay');
+    if (overlay) overlay.style.display = 'flex';
+
+    // Init signature pad in modal
+    if (!officerSignaturePad) {
+        const canvas = document.getElementById('officerSignatureCanvas');
+        if (canvas && typeof SignaturePad !== 'undefined') {
+            officerSignaturePad = new SignaturePad(canvas, {
+                penColor: '#000000',
+                minWidth: 1.5,
+                maxWidth: 3,
+                backgroundColor: 'rgb(255, 255, 255)'
+            });
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext('2d').scale(ratio, ratio);
+        }
+    }
+    if (officerSignaturePad) officerSignaturePad.clear();
+
+    // Show current signature if exists
+    const currentSection = document.getElementById('currentSignatureSection');
+    const currentImg = document.getElementById('currentOfficerSignature');
+    if (cachedOfficerSignatureUrl && currentSection && currentImg) {
+        currentImg.src = cachedOfficerSignatureUrl;
+        currentSection.style.display = '';
+    } else if (currentSection) {
+        currentSection.style.display = 'none';
+    }
+}
+
+function closeOfficerSignatureModal() {
+    const overlay = document.getElementById('officerSignatureModalOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+async function loadOfficerSignature() {
+    try {
+        const session = window.AuthSystem ? await window.AuthSystem.getSession() : null;
+        if (!session || !session.userId) return;
+
+        const signatureUrl = await SupabaseAdapter.getOfficerSignature(session.userId);
+        cachedOfficerSignatureUrl = signatureUrl;
+
+        const img = document.getElementById('officerSignatureImg');
+        const placeholder = document.getElementById('officerSignaturePlaceholder');
+        const previewOfficerSig = document.getElementById('previewOfficerSignature');
+        const previewOfficerLine = document.getElementById('previewOfficerSignatureLine');
+
+        if (signatureUrl) {
+            if (img) { img.src = signatureUrl; img.style.display = ''; }
+            if (placeholder) placeholder.style.display = 'none';
+            if (previewOfficerSig) { previewOfficerSig.src = signatureUrl; previewOfficerSig.style.display = ''; }
+            if (previewOfficerLine) previewOfficerLine.style.display = 'none';
+        } else {
+            if (img) img.style.display = 'none';
+            if (placeholder) placeholder.style.display = '';
+            if (previewOfficerSig) previewOfficerSig.style.display = 'none';
+            if (previewOfficerLine) previewOfficerLine.style.display = '';
+        }
+    } catch (e) {
+        console.error('Error loading officer signature:', e);
+    }
+}
+
+async function saveOfficerSignature() {
+    if (!officerSignaturePad || officerSignaturePad.isEmpty()) {
+        alert('กรุณาเซ็นชื่อก่อนบันทึก');
+        return;
+    }
+
+    const saveBtn = document.getElementById('saveOfficerSignatureBtn');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ กำลังบันทึก...'; }
+
+    try {
+        const session = window.AuthSystem ? await window.AuthSystem.getSession() : null;
+        if (!session || !session.userId) {
+            alert('ไม่พบข้อมูลผู้ใช้ กรุณา login ใหม่');
+            return;
+        }
+
+        const signatureData = officerSignaturePad.toDataURL('image/png');
+        const signatureUrl = await SupabaseAdapter.saveOfficerSignature(session.userId, signatureData);
+        cachedOfficerSignatureUrl = signatureUrl;
+
+        // Update display
+        await loadOfficerSignature();
+
+        alert('บันทึกลายเซ็นเรียบร้อยแล้ว!');
+        closeOfficerSignatureModal();
+    } catch (e) {
+        console.error('Error saving officer signature:', e);
+        alert('เกิดข้อผิดพลาด: ' + e.message);
+    } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 บันทึกลายเซ็น'; }
+    }
+}
+
+// ==================== //
+// v7.0 - Clear form extension
+// ==================== //
+
+// Override clearForm to also clear webcam & signature
+const _originalClearForm = clearForm;
+// Wrapped in try-catch for safety — if clearForm doesn't exist yet, skip override
+try {
+    if (typeof clearForm === 'function') {
+        // We'll extend clearForm by adding cleanup in the event listener below
+    }
+} catch (e) {}
+
+function clearPhotoAndSignature() {
+    // Clear webcam
+    stopWebcam();
+    webcamState.capturedPhoto = null;
+    const webcamVideo = document.getElementById('webcamVideo');
+    const webcamPreview = document.getElementById('webcamPreview');
+    const webcamPlaceholder = document.getElementById('webcamPlaceholder');
+    const startCameraBtn = document.getElementById('startCameraBtn');
+    const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+    const retakePhotoBtn = document.getElementById('retakePhotoBtn');
+
+    if (webcamVideo) webcamVideo.style.display = 'none';
+    if (webcamPreview) webcamPreview.style.display = 'none';
+    if (webcamPlaceholder) webcamPlaceholder.style.display = '';
+    if (startCameraBtn) startCameraBtn.style.display = '';
+    if (capturePhotoBtn) capturePhotoBtn.style.display = 'none';
+    if (retakePhotoBtn) retakePhotoBtn.style.display = 'none';
+
+    // Clear recipient signature
+    if (recipientSignaturePad) recipientSignaturePad.clear();
+
+    // Clear preview
+    updateRecipientPhotoPreview();
+    updateRecipientSignaturePreview();
+
+    // Clear recipient photo/signature in receipt preview
+    const previewPhotoBox = document.getElementById('previewPhotoBox');
+    if (previewPhotoBox) previewPhotoBox.style.display = 'none';
+    const previewRecipientPhoto = document.getElementById('previewRecipientPhoto');
+    if (previewRecipientPhoto) previewRecipientPhoto.src = '';
 }
