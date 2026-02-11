@@ -1237,6 +1237,45 @@ git push origin main --force
 
 ---
 
+## 11 กุมภาพันธ์ 2569 — v8.3.0 Pre-Migration Hardening
+
+### สิ่งที่ทำ
+
+**1. CDN SRI Hash (C1+C2)**
+- เพิ่ม `integrity="sha384-..."` + `crossorigin="anonymous"` ให้ทุก CDN script
+- Pin Supabase JS @2.95.3 (ป้องกัน SRI break เมื่อ CDN update)
+- ไฟล์: index.html, login.html, card-print.html, reset-password.html
+
+**2. goToPage() Upper Bound (F3)**
+- เพิ่ม check `page > totalPages` ใน `goToPage()` — ป้องกัน pagination เกินจำนวนหน้า
+
+**3. viewImage() URL Size Limit (S6)**
+- เพิ่ม check URL length > 10MB ก่อน `window.open()` — ป้องกัน memory attack จาก data: URI ขนาดใหญ่
+
+**4. afterprint Event (F6/P6)**
+- เปลี่ยน `setTimeout(500ms)` → `window.addEventListener('afterprint')` ทั้ง 3 จุด:
+  - batchPrint(), single print from form, printFromTable()
+- ใช้ one-time listener pattern (`removeEventListener` ภายใน handler)
+
+**5. Password Complexity — Client-Side (S5)**
+- login.html: เพิ่ม validation ก่อน register (≥8 ตัว, A-Z, 0-9)
+- Realtime strength indicator ด้วย ✓/✗ สีเขียว/แดง
+- reset-password.html: เพิ่ม validation เดียวกัน + minlength 8
+
+**6. Cache Bust + Deploy**
+- ?v=8.2 → ?v=8.3 ทุกไฟล์ HTML
+- Version badge card-print → v8.3
+- ทดสอบ SRI load + password validation บน localhost
+- Commit d093531 → push to Production
+
+### ทดสอบ
+- [x] SRI Hash: Supabase loaded ปกติ, ไม่มี console error
+- [x] Password "123" → แดง 2 กฎ (8 ตัว, A-Z), เขียว 1 กฎ (0-9)
+- [x] Password "Abc12345" → เขียวทั้ง 3 กฎ
+- [x] Code review: afterprint ×3 จุดถูกต้อง, goToPage guard, viewImage limit
+
+---
+
 ## 11 กุมภาพันธ์ 2569 — SQL Migration Production + Documentation Update
 
 ### สิ่งที่ทำ

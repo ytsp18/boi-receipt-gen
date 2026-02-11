@@ -1,5 +1,37 @@
 # Change Log - Work Permit Receipt System
 
+## [8.3.0] - 2026-02-11
+
+> **สถานะ: Production — deployed ✅**
+> **Pre-Migration Hardening — frontend-only, ไม่แตะ DB**
+
+### Security Hardening
+- **CDN SRI Hash (C1+C2):** เพิ่ม `integrity` + `crossorigin` ทุก CDN script
+  - Supabase JS pinned @2.95.3 (4 ไฟล์), JsBarcode @3.11.6, signature_pad @4.2.0
+- **viewImage() URL size limit (S6):** เพิ่ม check URL length > 10MB ก่อน window.open
+- **Password Complexity (S5):** client-side validation สำหรับ register + reset-password
+  - ≥8 ตัวอักษร, ต้องมี A-Z ≥1, ต้องมี 0-9 ≥1
+  - Realtime strength indicator (✓/✗ สีเขียว/แดง)
+
+### Bug Fixes
+- **goToPage() upper bound (F3):** เพิ่ม check page <= totalPages ป้องกัน pagination เกิน
+- **afterprint Event (F6/P6):** เปลี่ยน setTimeout(500ms) → `window.addEventListener('afterprint')` ทั้ง 3 จุด (batchPrint, single print, printFromTable) — แม่นยำกว่า
+
+### Changed
+- Cache bust `?v=8.3` ทุก CSS/JS
+- Version badge card-print → v8.3
+
+### Files Changed
+| ไฟล์ | ประเภท | เปลี่ยนแปลง |
+|------|--------|------------|
+| `index.html` | แก้ไข | SRI hash (3 CDN scripts), cache bust ?v=8.3 |
+| `card-print.html` | แก้ไข | SRI hash, cache bust ?v=8.3, version badge v8.3 |
+| `login.html` | แก้ไข | SRI hash, password complexity validation + realtime indicator |
+| `reset-password.html` | แก้ไข | SRI hash, password complexity validation, minlength 8 |
+| `js/app-supabase.js` | แก้ไข | goToPage upper bound, viewImage size limit, afterprint ×3 |
+
+---
+
 ## [8.2.0] - 2026-02-11
 
 > **สถานะ: Production — deployed ✅**

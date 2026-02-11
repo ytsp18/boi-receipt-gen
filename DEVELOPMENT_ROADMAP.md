@@ -190,10 +190,10 @@
 | S2 | Medium | Supabase anon key ใน HTML | ปกติสำหรับ anon key — RLS เป็น security boundary |
 | S3 | Medium | Analytics INSERT policy กว้างเกินไป | เพิ่ม check profiles.is_approved + rate limit trigger |
 | S5 | Medium | Barcode fallback outerHTML | Mitigated โดย receipt_no format validation (YYYYMMDD-NNN) |
-| S6 | Medium | viewImage() ไม่มี size limit | เพิ่ม check ขนาด URL ก่อน open |
+| ~~S6~~ | ~~Medium~~ | ~~viewImage() ไม่มี size limit~~ | ✅ **แก้แล้ว v8.3 — URL length > 10MB check** |
 | S7 | Low | user_id = null ใน analytics | เพิ่ม user_id จาก auth.uid() ถ้าต้องการ tracing |
-| C1 | Medium | JsBarcode CDN ไม่มี SRI hash | เพิ่ม integrity + crossorigin attributes |
-| C2 | Medium | Supabase CDN ไม่มี SRI hash | เพิ่ม integrity + crossorigin attributes |
+| ~~C1~~ | ~~Medium~~ | ~~JsBarcode CDN ไม่มี SRI hash~~ | ✅ **แก้แล้ว v8.3 — SRI hash + pin version** |
+| ~~C2~~ | ~~Medium~~ | ~~Supabase CDN ไม่มี SRI hash~~ | ✅ **แก้แล้ว v8.3 — SRI hash + pin @2.95.3** |
 
 ### Performance (ยังไม่แก้)
 
@@ -208,10 +208,10 @@
 | ID | Severity | ปัญหา | แนวทางแก้ |
 |----|----------|-------|-----------|
 | F2 | Medium | Barcode scan false positive (100ms threshold) | ลด threshold เป็น 50ms หรือเพิ่ม length check |
-| F3 | Low | goToPage() ไม่มี upper bound check | เพิ่ม check page <= totalPages |
+| ~~F3~~ | ~~Low~~ | ~~goToPage() ไม่มี upper bound check~~ | ✅ **แก้แล้ว v8.3 — page <= totalPages** |
 | F4 | Medium | Monthly report ใช้ client-side data วันเดียว (bug เดิม) | สร้าง server query สำหรับ monthly data |
 | F5 | Low | Multiple print functions share printTemplate | เพิ่ม lock/queue สำหรับ print |
-| F6 | Medium | setTimeout print confirmation timing | ใช้ afterprint event แทน setTimeout |
+| ~~F6~~ | ~~Medium~~ | ~~setTimeout print confirmation timing~~ | ✅ **แก้แล้ว v8.3 — afterprint event ×3 จุด** |
 
 ---
 
@@ -348,9 +348,9 @@ profiles table (เพิ่ม fields):
 | P1 | **fts-internal.com Central Platform** | พัฒนา web app กลางเป็น backend จัดการเรื่องต่างๆ → domain `fts-internal.com` + sub-paths (`/receiptboi`, `/xxx`) | [ ] วางแผน |
 | P2 | **ย้ายระบบ Receipt** | ย้ายจาก `receipt.fts-internal.com` ไปอยู่ภายใต้ sub-path หรือ subdomain ของ platform กลาง | [ ] วางแผน |
 | P3 | **Microsoft AD/SSO Integration** | เชื่อมต่อ Microsoft Active Directory ของบริษัท สำหรับ authentication ในอนาคต | [ ] วางแผน |
-| P4 | CDN Subresource Integrity | เพิ่ม SRI hash ทุก CDN script | [ ] รอ |
+| P4 | CDN Subresource Integrity | เพิ่ม SRI hash ทุก CDN script | ✅ v8.3.0 |
 | P5 | Monthly Report Fix | สร้าง server query สำหรับข้อมูลรายเดือน | [ ] รอ |
-| P6 | afterprint Event | ใช้แทน setTimeout สำหรับ print confirmation | [ ] รอ |
+| P6 | afterprint Event | ใช้แทน setTimeout สำหรับ print confirmation | ✅ v8.3.0 |
 | P7 | Mobile Responsive | ปรับ UI สำหรับมือถือ | [ ] รอ |
 
 ---
@@ -380,7 +380,7 @@ profiles table (เพิ่ม fields):
 | S2 | **Private Key Audit** | ตรวจสอบ private key ต่างๆ ว่าเก็บอย่างปลอดภัย ไม่ hardcode ใน source | [ ] วางแผน |
 | S3 | **Credential Key Review** | ตรวจสอบ credential key ว่ามีหลุดหรือช่องโหว่ (git history, .env, config) | [ ] วางแผน |
 | S4 | **Access Token Protection** | ป้องกัน token leak — secure storage, token rotation, expiry policy | [ ] วางแผน |
-| S5 | **Password Complexity** | enforce ความยาว + ตัวอักษรพิเศษ | [ ] รอ |
+| S5 | **Password Complexity** | enforce ความยาว + ตัวอักษรพิเศษ | ✅ v8.3.0 (client-side) |
 | S6 | **Rate Limiting** | จำกัด login attempts + API calls | [ ] รอ |
 
 ---
@@ -389,6 +389,13 @@ profiles table (เพิ่ม fields):
 - ~~P2: getFilteredData() ซ้ำ 2 ครั้ง~~ → 3B. Cache getFilteredData()
 - ~~P4: Batch print mark ทีละตัว~~ → 3A. Batch markAsPrinted()
 - ~~pg_trgm Search~~ → 2B. Fuzzy Search (v8.1)
+
+### แก้ไขแล้วใน v8.3.0 — Pre-Migration Hardening
+- ~~C1+C2: CDN ไม่มี SRI hash~~ → SRI hash + pin version ทุก CDN script
+- ~~F3: goToPage() ไม่มี upper bound~~ → เพิ่ม check page <= totalPages
+- ~~S6: viewImage() ไม่มี size limit~~ → เพิ่ม URL length > 10MB check
+- ~~F6+P6: setTimeout print confirmation~~ → afterprint event ×3 จุด
+- ~~S5: Password Complexity~~ → client-side validation (≥8, A-Z, 0-9) + realtime indicator
 
 ---
 
