@@ -1,5 +1,35 @@
 # Session Log - Work Permit Receipt System
 
+## Session Date: 11 February 2026 (Late Night) — v8.5.1 Monthly Report Fix + Deploy
+
+### สิ่งที่ทำ
+1. **ตรวจพบ Bug** — รายงานรายเดือนแสดงข้อมูลแค่วันเดียว (root cause: `getMonthlyData()` filter จาก `state.registryData` ที่มีแค่ 1 วัน)
+2. **ออกแบบ Solution** — Client-side aggregation + Optimized query (SELECT 8 columns) + 5-min cache (Plan Mode → approved)
+3. **Implement** — แก้ 2 ไฟล์ (supabase-adapter.js + app-supabase.js)
+   - เพิ่ม `loadMonthlyDataFromSupabase(month, year)` — query ทั้งเดือน
+   - เพิ่ม monthly cache (`state.monthlyReportData`) — TTL 5 นาที
+   - แก้ `generateMonthlyReport()`, `exportMonthlyPDF()`, `exportMonthlyCSV()` → async + cache
+   - แก้ `generateDailyBreakdown()` → ใช้ `row.isPrinted`/`row.isReceived` ตรง
+   - เพิ่ม `invalidateMonthlyCache()` — เรียกใน save/delete/print/receive (5 จุด)
+4. **ทดสอบ SIT** — ผ่าน (daily breakdown แสดง 2 วัน, ตัวเลขถูกต้อง, ไม่มี console error)
+5. **Deploy Production** — commit e3708f9 + push origin main
+
+### SIT Test Results
+| # | Test Case | ผลลัพธ์ |
+|---|-----------|---------|
+| 1 | สร้างรายงานเดือน ก.พ. 2569 | ✅ PASS — แสดง 8 records จาก 2 วัน (10/2 + 11/2) |
+| 2 | Daily breakdown หลายวัน | ✅ PASS — 10/2: 4 records, 11/2: 4 records |
+| 3 | ตัวเลขสรุปถูกต้อง | ✅ PASS — ผลิต: 8, พิมพ์: 5, รับ: 0, รอ: 8 |
+| 4 | Console ไม่มี error | ✅ PASS |
+| 5 | Query log ถูกต้อง | ✅ PASS — date range 2026-02-01 to 2026-02-28 |
+
+### Performance
+- Query: SELECT 8 columns (ไม่ดึง images/signatures) → payload ~30-50 KB/เดือน
+- Cache: 5 นาที → กด "สร้างรายงาน" ซ้ำ = instant
+- ไม่กระทบ daily operations (cache แยกจาก `state.registryData`)
+
+---
+
 ## Session Date: 11 February 2026 (Night) — v8.5.0 SIT Testing
 
 ### สิ่งที่ทำ

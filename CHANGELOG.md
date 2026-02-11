@@ -1,8 +1,31 @@
 # Change Log - Work Permit Receipt System
 
+## [8.5.1] - 2026-02-11
+
+> **สถานะ: Deployed ✅**
+
+### Bug Fix — รายงานรายเดือนดึงข้อมูลแค่วันเดียว
+
+- **Monthly Report ดึงข้อมูลทั้งเดือน**
+  - ก่อนหน้า: `getMonthlyData()` filter จาก `state.registryData` ซึ่งมีแค่ 1 วัน → รายงานแสดงผิด
+  - แก้: เพิ่ม `loadMonthlyDataFromSupabase(month, year)` query ทั้งเดือนจาก Supabase โดยตรง
+  - SELECT เฉพาะ 8 columns (ไม่ดึง images/signatures) → ลด payload ~50%
+  - Cache 5 นาที (`state.monthlyReportData`) → ไม่ query ซ้ำ
+  - Cache invalidated อัตโนมัติเมื่อ save/delete/print/receive
+  - Export PDF + CSV ใช้ข้อมูลทั้งเดือนถูกต้อง
+  - แสดง loading state ระหว่างรอ query
+
+### Files Changed
+| ไฟล์ | เปลี่ยนแปลง |
+|------|------------|
+| `js/supabase-adapter.js` | เพิ่ม `loadMonthlyDataFromSupabase()` + export `loadMonthlyData` |
+| `js/app-supabase.js` | แก้ `generateMonthlyReport()`, `getMonthlyData()`, `generateDailyBreakdown()`, `exportMonthlyPDF()`, `exportMonthlyCSV()` เป็น async + cache + direct property access, เพิ่ม `invalidateMonthlyCache()` |
+
+---
+
 ## [8.5.0] - 2026-02-11
 
-> **สถานะ: SIT Tested ✅ — รอ deploy Production**
+> **สถานะ: Deployed ✅**
 > **⚠️ ต้อง run SQL v8.5 บน Production Supabase ก่อน deploy**
 
 ### New Features — ผู้พิมพ์บัตรในใบรับ + ฟอร์มจองแค่เลขนัด
