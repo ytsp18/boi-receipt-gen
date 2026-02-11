@@ -72,11 +72,58 @@ async function loadRegistryFromSupabase(date = null) {
             // v7.0 - Photo & Signature
             recipientPhotoUrl: row.recipient_photo_url || null,
             recipientSignatureUrl: row.recipient_signature_url || null,
-            officerSignatureUrl: row.officer_signature_url || null
+            officerSignatureUrl: row.officer_signature_url || null,
+            // v8.5 - Card printer name
+            cardPrinterName: row.card_printer_name || null
         }));
     } catch (e) {
         console.error('Error loading from Supabase:', e);
         return [];
+    }
+}
+
+// Load monthly data with optimized column selection for reports
+// NOTE: Current implementation loads full month client-side (~600-1500 records).
+// If data volume grows to 10,000+/day, migrate to Server-side RPC with
+// PostgreSQL GROUP BY + COUNT for aggregation (requires SQL migration).
+async function loadMonthlyDataFromSupabase(month, year) {
+    try {
+        const monthNum = parseInt(month);
+        const yearNum = parseInt(year);
+
+        // Calculate date range for the month
+        const startDate = `${yearNum}-${monthNum.toString().padStart(2, '0')}-01`;
+        const lastDay = new Date(yearNum, monthNum, 0).getDate();
+        const endDate = `${yearNum}-${monthNum.toString().padStart(2, '0')}-${lastDay}`;
+
+        console.log(`📊 Loading monthly data: ${startDate} to ${endDate}`);
+
+        // Select only columns needed for monthly report (skip images/signatures)
+        const { data: records, error } = await window.supabaseClient
+            .from('receipts')
+            .select('receipt_no, receipt_date, foreigner_name, sn_number, request_no, appointment_no, is_printed, is_received')
+            .gte('receipt_date', startDate)
+            .lte('receipt_date', endDate)
+            .order('receipt_date', { ascending: true })
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        console.log(`📊 Loaded ${(records || []).length} records for ${month}/${year}`);
+
+        return (records || []).map(row => ({
+            receiptNo: row.receipt_no,
+            date: formatThaiDateFromISO(row.receipt_date),
+            name: row.foreigner_name,
+            sn: row.sn_number,
+            requestNo: row.request_no,
+            appointmentNo: row.appointment_no,
+            isPrinted: row.is_printed || false,
+            isReceived: row.is_received || false
+        }));
+    } catch (e) {
+        console.error('❌ Failed to load monthly data:', e.message);
+        throw e;
     }
 }
 
@@ -143,7 +190,9 @@ async function searchRegistryFromSupabase(query) {
             // v7.0 - Photo & Signature
             recipientPhotoUrl: row.recipient_photo_url || null,
             recipientSignatureUrl: row.recipient_signature_url || null,
-            officerSignatureUrl: row.officer_signature_url || null
+            officerSignatureUrl: row.officer_signature_url || null,
+            // v8.5 - Card printer name
+            cardPrinterName: row.card_printer_name || null
         }));
     } catch (e) {
         console.error('Error searching Supabase:', e);
@@ -218,6 +267,12 @@ async function saveReceiptToSupabase(receiptData, cardImageFile = null) {
         if (receiptData.officerSignatureUrl) {
             receiptPayload.officer_signature_url = receiptData.officerSignatureUrl;
         }
+
+        // v8.5 - Include card printer name (officer who printed the card)
+        if (receiptData.cardPrinterName) {
+            receiptPayload.card_printer_name = receiptData.cardPrinterName;
+        }
+
         console.log('📋 saveReceipt payload v7.0 fields:', {
             recipient_photo_url: receiptPayload.recipient_photo_url || '(none)',
             recipient_signature_url: receiptPayload.recipient_signature_url || '(none)',
@@ -751,7 +806,9 @@ window.SupabaseAdapter = {
     getOfficerSignature: getOfficerSignatureFromProfile,
     // v7.1 - Duplicate check
     checkDuplicateSN: checkDuplicateSNFromSupabase,
-    checkDuplicateName: checkDuplicateNameFromSupabase
+    checkDuplicateName: checkDuplicateNameFromSupabase,
+    // v8.2 - Monthly report
+    loadMonthlyData: loadMonthlyDataFromSupabase
 };
 
 console.log('✅ Supabase Adapter Loaded (v7.1)');

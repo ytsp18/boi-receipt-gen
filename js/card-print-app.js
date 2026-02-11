@@ -40,9 +40,6 @@ const DOM = {};
 function cacheDOMElements() {
     DOM.lockForm = document.getElementById('lockForm');
     DOM.appointmentInput = document.getElementById('appointmentInput');
-    DOM.requestNoInput = document.getElementById('requestNoInput');
-    DOM.passportInput = document.getElementById('passportInput');
-    DOM.nameInput = document.getElementById('nameInput');
     DOM.lockBtn = document.getElementById('lockBtn');
     DOM.locksTableBody = document.getElementById('locksTableBody');
     DOM.duplicateWarning = document.getElementById('duplicateWarning');
@@ -222,12 +219,12 @@ async function handleLock() {
             return;
         }
 
-        // Insert lock
+        // Insert lock (v8.5: only appointment_id required, other fields filled via inline edit)
         const lockData = {
             appointment_id: appointmentId,
-            request_no: DOM.requestNoInput.value.trim() || null,
-            passport_no: DOM.passportInput.value.trim() || null,
-            foreigner_name: DOM.nameInput.value.trim() || null,
+            request_no: null,
+            passport_no: null,
+            foreigner_name: null,
             officer_id: state.currentUser.userId,
             officer_name: state.currentUser.name || state.currentUser.email,
             status: 'locked'
@@ -292,7 +289,7 @@ async function loadTodayLocks() {
 // ==================== //
 function renderLocksTable() {
     if (state.locks.length === 0) {
-        DOM.locksTableBody.innerHTML = '<tr><td colspan="10" class="empty-state"><p>ยังไม่มีรายการจองวันนี้</p></td></tr>';
+        DOM.locksTableBody.innerHTML = '<tr><td colspan="12" class="empty-state"><p>ยังไม่มีรายการจองวันนี้</p></td></tr>';
         return;
     }
 
@@ -301,6 +298,16 @@ function renderLocksTable() {
         const isOwn = lock.officer_id === currentUserId;
         const colorClass = getOfficerColor(lock.officer_name);
         const statusBadge = getStatusBadge(lock.status);
+
+        // Card image column
+        let imageCell;
+        if (lock.card_image_url) {
+            imageCell = `<td><img class="card-thumb" src="${escapeHtml(lock.card_image_url)}" onclick="showImagePreview('${escapeHtml(lock.card_image_url)}')" title="คลิกเพื่อดูขนาดเต็ม"></td>`;
+        } else if (isOwn) {
+            imageCell = `<td><button class="btn-upload-img" onclick="triggerImageUpload('${lock.id}')">📷 แนบรูป</button></td>`;
+        } else {
+            imageCell = `<td><span style="color:#9ca3af;font-size:0.72rem;">-</span></td>`;
+        }
 
         // S/N columns
         let snGoodCell, snSpoiledCell, actionCell;
@@ -334,16 +341,42 @@ function renderLocksTable() {
             actionCell = `<td>${actions.join(' ')}</td>`;
         }
 
+        // Receipt column — show button or badge
+        let receiptCell;
+        if (lock.status === 'completed') {
+            receiptCell = `<td><span class="receipt-badge">✅ สร้างแล้ว</span></td>`;
+        } else if (lock.sn_good && lock.card_image_url && isOwn) {
+            receiptCell = `<td><button class="btn-create-receipt" onclick="createReceiptFromLock('${lock.id}')">📄 สร้างใบรับ</button></td>`;
+        } else if (isOwn) {
+            const hints = [];
+            if (!lock.sn_good) hints.push('รอ SN');
+            if (!lock.card_image_url) hints.push('รอรูป');
+            receiptCell = `<td><span class="receipt-pending-hint">${hints.join(', ')}</span></td>`;
+        } else {
+            receiptCell = `<td>-</td>`;
+        }
+
+        // v8.5 — inline editable cells for own rows (not completed)
+        const editableCell = (field, value) => {
+            const display = escapeHtml(value || '-');
+            if (isOwn && lock.status !== 'completed') {
+                return `<td><span class="inline-editable" onclick="startInlineEdit('${lock.id}','${field}', this)" title="คลิกเพื่อแก้ไข">${display}<span class="edit-hint"> ✏️</span></span></td>`;
+            }
+            return `<td>${display}</td>`;
+        };
+
         return `<tr class="${colorClass} ${isOwn ? 'own-row' : ''}">
             <td>${i + 1}</td>
             <td><strong>${escapeHtml(lock.appointment_id)}</strong></td>
-            <td>${escapeHtml(lock.request_no || '-')}</td>
-            <td>${escapeHtml(lock.passport_no || '-')}</td>
-            <td>${escapeHtml(lock.foreigner_name || '-')}</td>
+            ${editableCell('request_no', lock.request_no)}
+            ${editableCell('passport_no', lock.passport_no)}
+            ${editableCell('foreigner_name', lock.foreigner_name)}
             <td>${escapeHtml(lock.officer_name)}</td>
+            ${imageCell}
             ${snGoodCell}
             ${snSpoiledCell}
             <td>${statusBadge}</td>
+            ${receiptCell}
             ${actionCell}
         </tr>`;
     }).join('');
@@ -666,9 +699,6 @@ function hideDuplicateWarning() {
 
 function clearForm() {
     DOM.appointmentInput.value = '';
-    DOM.requestNoInput.value = '';
-    DOM.passportInput.value = '';
-    DOM.nameInput.value = '';
     hideDuplicateWarning();
 }
 
@@ -690,6 +720,253 @@ function escapeHtml(str) {
     div.textContent = str;
     return div.innerHTML;
 }
+
+// ==================== //
+// Image Upload (v8.4)
+// ==================== //
+let _pendingUploadLockId = null;
+
+function triggerImageUpload(lockId) {
+    _pendingUploadLockId = lockId;
+    const fileInput = document.getElementById('cardImageFileInput');
+    if (fileInput) {
+        fileInput.value = '';
+        fileInput.click();
+    }
+}
+
+// Listen for file selection
+document.addEventListener('DOMContentLoaded', () => {
+    const fileInput = document.getElementById('cardImageFileInput');
+    if (fileInput) {
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file || !_pendingUploadLockId) return;
+            await handleImageUpload(_pendingUploadLockId, file);
+            _pendingUploadLockId = null;
+        });
+    }
+});
+
+async function handleImageUpload(lockId, file) {
+    // Validate file
+    if (!file.type.startsWith('image/')) {
+        showToast('กรุณาเลือกไฟล์รูปภาพ', 'error');
+        return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+        showToast('ไฟล์ใหญ่เกินไป (สูงสุด 10MB)', 'error');
+        return;
+    }
+
+    showToast('กำลัง upload รูป...', 'info');
+
+    try {
+        // Read + compress
+        const base64 = await readFileAsBase64(file);
+        const compressed = await compressImage(base64, 1200, 0.8);
+
+        // Upload to Supabase Storage
+        const lock = state.locks.find(l => l.id === lockId);
+        const fileName = `card-lock-${lockId}`;
+        const imageUrl = await uploadImageToSupabase(fileName, compressed);
+
+        // Save URL to card_print_locks
+        await window.SupabaseCardPrintLock.updateImage(lockId, imageUrl);
+
+        // Update local state
+        if (lock) {
+            lock.card_image_url = imageUrl;
+        }
+
+        renderLocksTable();
+        showToast('แนบรูปสำเร็จ', 'success');
+    } catch (err) {
+        console.error('Image upload error:', err);
+        showToast('เกิดข้อผิดพลาดในการ upload รูป', 'error');
+    }
+}
+
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+function compressImage(base64, maxWidth = 1200, quality = 0.8) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let w = img.width;
+            let h = img.height;
+
+            if (w > maxWidth) {
+                h = Math.round(h * maxWidth / w);
+                w = maxWidth;
+            }
+
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.src = base64;
+    });
+}
+
+function showImagePreview(url) {
+    const overlay = document.getElementById('imgModalOverlay');
+    const img = document.getElementById('imgModalImg');
+    if (overlay && img) {
+        img.src = url;
+        overlay.classList.add('show');
+    }
+}
+
+// ==================== //
+// Create Receipt from Lock (v8.4)
+// ==================== //
+async function createReceiptFromLock(lockId) {
+    const lock = state.locks.find(l => l.id === lockId);
+    if (!lock) {
+        showToast('ไม่พบข้อมูลรายการ', 'error');
+        return;
+    }
+
+    // Validate prerequisites
+    if (!lock.sn_good) {
+        showToast('ยังไม่มี S/N บัตรดี กรุณากรอก S/N ก่อน', 'error');
+        return;
+    }
+    if (!lock.card_image_url) {
+        showToast('ยังไม่มีรูปบัตร กรุณาแนบรูปก่อน', 'error');
+        return;
+    }
+    if (!lock.foreigner_name || !lock.foreigner_name.trim()) {
+        showToast('กรุณากรอกชื่อผู้รับบัตรก่อน (คลิกที่ช่องชื่อในตาราง)', 'error');
+        return;
+    }
+
+    // Check for existing receipt
+    try {
+        const existingReceipt = await window.SupabaseCardPrintLock.checkExistingReceipt(lock.appointment_id);
+        if (existingReceipt) {
+            showToast(`มีใบรับอยู่แล้ว: ${existingReceipt.receipt_no}`, 'error');
+            return;
+        }
+    } catch (err) {
+        console.error('Error checking existing receipt:', err);
+    }
+
+    if (!confirm(`สร้างใบรับสำหรับ ${lock.foreigner_name || lock.appointment_id}?\n\nS/N: ${lock.sn_good}\nเลขนัด: ${lock.appointment_id}`)) {
+        return;
+    }
+
+    showToast('กำลังสร้างใบรับ...', 'info');
+
+    try {
+        // Generate receipt_no
+        const receiptNo = await getNextReceiptNoFromSupabase();
+        const today = new Date();
+        const receiptDate = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+
+        // Build receipt data
+        const receiptData = {
+            receiptNo: receiptNo,
+            receiptDate: receiptDate,
+            foreignerName: lock.foreigner_name || '',
+            snNumber: lock.sn_good,
+            requestNo: lock.request_no || '',
+            appointmentNo: lock.appointment_id,
+            cardImage: lock.card_image_url,
+            cardPrinterName: lock.officer_name || ''  // v8.5 - officer who printed the card
+        };
+
+        // Save receipt
+        await saveReceiptToSupabase(receiptData);
+
+        // Mark lock as completed
+        await window.SupabaseCardPrintLock.complete(lockId);
+
+        // Update local state
+        lock.status = 'completed';
+        renderLocksTable();
+        updateStats();
+
+        showToast(`สร้างใบรับสำเร็จ: ${receiptNo}`, 'success');
+    } catch (err) {
+        console.error('Error creating receipt:', err);
+        showToast('เกิดข้อผิดพลาดในการสร้างใบรับ: ' + (err.message || ''), 'error');
+    }
+}
+
+// ==================== //
+// Inline Edit (v8.5)
+// ==================== //
+let _inlineEditCancelled = false;
+
+function startInlineEdit(lockId, field, spanEl) {
+    const lock = state.locks.find(l => l.id === lockId);
+    if (!lock) return;
+
+    _inlineEditCancelled = false;
+    const currentValue = lock[field] || '';
+    const placeholders = { request_no: 'เลขคำขอ', passport_no: 'Passport', foreigner_name: 'ชื่อ' };
+    const placeholder = placeholders[field] || '';
+    const td = spanEl.closest('td');
+
+    td.innerHTML = `<input type="text" class="inline-edit-input" value="${escapeHtml(currentValue)}" placeholder="${placeholder}"
+        onblur="saveInlineEdit('${lockId}','${field}', this.value)"
+        onkeydown="if(event.key==='Enter'){this.blur();}if(event.key==='Escape'){cancelInlineEdit();}"
+        >`;
+    const input = td.querySelector('input');
+    input.focus();
+    input.select();
+}
+
+async function saveInlineEdit(lockId, field, newValue) {
+    // Skip save if cancelled by Escape
+    if (_inlineEditCancelled) return;
+
+    const trimmed = newValue.trim() || null;
+    const lock = state.locks.find(l => l.id === lockId);
+    if (!lock) return;
+
+    // Skip if unchanged
+    if ((lock[field] || null) === trimmed) {
+        renderLocksTable();
+        return;
+    }
+
+    try {
+        await window.SupabaseCardPrintLock.updateDetails(lockId, { [field]: trimmed });
+        lock[field] = trimmed;
+        renderLocksTable();
+        showToast('บันทึกสำเร็จ', 'success');
+    } catch (e) {
+        console.error('Inline edit error:', e);
+        showToast('ไม่สามารถบันทึกได้: ' + (e.message || ''), 'error');
+        renderLocksTable();
+    }
+}
+
+function cancelInlineEdit() {
+    _inlineEditCancelled = true;
+    renderLocksTable();
+}
+
+// Make new functions globally accessible
+window.triggerImageUpload = triggerImageUpload;
+window.showImagePreview = showImagePreview;
+window.createReceiptFromLock = createReceiptFromLock;
+window.startInlineEdit = startInlineEdit;
+window.saveInlineEdit = saveInlineEdit;
+window.cancelInlineEdit = cancelInlineEdit;
 
 // ==================== //
 // Cleanup on page leave

@@ -1,5 +1,89 @@
 # Change Log - Work Permit Receipt System
 
+## [8.5.0] - 2026-02-11
+
+> **สถานะ: SIT Tested ✅ — รอ deploy Production**
+> **⚠️ ต้อง run SQL v8.5 บน Production Supabase ก่อน deploy**
+
+### New Features — ผู้พิมพ์บัตรในใบรับ + ฟอร์มจองแค่เลขนัด
+
+- **ผู้พิมพ์บัตร (Card Printer Name)**
+  - เพิ่มแถว "ผู้พิมพ์บัตร / Card Printer" ในใบรับ (print output)
+  - แสดงชื่อเจ้าหน้าที่ที่จอง+พิมพ์บัตร (จาก `card_print_locks.officer_name`)
+  - แยกจาก "เจ้าหน้าที่ผู้ออกใบรับ / Issuing Officer" (session.name ของคนกดพิมพ์)
+  - ใบรับเก่าที่ไม่มี card_printer_name แสดง "-" (graceful fallback)
+  - Auto-fill ทาง B: เมื่อกรอกเลขนัดหมาย → cardPrinterName = officer_name
+
+- **ฟอร์มจองแค่เลขนัดหมาย (Simplified Booking Form)**
+  - ลดจาก 4 ช่อง → เหลือ 1 ช่อง (เลขนัดหมายเท่านั้น)
+  - ข้อมูลอื่น (ชื่อ, เลขคำขอ, Passport) กรอกทีหลังผ่าน inline edit ในตาราง
+  - Click ที่ cell → กลายเป็น input → Enter/blur = save, Escape = cancel
+  - เฉพาะ row ของตัวเองเท่านั้นที่ edit ได้ + ไม่ให้ edit row ที่ completed
+  - Validation: สร้างใบรับไม่ได้ถ้ายังไม่กรอกชื่อ
+
+### Bug Fix
+- **Escape cancel inline edit** — เพิ่ม `_inlineEditCancelled` flag ป้องกัน blur event save ค่าหลัง Escape
+
+### DB Migration
+- `supabase-update-v8.5-card-printer.sql`
+  - ADD COLUMN `card_printer_name TEXT NULL` → `receipts`
+
+### Files Changed
+- `js/card-print-app.js` — handleLock null fields, clearForm simplified, renderLocksTable inline edit, startInlineEdit/saveInlineEdit/cancelInlineEdit
+- `js/supabase-config.js` — updateDetails() method
+- `js/supabase-adapter.js` — card_printer_name in save/load/search
+- `js/app-supabase.js` — print output rows + auto-fill cardPrinterName
+- `card-print.html` — form 1 field + CSS inline edit + cache bust v8.5
+- `index.html` — cache bust v8.5
+
+---
+
+## [8.4.0] - 2026-02-11
+
+> **สถานะ: SIT Tested ✅ — รอ deploy Production**
+> **⚠️ ต้อง run SQL v8.4 บน Production Supabase ก่อน deploy**
+
+### New Features — แนบรูปบัตร + สร้างใบรับจากหน้าจอง
+
+- **แนบรูปบัตร (Card Image Upload)**
+  - ปุ่ม "📷 แนบรูป" ในตารางจองแต่ละแถว
+  - Upload → compress (max 1200px, quality 0.8) → Supabase Storage
+  - บันทึก URL ใน `card_print_locks.card_image_url`
+  - แสดง thumbnail (click ดูขนาดเต็มใน modal)
+
+- **สร้างใบรับจากหน้าจอง (Auto-Create Receipt)**
+  - ปุ่ม "📄 สร้างใบรับ" ปรากฏเมื่อมี SN + รูปครบ
+  - Auto-generate receipt_no (YYYYMMDD-NNN)
+  - Insert ลง receipts table พร้อมข้อมูลครบ (ชื่อ, SN, เลขคำขอ, เลขนัด, รูป)
+  - ตรวจซ้ำ — ถ้ามีใบรับอยู่แล้วจะ warning
+  - Badge "✅ สร้างแล้ว" หลังสร้างสำเร็จ
+
+- **Auto-fill SN + รูป ในหน้าใบรับ (ทาง B)**
+  - เมื่อกรอกเลขนัดหมายในหน้าหลัก → auto-fill SN จาก `lock.sn_good`
+  - Auto-fill รูปบัตรจาก `lock.card_image_url`
+  - หน้าใบรับเดิมใช้งานได้ 100% + ได้ข้อมูลเพิ่ม
+
+### DB Migration
+- `supabase-update-v8.4-card-image.sql`
+  - ADD COLUMN `card_image_url TEXT NULL` → `card_print_locks` + `card_print_locks_archive`
+  - DROP + CREATE `archive_old_card_locks()` + `cleanup_old_card_locks()` (รองรับ column ใหม่)
+
+### Changed
+- Cache bust `?v=8.4` ทุก CSS/JS (card-print.html + index.html)
+- Version badge card-print → v8.4
+
+### Files Changed
+| ไฟล์ | ประเภท | เปลี่ยนแปลง |
+|------|--------|------------|
+| `supabase-update-v8.4-card-image.sql` | ใหม่ | ALTER TABLE + DROP/CREATE functions |
+| `card-print.html` | แก้ไข | CSS upload/receipt, คอลัมน์รูปบัตร+ใบรับ, modal, file input, cache bust |
+| `js/card-print-app.js` | แก้ไข | renderLocksTable +imageCell/receiptCell, upload flow, createReceiptFromLock |
+| `js/supabase-config.js` | แก้ไข | เพิ่ม updateImage(), checkExistingReceipt() |
+| `js/app-supabase.js` | แก้ไข | auto-fill SN+รูป ใน appointment blur handler |
+| `index.html` | แก้ไข | cache bust ?v=8.3→?v=8.4 |
+
+---
+
 ## [8.3.0] - 2026-02-11
 
 > **สถานะ: Production — deployed ✅**

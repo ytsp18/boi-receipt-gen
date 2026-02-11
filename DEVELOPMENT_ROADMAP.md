@@ -1,7 +1,8 @@
 # แผนพัฒนา — BOI Work Permit Receipt System
 
-> อัพเดต: 11 กุมภาพันธ์ 2569 (rev.2)
-> Current Production: v8.1.0 (deployed on main)
+> อัพเดต: 11 กุมภาพันธ์ 2569 (rev.3)
+> Current Production: v8.3.0 (deployed on main)
+> SIT Testing: **v8.4.0** (แนบรูปบัตร + สร้างใบรับ — SIT tested ✅, รอ SQL Prod)
 > Pending: v7.0 E-Sign (รอ hardware testing)
 > 🔜 Next: Supabase Migration Free → Pro (cross-org)
 
@@ -17,6 +18,9 @@
 | v6.3.0 | 10 ก.พ. 69 | ✅ Deployed | Pagination, Barcode, UX Analytics, Print layout fix |
 | **v8.0.0** | **10 ก.พ. 69** | **✅ Deployed** | **Card Print Lock + UX Optimization** |
 | **v8.1.0** | **10 ก.พ. 69** | **✅ Deployed** | **Fuzzy Search + Quick Print Mode + Header UX** |
+| v8.2.0 | 11 ก.พ. 69 | ✅ Deployed | Quick Wins: Login branding, ล็อก→จอง, Session Timeout, pg_cron |
+| v8.3.0 | 11 ก.พ. 69 | ✅ Deployed | Pre-Migration Hardening: SRI Hash, Password Complexity |
+| **v8.4.0** | **11 ก.พ. 69** | **⏳ SIT Tested** | **แนบรูปบัตร + สร้างใบรับจากหน้าจอง (รอ SQL Prod)** |
 | v7.0.0-dev | 10 ก.พ. 69 | ⏸️ On Hold | E-Sign Workflow (ซ่อน UI, รอ hardware testing) |
 
 ---
@@ -124,6 +128,7 @@
 |------|-----------|------------|----------|
 | `supabase-update-v8.0-card-print-lock.sql` | ✅ Done | ✅ Done (11 ก.พ.) | Table + archive + trigger + RLS + Realtime |
 | `supabase-update-v8.1-fuzzy-search.sql` | ✅ Done | ✅ Done (11 ก.พ.) | pg_trgm + GIN indexes + search function |
+| `supabase-update-v8.4-card-image.sql` | ✅ Done (11 ก.พ.) | ❌ รอ | ADD card_image_url + DROP/CREATE archive functions |
 
 ### สิ่งที่ต้องทดสอบ (SIT)
 

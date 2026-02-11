@@ -1,5 +1,70 @@
 # Session Log - Work Permit Receipt System
 
+## Session Date: 11 February 2026 (Night) — v8.5.0 SIT Testing
+
+### สิ่งที่ทำ
+1. **วางแผน v8.5** — ผู้พิมพ์บัตรในใบรับ + ฟอร์มจองแค่เลขนัด (Plan Mode → approved)
+2. **Part A: ผู้พิมพ์บัตร** — เพิ่ม card_printer_name column + print output rows + auto-fill
+3. **Part B: ฟอร์มจองลดเหลือ 1 ช่อง** — ลบ 3 input + inline edit ในตาราง
+4. **SQL Migration** — run `supabase-update-v8.5-card-printer.sql` บน SIT สำเร็จ
+5. **Bug Fix** — Escape ไม่ cancel inline edit → เพิ่ม `_inlineEditCancelled` flag
+6. **ทดสอบ SIT** — ผ่านครบ 9 test cases
+7. **อัพเดทเอกสาร** — CHANGELOG, MEMORY, SESSION_LOG
+8. **Cache bust** — ?v=8.4→?v=8.5 ทั้ง card-print.html + index.html
+
+### SIT Test Results
+| # | Test Case | ผลลัพธ์ |
+|---|-----------|---------|
+| 1 | จองด้วยเลขนัดอย่างเดียว | ✅ PASS |
+| 2 | Inline edit ชื่อ → Enter | ✅ PASS |
+| 3 | Inline edit เลขคำขอ → blur | ✅ PASS |
+| 4 | Escape ยกเลิก inline edit | ✅ PASS (หลัง fix) |
+| 5 | สร้างใบรับ มี cardPrinterName | ✅ PASS (code verified) |
+| 6 | Print output มีบรรทัดผู้พิมพ์บัตร | ✅ PASS (JS verified) |
+| 7 | สร้างใบรับ ชื่อว่าง → แจ้งเตือน | ✅ PASS |
+| 8 | ทาง B auto-fill + cardPrinterName | ✅ PASS |
+| 9 | ใบรับเก่า ไม่มี cardPrinterName | ✅ PASS (แสดง "-") |
+
+### Next Steps
+- ⚠️ run SQL v8.4 + v8.5 บน Production Supabase ก่อน deploy
+- git push origin main
+
+---
+
+## Session Date: 11 February 2026 (Evening) — v8.4.0 SIT Testing
+
+### สิ่งที่ทำ
+1. **วางแผน v8.4** — แนบรูปบัตร + สร้างใบรับจากหน้าจอง (Plan Mode → approved)
+2. **SQL Migration** — สร้าง `supabase-update-v8.4-card-image.sql` + run บน SIT สำเร็จ
+   - เพิ่ม `card_image_url TEXT NULL` ใน card_print_locks + archive
+   - DROP + CREATE archive/cleanup functions (แก้ return type error)
+3. **แนบรูปบัตร** — ปุ่ม 📷 + upload + compress + thumbnail + modal preview
+4. **สร้างใบรับจากหน้าจอง** — ปุ่ม 📄 + auto-generate receipt_no + duplicate check
+5. **Auto-fill ทาง B** — SN + รูปบัตร auto-fill เมื่อกรอกเลขนัดหมายในหน้าหลัก
+6. **ทดสอบ SIT** — ผ่านครบ 8 test cases (จอง, แนบรูป, กรอก SN, สร้างใบรับ, ทาง B, duplicate)
+7. **อัพเดทเอกสาร** — CHANGELOG, MEMORY, DEVELOPMENT_ROADMAP, SESSION_LOG
+8. **Cache bust** — ?v=8.3→?v=8.4 ทั้ง card-print.html + index.html
+
+### SIT Test Results
+| # | Test Case | ผลลัพธ์ |
+|---|-----------|---------|
+| 1 | จอง (ไม่มีรูป ไม่มี SN) | ✅ ปกติ + คอลัมน์ใหม่แสดง |
+| 2 | กด "แนบรูป" → upload | ✅ thumbnail แสดง + "รอ SN" |
+| 3 | กรอก SN → บันทึก | ✅ ปุ่ม "สร้างใบรับ" ปรากฏ |
+| 4 | กด "สร้างใบรับ" | ✅ receipt 20260211-001 สร้าง + toast + badge |
+| 5 | ตรวจ receipt ในหน้าใบรับ | ✅ ข้อมูลครบทุกช่อง |
+| 6 | กด "สร้างใบรับ" ซ้ำ | ✅ badge "สร้างแล้ว" ป้องกัน |
+| 7 | ทาง B: auto-fill SN + รูป | ✅ ทำงานสมบูรณ์ |
+| 8 | มีรูป ไม่มี SN | ✅ แสดง "รอ SN" |
+
+### ⚠️ ก่อน Deploy Production
+- [ ] Run `supabase-update-v8.4-card-image.sql` บน Production Supabase
+- [ ] Verify column `card_image_url` ใน production
+- [ ] `git push origin main` → GitHub Pages
+- [ ] Smoke test บน production
+
+---
+
 ## Session Date: 10 February 2026 (Evening) — v8.1.0 Production Deploy
 
 ### สิ่งที่ทำ

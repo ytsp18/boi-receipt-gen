@@ -519,6 +519,19 @@ const SupabaseCardPrintLock = {
         return data;
     },
 
+    // Update lock details (v8.5 — inline edit: request_no, passport_no, foreigner_name)
+    async updateDetails(id, details) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('card_print_locks')
+            .update(details)
+            .eq('id', id)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
     // Delete lock (admin only — RLS enforced)
     async delete(id) {
         const client = getSupabase();
@@ -565,6 +578,31 @@ const SupabaseCardPrintLock = {
             .limit(20);
         if (error) throw error;
         return data || [];
+    },
+
+    // Update card image URL
+    async updateImage(id, imageUrl) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('card_print_locks')
+            .update({ card_image_url: imageUrl })
+            .eq('id', id)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    // Check if receipt already exists for this appointment
+    async checkExistingReceipt(appointmentId) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('receipts')
+            .select('receipt_no, foreigner_name')
+            .eq('appointment_no', appointmentId.trim())
+            .limit(1);
+        if (error) throw error;
+        return data && data.length > 0 ? data[0] : null;
     },
 
     // Get summary stats for today

@@ -216,6 +216,11 @@ const state = {
     // Cache for getFilteredData
     _filteredDataCache: null,
     _filteredDataCacheKey: null,
+    // Monthly report cache
+    monthlyReportData: [],
+    monthlyReportMonth: null,
+    monthlyReportYear: null,
+    monthlyReportTimestamp: null,
     // Journey tracking
     _journeyMilestones: {
         hasSearched: false,
@@ -717,6 +722,7 @@ async function markAsPrinted(receiptNo) {
 
     try {
         await SupabaseAdapter.markPrinted(receiptNo);
+        invalidateMonthlyCache();
 
         // Update local state
         const record = state.registryData.find(r => r.receiptNo === receiptNo);
@@ -770,6 +776,7 @@ async function toggleCardReceived(receiptNo) {
 
     try {
         const newStatus = await SupabaseAdapter.toggleReceived(receiptNo);
+        invalidateMonthlyCache();
         const record = state.registryData.find(r => r.receiptNo === receiptNo);
 
         // Update local state
@@ -948,7 +955,9 @@ function batchPrint() {
             // v7.0 - Photo & Signature
             recipientPhotoUrl: rowData.recipientPhotoUrl || null,
             recipientSignatureUrl: rowData.recipientSignatureUrl || null,
-            officerSignatureUrl: rowData.officerSignatureUrl || null
+            officerSignatureUrl: rowData.officerSignatureUrl || null,
+            // v8.5 - Card printer name
+            cardPrinterName: rowData.cardPrinterName || null
         };
 
         // Parse date
@@ -983,6 +992,7 @@ function batchPrint() {
             // Batch mark as printed — 1 Supabase call instead of N
             const success = await SupabaseAdapter.markPrintedBatch(itemsToPrint);
             if (success) {
+                invalidateMonthlyCache();
                 // Update local state in memory
                 itemsToPrint.forEach(rn => {
                     const record = state.registryData.find(r => r.receiptNo === rn);
@@ -1039,6 +1049,7 @@ function generateSinglePrintContent(formData) {
     const safeRequestNo = sanitizeHTML(formData.requestNo || '-');
     const safeAppointmentNo = sanitizeHTML(formData.appointmentNo || '-');
     const safeReceiptNo = sanitizeHTML(formData.receiptNo || '-');
+    const safeCardPrinterName = sanitizeHTML(formData.cardPrinterName || '');
     const safeCardImage = formData.cardImage && /^(https?:\/\/|data:image\/)/i.test(formData.cardImage) ? sanitizeHTML(formData.cardImage) : '';
 
     // Category letter + color (ข้าม prefix ใช้ชื่อจริง)
@@ -1078,9 +1089,19 @@ function generateSinglePrintContent(formData) {
                     </td>
                 </tr>
                 <tr>
-                    <td colspan="2" style="padding: 5px 10px;">
+                    <td colspan="2" style="padding: 5px 10px; border-bottom: 1px dotted #ddd;">
                         <div style="font-weight: 600; color: #374151; font-size: 10px;">เลขที่นัดหมาย / Appointment No.:</div>
                         <div style="color: #111; font-size: 14px; font-weight: 500;">${safeAppointmentNo}</div>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px 10px;">
+                        <div style="font-weight: 600; color: #374151; font-size: 10px;">ผู้พิมพ์บัตร / Card Printer:</div>
+                        <div style="color: #111; font-size: 14px; font-weight: 500;">${safeCardPrinterName || '-'}</div>
+                    </td>
+                    <td style="padding: 5px 10px;">
+                        <div style="font-weight: 600; color: #374151; font-size: 10px;">เจ้าหน้าที่ผู้ออกใบรับ / Issuing Officer:</div>
+                        <div style="color: #111; font-size: 14px; font-weight: 500;">${officerName || '-'}</div>
                     </td>
                 </tr>
             </table>
@@ -1229,20 +1250,27 @@ function initMonthlyReportDropdowns() {
     }
 }
 
+function invalidateMonthlyCache() {
+    state.monthlyReportData = [];
+    state.monthlyReportMonth = null;
+    state.monthlyReportYear = null;
+    state.monthlyReportTimestamp = null;
+}
+
 function getMonthlyData(month, year) {
     if (!month || !year) return [];
 
-    return state.registryData.filter(row => {
-        if (!row.date) return false;
-        const parts = row.date.split('/');
-        if (parts.length !== 3) return false;
-        const rowMonth = parseInt(parts[1]);
-        const rowYear = parseInt(parts[2]) - CONFIG.BUDDHIST_YEAR_OFFSET;
-        return rowMonth === parseInt(month) && rowYear === parseInt(year);
-    });
+    // Return from monthly cache if available
+    if (state.monthlyReportData.length > 0 &&
+        state.monthlyReportMonth === month &&
+        state.monthlyReportYear === year) {
+        return state.monthlyReportData;
+    }
+
+    return [];
 }
 
-function generateMonthlyReport() {
+async function generateMonthlyReport() {
     const month = elements.reportMonth ? elements.reportMonth.value : '';
     const year = elements.reportYear ? elements.reportYear.value : '';
 
@@ -1251,15 +1279,59 @@ function generateMonthlyReport() {
         return;
     }
 
-    const data = getMonthlyData(month, year);
+    // Check cache: same month/year and within 5 minutes
+    const CACHE_TTL = 5 * 60 * 1000;
+    const cacheValid =
+        state.monthlyReportData.length > 0 &&
+        state.monthlyReportMonth === month &&
+        state.monthlyReportYear === year &&
+        state.monthlyReportTimestamp &&
+        (Date.now() - state.monthlyReportTimestamp) < CACHE_TTL;
 
-    // Calculate stats
+    let data;
+
+    if (cacheValid) {
+        data = state.monthlyReportData;
+    } else {
+        // Show loading state
+        if (elements.generateReportBtn) {
+            elements.generateReportBtn.disabled = true;
+            elements.generateReportBtn.textContent = '⏳ กำลังโหลด...';
+        }
+        if (elements.dailyBreakdown) {
+            elements.dailyBreakdown.innerHTML = '<div class="daily-breakdown-empty">⏳ กำลังโหลดข้อมูลทั้งเดือน...</div>';
+        }
+
+        try {
+            data = await SupabaseAdapter.loadMonthlyData(month, year);
+
+            // Update cache
+            state.monthlyReportData = data;
+            state.monthlyReportMonth = month;
+            state.monthlyReportYear = year;
+            state.monthlyReportTimestamp = Date.now();
+        } catch (error) {
+            console.error('❌ Monthly report error:', error);
+            alert('ไม่สามารถโหลดข้อมูลรายเดือนได้: ' + error.message);
+            if (elements.dailyBreakdown) {
+                elements.dailyBreakdown.innerHTML = '<div class="daily-breakdown-empty">⚠️ ไม่สามารถโหลดข้อมูลได้</div>';
+            }
+            return;
+        } finally {
+            if (elements.generateReportBtn) {
+                elements.generateReportBtn.disabled = false;
+                elements.generateReportBtn.textContent = '📊 สร้างรายงาน';
+            }
+        }
+    }
+
+    // Calculate stats using direct properties (not isPrinted/isCardReceived helpers)
     let printed = 0;
     let received = 0;
 
     data.forEach(row => {
-        if (isPrinted(row.receiptNo)) printed++;
-        if (isCardReceived(row.receiptNo)) received++;
+        if (row.isPrinted) printed++;
+        if (row.isReceived) received++;
     });
 
     // Update stats
@@ -1290,14 +1362,18 @@ function generateDailyBreakdown(data, month, year) {
             dailyStats[day] = { total: 0, printed: 0, received: 0 };
         }
         dailyStats[day].total++;
-        if (isPrinted(row.receiptNo)) dailyStats[day].printed++;
-        if (isCardReceived(row.receiptNo)) dailyStats[day].received++;
+        if (row.isPrinted) dailyStats[day].printed++;
+        if (row.isReceived) dailyStats[day].received++;
     });
 
     // Sort by day
     const sortedDays = Object.keys(dailyStats).sort((a, b) => parseInt(a) - parseInt(b));
 
     const thaiYear = parseInt(year) + CONFIG.BUDDHIST_YEAR_OFFSET;
+
+    // Pre-calculate totals
+    const totalPrinted = data.filter(r => r.isPrinted).length;
+    const totalReceived = data.filter(r => r.isReceived).length;
 
     elements.dailyBreakdown.innerHTML = `
         <table>
@@ -1327,16 +1403,16 @@ function generateDailyBreakdown(data, month, year) {
                 <tr style="font-weight: bold; background: var(--background);">
                     <td>รวม</td>
                     <td>${data.length}</td>
-                    <td style="color: var(--success-color);">${data.filter(r => isPrinted(r.receiptNo)).length}</td>
-                    <td style="color: var(--primary-color);">${data.filter(r => isCardReceived(r.receiptNo)).length}</td>
-                    <td style="color: var(--warning-color);">${data.length - data.filter(r => isCardReceived(r.receiptNo)).length}</td>
+                    <td style="color: var(--success-color);">${totalPrinted}</td>
+                    <td style="color: var(--primary-color);">${totalReceived}</td>
+                    <td style="color: var(--warning-color);">${data.length - totalReceived}</td>
                 </tr>
             </tbody>
         </table>
     `;
 }
 
-function exportMonthlyPDF() {
+async function exportMonthlyPDF() {
     const month = elements.reportMonth ? elements.reportMonth.value : '';
     const year = elements.reportYear ? elements.reportYear.value : '';
 
@@ -1345,7 +1421,31 @@ function exportMonthlyPDF() {
         return;
     }
 
-    const data = getMonthlyData(month, year);
+    // Use cache or load fresh data
+    let data = getMonthlyData(month, year);
+    if (data.length === 0) {
+        // Try loading from Supabase
+        if (elements.exportMonthlyPdfBtn) {
+            elements.exportMonthlyPdfBtn.disabled = true;
+            elements.exportMonthlyPdfBtn.textContent = '⏳ กำลังโหลด...';
+        }
+        try {
+            data = await SupabaseAdapter.loadMonthlyData(month, year);
+            state.monthlyReportData = data;
+            state.monthlyReportMonth = month;
+            state.monthlyReportYear = year;
+            state.monthlyReportTimestamp = Date.now();
+        } catch (error) {
+            alert('ไม่สามารถโหลดข้อมูลได้: ' + error.message);
+            return;
+        } finally {
+            if (elements.exportMonthlyPdfBtn) {
+                elements.exportMonthlyPdfBtn.disabled = false;
+                elements.exportMonthlyPdfBtn.textContent = '📄 ดาวน์โหลด PDF';
+            }
+        }
+    }
+
     const thaiYear = parseInt(year) + CONFIG.BUDDHIST_YEAR_OFFSET;
     const monthName = THAI_MONTHS[parseInt(month) - 1];
 
@@ -1364,8 +1464,8 @@ function exportMonthlyPDF() {
             dailyStats[day] = { total: 0, printed: 0, received: 0, items: [] };
         }
         dailyStats[day].total++;
-        if (isPrinted(row.receiptNo)) dailyStats[day].printed++;
-        if (isCardReceived(row.receiptNo)) dailyStats[day].received++;
+        if (row.isPrinted) dailyStats[day].printed++;
+        if (row.isReceived) dailyStats[day].received++;
         dailyStats[day].items.push(row);
     });
 
@@ -1374,8 +1474,8 @@ function exportMonthlyPDF() {
     let printed = 0;
     let received = 0;
     data.forEach(row => {
-        if (isPrinted(row.receiptNo)) printed++;
-        if (isCardReceived(row.receiptNo)) received++;
+        if (row.isPrinted) printed++;
+        if (row.isReceived) received++;
     });
 
     const printContent = `
@@ -1449,7 +1549,7 @@ function exportMonthlyPDF() {
     window.print();
 }
 
-function exportMonthlyCSV() {
+async function exportMonthlyCSV() {
     const month = elements.reportMonth ? elements.reportMonth.value : '';
     const year = elements.reportYear ? elements.reportYear.value : '';
 
@@ -1458,7 +1558,30 @@ function exportMonthlyCSV() {
         return;
     }
 
-    const data = getMonthlyData(month, year);
+    // Use cache or load fresh data
+    let data = getMonthlyData(month, year);
+    if (data.length === 0) {
+        if (elements.exportMonthlyCsvBtn) {
+            elements.exportMonthlyCsvBtn.disabled = true;
+            elements.exportMonthlyCsvBtn.textContent = '⏳ กำลังโหลด...';
+        }
+        try {
+            data = await SupabaseAdapter.loadMonthlyData(month, year);
+            state.monthlyReportData = data;
+            state.monthlyReportMonth = month;
+            state.monthlyReportYear = year;
+            state.monthlyReportTimestamp = Date.now();
+        } catch (error) {
+            alert('ไม่สามารถโหลดข้อมูลได้: ' + error.message);
+            return;
+        } finally {
+            if (elements.exportMonthlyCsvBtn) {
+                elements.exportMonthlyCsvBtn.disabled = false;
+                elements.exportMonthlyCsvBtn.textContent = '📥 ดาวน์โหลด CSV';
+            }
+        }
+    }
+
     const thaiYear = parseInt(year) + CONFIG.BUDDHIST_YEAR_OFFSET;
     const monthName = THAI_MONTHS[parseInt(month) - 1];
 
@@ -1476,8 +1599,8 @@ function exportMonthlyCSV() {
         row.date,
         row.requestNo || '-',
         row.appointmentNo || '-',
-        isPrinted(row.receiptNo) ? 'พิมพ์แล้ว' : 'รอพิมพ์',
-        isCardReceived(row.receiptNo) ? 'รับแล้ว' : 'รอรับ'
+        row.isPrinted ? 'พิมพ์แล้ว' : 'รอพิมพ์',
+        row.isReceived ? 'รับแล้ว' : 'รอรับ'
     ]);
 
     const BOM = '\uFEFF';
@@ -1745,6 +1868,9 @@ function loadFromRegistry(rowData) {
     elements.requestNo.value = rowData.requestNo || '';
     elements.appointmentNo.value = rowData.appointmentNo || '';
 
+    // v8.5 - Load card printer name
+    state.formData.cardPrinterName = rowData.cardPrinterName || null;
+
     // Load image if exists
     if (rowData.cardImage) {
         state.formData.cardImage = rowData.cardImage;
@@ -1978,7 +2104,9 @@ async function saveData() {
                     // v7.0 - Photo & Signature URLs
                     recipientPhotoUrl: recipientPhotoUrl,
                     recipientSignatureUrl: recipientSignatureUrl,
-                    officerSignatureUrl: officerSignatureUrl
+                    officerSignatureUrl: officerSignatureUrl,
+                    // v8.5 - Card printer name
+                    cardPrinterName: state.formData.cardPrinterName || null
                 };
 
                 // Upload image if exists and save receipt
@@ -2037,6 +2165,8 @@ async function saveData() {
         renderRegistryTable();
         updateSummary();
 
+        invalidateMonthlyCache();
+
         // Add activity and show message
         if (isEdit) {
             addActivity('edit', `แก้ไขข้อมูล ${savedReceiptNo}`, savedName);
@@ -2092,6 +2222,7 @@ async function deleteRecord(receiptNo) {
             renderRegistryTable();
             updateSummary();
             updateBatchPrintUI();
+            invalidateMonthlyCache();
             addActivity('delete', `ลบข้อมูล ${receiptNo}`, deletedName);
             alert('ลบข้อมูลเรียบร้อยแล้ว!');
         }
@@ -2734,7 +2865,8 @@ function printFromTable(receiptNo) {
         snNumber: rowData.sn,
         requestNo: rowData.requestNo,
         appointmentNo: rowData.appointmentNo,
-        cardImage: rowData.cardImage
+        cardImage: rowData.cardImage,
+        cardPrinterName: rowData.cardPrinterName || null  // v8.5
     };
 
     // Parse date
@@ -2757,12 +2889,13 @@ function printFromTable(receiptNo) {
     const printReceiptNo = state.formData.receiptNo;
     const printName = state.formData.foreignerName;
 
-    // Generate print content with v7.0 data
+    // Generate print content with v7.0 + v8.5 data
     const formDataForPrint = {
         ...state.formData,
         recipientPhotoUrl: rowData.recipientPhotoUrl || null,
         recipientSignatureUrl: rowData.recipientSignatureUrl || null,
-        officerSignatureUrl: rowData.officerSignatureUrl || cachedOfficerSignatureUrl || null
+        officerSignatureUrl: rowData.officerSignatureUrl || cachedOfficerSignatureUrl || null,
+        cardPrinterName: rowData.cardPrinterName || null  // v8.5
     };
     const printContent = generateSinglePrintContent(formDataForPrint);
     elements.printTemplate.innerHTML = printContent;
@@ -2817,6 +2950,23 @@ function setupEventListeners() {
                     }
                     if (!elements.requestNo.value.trim() && lock.request_no) {
                         elements.requestNo.value = lock.request_no;
+                    }
+                    // v8.4 — auto-fill SN and card image from lock
+                    if (!elements.snNumber.value.trim() && lock.sn_good) {
+                        elements.snNumber.value = lock.sn_good;
+                    }
+                    if (!state.formData.cardImage && lock.card_image_url) {
+                        state.formData.cardImage = lock.card_image_url;
+                        if (elements.cardPreview) {
+                            elements.cardPreview.src = lock.card_image_url;
+                        }
+                        if (elements.cardImageUpload) {
+                            elements.cardImageUpload.classList.add('has-image');
+                        }
+                    }
+                    // v8.5 — auto-fill card printer name from lock
+                    if (lock.officer_name) {
+                        state.formData.cardPrinterName = lock.officer_name;
                     }
                     updateReceiptPreview();
                     showToast('ดึงข้อมูลจากระบบล็อกบัตรสำเร็จ', 'success');

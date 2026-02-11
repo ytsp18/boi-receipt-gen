@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบจองการพิมพ์บัตร - EWP Service Center</title>
-    <link rel="stylesheet" href="css/style.css?v=8.3">
+    <link rel="stylesheet" href="css/style.css?v=8.5">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         /* Card Print Lock specific styles */
@@ -30,8 +30,7 @@
         }
 
         .lock-form-row {
-            display: grid;
-            grid-template-columns: 2fr 1.5fr 1.5fr 2fr auto;
+            display: flex;
             gap: 10px;
             align-items: end;
         }
@@ -377,6 +376,126 @@
             font-size: 0.9rem;
         }
 
+        /* Card image upload styles */
+        .btn-upload-img {
+            padding: 4px 10px;
+            background: #f0f9ff;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            cursor: pointer;
+            font-family: 'Sarabun', sans-serif;
+            transition: background 0.2s;
+        }
+
+        .btn-upload-img:hover { background: #e0f2fe; }
+
+        .card-thumb {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .card-thumb:hover { transform: scale(1.5); }
+
+        .btn-create-receipt {
+            padding: 4px 10px;
+            background: #059669;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Sarabun', sans-serif;
+            transition: background 0.2s;
+        }
+
+        .btn-create-receipt:hover { background: #047857; }
+        .btn-create-receipt:disabled { background: #9ca3af; cursor: not-allowed; }
+
+        .receipt-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.68rem;
+            font-weight: 600;
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .receipt-pending-hint {
+            font-size: 0.68rem;
+            color: #9ca3af;
+        }
+
+        /* Image preview modal */
+        .img-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 10001;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .img-modal-overlay.show {
+            display: flex;
+        }
+
+        .img-modal-overlay img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        /* Inline edit for table cells */
+        .inline-editable {
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 4px;
+            transition: background 0.2s;
+            min-width: 40px;
+            display: inline-block;
+        }
+
+        .inline-editable:hover {
+            background: #eff6ff;
+        }
+
+        .inline-editable .edit-hint {
+            display: none;
+            font-size: 0.6rem;
+            color: #9ca3af;
+            margin-left: 4px;
+        }
+
+        .inline-editable:hover .edit-hint {
+            display: inline;
+        }
+
+        .inline-edit-input {
+            width: 100%;
+            padding: 4px 6px;
+            border: 2px solid #2563eb;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-family: 'Sarabun', sans-serif;
+            outline: none;
+            background: #fff;
+        }
+
+        .inline-edit-input:focus {
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
         /* Keyboard shortcut hint */
         .shortcut-hint {
             font-size: 0.7rem;
@@ -422,24 +541,13 @@
                 <div class="officer-display">เจ้าหน้าที่: <strong id="officerNameDisplay">-</strong></div>
                 <form id="lockForm" autocomplete="off">
                     <div class="lock-form-row">
-                        <div class="lock-form-group">
+                        <div class="lock-form-group" style="flex: 1;">
                             <label for="appointmentInput">เลขนัดหมาย *</label>
                             <input type="text" id="appointmentInput" class="input-large" placeholder="paste หรือ scan เลขนัดหมาย" required>
                         </div>
-                        <div class="lock-form-group">
-                            <label for="requestNoInput">เลขที่คำขอ</label>
-                            <input type="text" id="requestNoInput" placeholder="เลขที่คำขอ (ถ้ามี)">
-                        </div>
-                        <div class="lock-form-group">
-                            <label for="passportInput">เลข Passport</label>
-                            <input type="text" id="passportInput" placeholder="เลข Passport (ถ้ามี)">
-                        </div>
-                        <div class="lock-form-group">
-                            <label for="nameInput">ชื่อ</label>
-                            <input type="text" id="nameInput" placeholder="ชื่อ (ถ้ามี)">
-                        </div>
                         <button type="submit" class="btn-lock" id="lockBtn">จอง</button>
                     </div>
+                    <p style="font-size: 0.72rem; color: #9ca3af; margin: 6px 0 0 0;">💡 ข้อมูลอื่น (ชื่อ, เลขคำขอ, Passport) กรอกทีหลังในตารางด้านล่างได้</p>
                 </form>
                 <div class="duplicate-warning" id="duplicateWarning"></div>
                 <div class="shortcut-hint">
@@ -463,29 +571,39 @@
                             <th>Passport</th>
                             <th>ชื่อ</th>
                             <th>เจ้าหน้าที่</th>
+                            <th>รูปบัตร</th>
                             <th>S/N บัตรดี</th>
                             <th>S/N บัตรเสีย</th>
                             <th>สถานะ</th>
+                            <th>ใบรับ</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody id="locksTableBody">
-                        <tr><td colspan="10" class="empty-state"><p>ยังไม่มีรายการจองวันนี้</p></td></tr>
+                        <tr><td colspan="12" class="empty-state"><p>ยังไม่มีรายการจองวันนี้</p></td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 
+    <!-- Image Preview Modal -->
+    <div class="img-modal-overlay" id="imgModalOverlay" onclick="this.classList.remove('show')">
+        <img id="imgModalImg" src="" alt="Card Image">
+    </div>
+
+    <!-- Hidden file input for image upload -->
+    <input type="file" id="cardImageFileInput" accept="image/*" style="display:none">
+
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- Version Badge -->
-    <div class="version-badge">v8.3</div>
+    <div class="version-badge">v8.5</div>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3" integrity="sha384-aRAaCbKYByQpx0fjPuC0PQ9P9moWMEsHXP9tyzP7tbyD5fPK6oTp+THsxdWiq02L" crossorigin="anonymous"></script>
-    <script src="js/supabase-config.js?v=8.3"></script>
+    <script src="js/supabase-config.js?v=8.5"></script>
     <script>
         // Ensure Supabase is initialized (retry if CDN loaded late)
         if (!window.supabaseClient && window.supabase) {
@@ -499,8 +617,9 @@
             }, 100);
         }
     </script>
-    <script src="js/auth.js?v=8.3"></script>
-    <script src="js/card-print-app.js?v=8.3"></script>
+    <script src="js/supabase-adapter.js?v=8.5"></script>
+    <script src="js/auth.js?v=8.5"></script>
+    <script src="js/card-print-app.js?v=8.5"></script>
 
     <script>
         // Show environment badge if not production
