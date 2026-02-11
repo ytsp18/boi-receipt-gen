@@ -976,10 +976,9 @@ function batchPrint() {
     const receiptNos = selectedData.map(r => r.receiptNo).join(', ');
     const count = selectedData.length;
 
-    window.print();
-
-    // Ask for confirmation after print dialog closes
-    setTimeout(async () => {
+    // Use afterprint event for accurate timing (replaces setTimeout)
+    const afterPrintHandler = async () => {
+        window.removeEventListener('afterprint', afterPrintHandler);
         if (confirm(`พิมพ์ใบรับ ${count} รายการ เรียบร้อยแล้วหรือไม่?`)) {
             // Batch mark as printed — 1 Supabase call instead of N
             const success = await SupabaseAdapter.markPrintedBatch(itemsToPrint);
@@ -1009,7 +1008,10 @@ function batchPrint() {
         state.selectedItems = [];
         renderRegistryTable();
         updateBatchPrintUI();
-    }, 500);
+    };
+
+    window.addEventListener('afterprint', afterPrintHandler);
+    window.print();
 }
 
 // Helper: ดึงตัวอักษรหมวดหมู่ + สี จากชื่อ (ข้าม prefix mr./mrs./miss/ms.)
@@ -2123,15 +2125,17 @@ function printReceipt() {
     const receiptNo = state.formData.receiptNo;
     const foreignerName = state.formData.foreignerName;
 
-    window.print();
-
-    // Ask for confirmation after print dialog closes
-    setTimeout(() => {
+    // Use afterprint event for accurate timing (replaces setTimeout)
+    const afterPrintHandler = () => {
+        window.removeEventListener('afterprint', afterPrintHandler);
         if (confirm('พิมพ์ใบรับเรียบร้อยแล้วหรือไม่?')) {
             markAsPrinted(receiptNo);
             addActivity('print', `พิมพ์ใบรับ ${receiptNo}`, foreignerName);
         }
-    }, 500);
+    };
+
+    window.addEventListener('afterprint', afterPrintHandler);
+    window.print();
 }
 
 function generatePrintContent() {
@@ -2665,6 +2669,9 @@ function renderPagination(totalRecords, totalPages) {
 
 function goToPage(page) {
     if (page < 1) return;
+    const filteredData = getFilteredData();
+    const totalPages = Math.ceil(filteredData.length / state.pageSize) || 1;
+    if (page > totalPages) return;
     state.currentPage = page;
     renderRegistryTable();
     document.getElementById('registryTable')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2686,6 +2693,11 @@ function viewImage(receiptNo) {
         // Validate URL - only allow https and data:image URLs
         if (!/^(https:\/\/|data:image\/)/i.test(row.cardImage)) {
             alert('URL รูปภาพไม่ถูกต้อง');
+            return;
+        }
+        // Prevent excessively large URLs (potential memory attack via data: URIs)
+        if (row.cardImage.length > 10000000) {
+            alert('ขนาดรูปภาพใหญ่เกินไป');
             return;
         }
         const safeReceiptNo = sanitizeHTML(receiptNo);
@@ -2755,15 +2767,17 @@ function printFromTable(receiptNo) {
     const printContent = generateSinglePrintContent(formDataForPrint);
     elements.printTemplate.innerHTML = printContent;
     renderBarcodes();
-    window.print();
-
-    // Ask for confirmation after print dialog closes
-    setTimeout(() => {
+    // Use afterprint event for accurate timing (replaces setTimeout)
+    const afterPrintHandler = () => {
+        window.removeEventListener('afterprint', afterPrintHandler);
         if (confirm('พิมพ์ใบรับเรียบร้อยแล้วหรือไม่?')) {
             markAsPrinted(printReceiptNo);
             addActivity('print', `พิมพ์ใบรับ ${printReceiptNo}`, printName);
         }
-    }, 500);
+    };
+
+    window.addEventListener('afterprint', afterPrintHandler);
+    window.print();
 }
 
 window.selectRow = selectRow;

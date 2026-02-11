@@ -192,13 +192,20 @@
                     </div>
                     <div class="form-group" style="margin-bottom: 15px;">
                         <label style="display: block; margin-bottom: 5px; font-weight: 500;">รหัสผ่าน (Password)</label>
-                        <input type="password" id="regPassword" placeholder="อย่างน้อย 6 ตัวอักษร" required minlength="6" style="
+                        <input type="password" id="regPassword" placeholder="อย่างน้อย 8 ตัวอักษร (A-Z, 0-9)" required minlength="8" style="
                             width: 100%;
                             padding: 12px;
                             border: 1px solid #d1d5db;
                             border-radius: 8px;
                             font-size: 1rem;
                         ">
+                        <div id="passwordStrength" style="margin-top: 6px; font-size: 0.8rem; display: none;">
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <span id="pwRule1" style="color: #9ca3af;">✗ 8 ตัวขึ้นไป</span>
+                                <span id="pwRule2" style="color: #9ca3af;">✗ ตัวพิมพ์ใหญ่ (A-Z)</span>
+                                <span id="pwRule3" style="color: #9ca3af;">✗ ตัวเลข (0-9)</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group" style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 5px; font-weight: 500;">ยืนยันรหัสผ่าน (Confirm Password)</label>
@@ -260,7 +267,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3" integrity="sha384-aRAaCbKYByQpx0fjPuC0PQ9P9moWMEsHXP9tyzP7tbyD5fPK6oTp+THsxdWiq02L" crossorigin="anonymous"></script>
     <script>
         // Environment switching - same as supabase-config.js
         const SUPABASE_ENVIRONMENTS = {
@@ -338,6 +345,23 @@
             errorEl.style.display = 'none';
             successEl.style.display = 'none';
 
+            // Validate password complexity (client-side)
+            if (password.length < 8) {
+                errorEl.textContent = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
+                errorEl.style.display = 'block';
+                return;
+            }
+            if (!/[A-Z]/.test(password)) {
+                errorEl.textContent = 'รหัสผ่านต้องมีตัวพิมพ์ใหญ่ (A-Z) อย่างน้อย 1 ตัว';
+                errorEl.style.display = 'block';
+                return;
+            }
+            if (!/[0-9]/.test(password)) {
+                errorEl.textContent = 'รหัสผ่านต้องมีตัวเลข (0-9) อย่างน้อย 1 ตัว';
+                errorEl.style.display = 'block';
+                return;
+            }
+
             // Validate passwords match
             if (password !== confirmPassword) {
                 errorEl.textContent = 'รหัสผ่านไม่ตรงกัน';
@@ -377,6 +401,28 @@
 
             submitBtn.disabled = false;
             submitBtn.textContent = 'สมัคร';
+        });
+
+        // Realtime password strength indicator
+        document.getElementById('regPassword').addEventListener('input', function() {
+            const pw = this.value;
+            const indicator = document.getElementById('passwordStrength');
+            const r1 = document.getElementById('pwRule1');
+            const r2 = document.getElementById('pwRule2');
+            const r3 = document.getElementById('pwRule3');
+
+            indicator.style.display = pw.length > 0 ? 'block' : 'none';
+
+            const pass1 = pw.length >= 8;
+            const pass2 = /[A-Z]/.test(pw);
+            const pass3 = /[0-9]/.test(pw);
+
+            r1.textContent = (pass1 ? '✓' : '✗') + ' 8 ตัวขึ้นไป';
+            r1.style.color = pass1 ? '#059669' : '#dc2626';
+            r2.textContent = (pass2 ? '✓' : '✗') + ' ตัวพิมพ์ใหญ่ (A-Z)';
+            r2.style.color = pass2 ? '#059669' : '#dc2626';
+            r3.textContent = (pass3 ? '✓' : '✗') + ' ตัวเลข (0-9)';
+            r3.style.color = pass3 ? '#059669' : '#dc2626';
         });
     </script>
 </body>
