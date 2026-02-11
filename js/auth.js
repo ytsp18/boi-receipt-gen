@@ -455,6 +455,64 @@ async function resetPassword(email) {
 }
 
 // ==================== //
+// Session Timeout (15 min inactivity)
+// ==================== //
+const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
+const TIMEOUT_WARNING_MS = 14 * 60 * 1000;
+const TIMEOUT_CHECK_MS = 60 * 1000;
+
+let _lastActivity = Date.now();
+let _timeoutInterval = null;
+let _warningShown = false;
+
+function _resetActivity() {
+    _lastActivity = Date.now();
+    if (_warningShown) {
+        _warningShown = false;
+        const el = document.getElementById('sessionTimeoutWarning');
+        if (el) el.remove();
+    }
+}
+
+function _checkTimeout() {
+    const elapsed = Date.now() - _lastActivity;
+
+    // Warning at 14 min
+    if (elapsed >= TIMEOUT_WARNING_MS && !_warningShown) {
+        _warningShown = true;
+        const div = document.createElement('div');
+        div.id = 'sessionTimeoutWarning';
+        div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#f97316;color:#fff;padding:10px;text-align:center;z-index:10000;font-family:Sarabun,sans-serif;font-size:0.9rem;box-shadow:0 2px 8px rgba(0,0,0,0.15);';
+        div.textContent = 'ระบบจะออกจากระบบอัตโนมัติใน 1 นาที เนื่องจากไม่มีการใช้งาน';
+        document.body.appendChild(div);
+    }
+
+    // Force logout at 15 min
+    if (elapsed >= SESSION_TIMEOUT_MS) {
+        clearInterval(_timeoutInterval);
+        const el = document.getElementById('sessionTimeoutWarning');
+        if (el) el.remove();
+        alert('ระบบออกจากระบบอัตโนมัติเนื่องจากไม่มีการใช้งาน 15 นาที');
+        logout();
+    }
+}
+
+function startSessionTimeout() {
+    // Skip on login page
+    if (document.getElementById('loginForm')) return;
+
+    ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
+        document.addEventListener(evt, _resetActivity, { passive: true });
+    });
+
+    _timeoutInterval = setInterval(_checkTimeout, TIMEOUT_CHECK_MS);
+    console.log('Session timeout armed (15 min)');
+}
+
+// Auto-start on authenticated pages
+startSessionTimeout();
+
+// ==================== //
 // Login Page Handler
 // ==================== //
 
@@ -507,6 +565,7 @@ window.AuthSystem = {
     approveUser,
     rejectUser,
     resetPassword,
+    startSessionTimeout,
     ROLE_PERMISSIONS
 };
 

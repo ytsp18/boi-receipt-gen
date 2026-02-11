@@ -18,7 +18,11 @@ const state = {
     officerColorMap: {},
     colorIndex: 0,
     editingSNId: null,
-    realtimeChannel: null
+    realtimeChannel: null,
+    // Typing indicator state
+    typingChannel: null,
+    typingDebounce: null,
+    othersTyping: {} // { officerId: { name, appointmentId, timestamp } }
 };
 
 // Officer color palette (assigned dynamically)
@@ -96,6 +100,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Setup Realtime subscription
     setupRealtime();
 
+    // Setup Typing Broadcast (for other officers)
+    setupTypingBroadcast();
+
     // Setup barcode scan detection
     setupBarcodeScan();
 
@@ -137,9 +144,25 @@ function setupEventListeners() {
         }
     });
 
-    // Clear duplicate warning when typing
+    // Clear duplicate warning when typing + send typing broadcast
     DOM.appointmentInput.addEventListener('input', () => {
         hideDuplicateWarning();
+        // Debounced typing broadcast
+        clearTimeout(state.typingDebounce);
+        const val = DOM.appointmentInput.value.trim();
+        if (val) {
+            state.typingDebounce = setTimeout(() => sendTypingEvent(val), 500);
+        } else {
+            sendIdleEvent();
+        }
+        // Update own indicator (check for conflicts)
+        updateTypingIndicator();
+    });
+
+    // Send idle when leaving input
+    DOM.appointmentInput.addEventListener('blur', () => {
+        clearTimeout(state.typingDebounce);
+        sendIdleEvent();
     });
 }
 
@@ -185,7 +208,7 @@ async function handleLock() {
     if (state.isSubmitting) return;
     state.isSubmitting = true;
     DOM.lockBtn.disabled = true;
-    DOM.lockBtn.textContent = 'กำลังล็อก...';
+    DOM.lockBtn.textContent = 'กำลังจอง...';
 
     try {
         // Layer 1: Optimistic UI check
@@ -212,9 +235,10 @@ async function handleLock() {
 
         const result = await window.SupabaseCardPrintLock.create(lockData);
 
-        // Success — clear form, show toast
+        // Success — send idle event, clear form, show toast
+        sendIdleEvent();
         clearForm();
-        showToast('ล็อกสำเร็จ: ' + appointmentId, 'success');
+        showToast('จองสำเร็จ: ' + appointmentId, 'success');
 
         // Add to local state (Realtime will also fire but this is faster)
         if (!state.locks.find(l => l.id === result.id)) {
@@ -232,10 +256,10 @@ async function handleLock() {
                 if (existing) {
                     showDuplicateWarning(existing);
                 } else {
-                    showToast('ซ้ำ! รายการนี้ถูกล็อกไปแล้ว', 'error');
+                    showToast('ซ้ำ! รายการนี้ถูกจองไปแล้ว', 'error');
                 }
             } catch {
-                showToast('ซ้ำ! รายการนี้ถูกล็อกไปแล้ว', 'error');
+                showToast('ซ้ำ! รายการนี้ถูกจองไปแล้ว', 'error');
             }
         } else {
             console.error('Lock error:', err);
@@ -244,7 +268,7 @@ async function handleLock() {
     } finally {
         state.isSubmitting = false;
         DOM.lockBtn.disabled = false;
-        DOM.lockBtn.textContent = 'ล็อก';
+        DOM.lockBtn.textContent = 'จอง';
         DOM.appointmentInput.focus();
     }
 }
@@ -268,7 +292,7 @@ async function loadTodayLocks() {
 // ==================== //
 function renderLocksTable() {
     if (state.locks.length === 0) {
-        DOM.locksTableBody.innerHTML = '<tr><td colspan="10" class="empty-state"><p>ยังไม่มีรายการล็อกวันนี้</p></td></tr>';
+        DOM.locksTableBody.innerHTML = '<tr><td colspan="10" class="empty-state"><p>ยังไม่มีรายการจองวันนี้</p></td></tr>';
         return;
     }
 
@@ -433,6 +457,103 @@ function setupRealtime() {
         });
 }
 
+// ==================== //
+// Typing Indicator (Realtime Broadcast)
+// ==================== //
+function setupTypingBroadcast() {
+    if (!window.supabaseClient || !state.currentUser) return;
+
+    state.typingChannel = window.supabaseClient
+        .channel('card-print-typing')
+        .on('broadcast', { event: 'typing' }, (payload) => {
+            const data = payload.payload;
+            // Ignore own events
+            if (data.officerId === state.currentUser.userId) return;
+
+            if (data.type === 'typing') {
+                state.othersTyping[data.officerId] = {
+                    name: data.officerName,
+                    appointmentId: data.appointmentId,
+                    timestamp: Date.now()
+                };
+            } else if (data.type === 'idle') {
+                delete state.othersTyping[data.officerId];
+            }
+            updateTypingIndicator();
+        })
+        .subscribe((status) => {
+            console.log('Typing broadcast channel:', status);
+        });
+
+    // Auto-cleanup stale typing entries every 5s
+    setInterval(() => {
+        const now = Date.now();
+        let changed = false;
+        Object.keys(state.othersTyping).forEach(id => {
+            if (now - state.othersTyping[id].timestamp > 10000) {
+                delete state.othersTyping[id];
+                changed = true;
+            }
+        });
+        if (changed) updateTypingIndicator();
+    }, 5000);
+}
+
+function sendTypingEvent(appointmentId) {
+    if (!state.typingChannel || !state.currentUser) return;
+    state.typingChannel.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: {
+            type: 'typing',
+            officerId: state.currentUser.userId,
+            officerName: state.currentUser.name || state.currentUser.email,
+            appointmentId: appointmentId
+        }
+    });
+}
+
+function sendIdleEvent() {
+    if (!state.typingChannel || !state.currentUser) return;
+    state.typingChannel.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: {
+            type: 'idle',
+            officerId: state.currentUser.userId,
+            officerName: state.currentUser.name || state.currentUser.email
+        }
+    });
+}
+
+function updateTypingIndicator() {
+    const el = document.getElementById('typingIndicator');
+    if (!el) return;
+
+    const typingList = Object.values(state.othersTyping);
+    if (typingList.length === 0) {
+        el.classList.remove('show', 'warning');
+        el.innerHTML = '';
+        return;
+    }
+
+    // Check if any typing appointment matches what current user is typing
+    const myInput = DOM.appointmentInput?.value.trim().toLowerCase() || '';
+    let hasConflict = false;
+
+    const parts = typingList.map(t => {
+        const isConflict = myInput && t.appointmentId.toLowerCase() === myInput;
+        if (isConflict) hasConflict = true;
+        const icon = isConflict ? '⚠️' : '🔵';
+        const label = isConflict ? 'กำลังจองรายการเดียวกัน!' : 'กำลังทำรายการ';
+        return `${icon} <strong>${t.name}</strong> ${label}: ${t.appointmentId}`;
+    });
+
+    el.innerHTML = parts.join(' &nbsp;|&nbsp; ');
+    el.classList.add('show');
+    el.classList.toggle('warning', hasConflict);
+}
+
 function handleRealtimeInsert(newLock) {
     // Skip if already in local state (from our own insert)
     if (state.locks.find(l => l.id === newLock.id)) return;
@@ -447,7 +568,7 @@ function handleRealtimeInsert(newLock) {
 
     // Show notification if it's from another officer
     if (newLock.officer_id !== state.currentUser?.userId) {
-        showToast(`${newLock.officer_name} ล็อก: ${newLock.appointment_id}`, 'info');
+        showToast(`${newLock.officer_name} จอง: ${newLock.appointment_id}`, 'info');
     }
 }
 
@@ -480,7 +601,18 @@ function updateStats() {
         byOfficer[name] = (byOfficer[name] || 0) + 1;
     });
 
+    // Count own vs others
+    const myName = state.currentUser?.name || state.currentUser?.email || '';
+    const myCount = byOfficer[myName] || 0;
+    const othersCount = total - myCount;
+
     let html = `<span class="stat-chip total">วันนี้: ${total} รายการ</span>`;
+    if (myCount > 0) {
+        html += `<span class="stat-chip own">ของฉัน: ${myCount}</span>`;
+    }
+    if (othersCount > 0) {
+        html += `<span class="stat-chip pending-others">คนอื่น: ${othersCount}</span>`;
+    }
 
     // Per-officer chips
     Object.entries(byOfficer)
@@ -510,7 +642,7 @@ function getOfficerColor(officerName) {
 function getStatusBadge(status) {
     switch (status) {
         case 'locked':
-            return '<span class="status-badge status-locked">ล็อกแล้ว</span>';
+            return '<span class="status-badge status-locked">จองแล้ว</span>';
         case 'printed':
             return '<span class="status-badge status-printed">พิมพ์บัตรแล้ว</span>';
         case 'completed':
@@ -522,7 +654,7 @@ function getStatusBadge(status) {
 
 function showDuplicateWarning(existingLock) {
     DOM.duplicateWarning.innerHTML =
-        `ซ้ำ! <strong>${escapeHtml(existingLock.officer_name)}</strong> ล็อกเลขนัดหมาย ` +
+        `ซ้ำ! <strong>${escapeHtml(existingLock.officer_name)}</strong> จองเลขนัดหมาย ` +
         `<strong>${escapeHtml(existingLock.appointment_id)}</strong> ไปแล้ว` +
         (existingLock.sn_good ? ` (S/N: ${escapeHtml(existingLock.sn_good)})` : '');
     DOM.duplicateWarning.classList.add('show');

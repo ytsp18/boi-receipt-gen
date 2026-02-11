@@ -1,9 +1,62 @@
 # Change Log - Work Permit Receipt System
 
+## [8.2.0] - 2026-02-11
+
+> **สถานะ: Production — deployed ✅**
+> **✅ pg_cron cleanup job — scheduled บน SIT Supabase สำเร็จ (11 ก.พ. 69)**
+
+### Quick Wins
+
+- **Q1+Q2: ปรับชื่อระบบหน้า Login**
+  - เปลี่ยนชื่อเป็น "ระบบสร้างแบบฟอร์มการรับบัตร BOI"
+  - Subtitle: "ศูนย์บริการ EWP"
+  - Footer: "© 2026 EWP Service Center"
+
+- **Q3: เปลี่ยน "ล็อก" → "จอง" ทั้งระบบ**
+  - เมนู index.html: "จองการพิมพ์บัตร"
+  - card-print.html: title, H1, H2, ปุ่ม, kbd hint, empty state
+  - card-print-app.js: toast messages, status badges, warnings
+
+- **Q4: Session Timeout 15 นาที**
+  - Auto-logout เมื่อไม่มีกิจกรรม 15 นาที
+  - Warning popup ที่ 14 นาที
+  - ใช้ passive event listeners (zero performance impact)
+
+- **Q5: Realtime Typing Indicator (Card Print)**
+  - Supabase Realtime Broadcast — ไม่ผ่าน DB, ไม่มี storage cost
+  - แสดง banner เมื่อ officer อื่นกำลังกรอกเลขนัดหมาย
+  - ⚠️ Conflict detection สีแดง เมื่อ 2 คนกรอกเลขเดียวกัน
+  - Stats chips "ของฉัน" / "คนอื่น" ใน stats bar
+  - Auto-cleanup 10 วินาที + debounce 500ms
+
+- **Q6: pg_cron Cleanup Job**
+  - Schedule `cleanup_old_card_locks()` ทุกวันเที่ยงคืน
+  - Archive >48 ชม., Delete archive >90 วัน
+
+### Changed
+- Cache bust `?v=8.2` ทุก CSS/JS
+- Version badge → v8.2
+
+### Files Changed
+| ไฟล์ | ประเภท | เปลี่ยนแปลง |
+|------|--------|------------|
+| `login.html` | แก้ไข | ชื่อระบบ, subtitle, footer |
+| `index.html` | แก้ไข | เมนู "จองการพิมพ์บัตร", cache bust |
+| `card-print.html` | แก้ไข | 6 จุดเปลี่ยนชื่อ, CSS typing indicator, HTML div, cache bust, version badge |
+| `js/card-print-app.js` | แก้ไข | 9 จุดเปลี่ยนชื่อ, typing broadcast system (~90 lines), stats chips |
+| `js/auth.js` | แก้ไข | Session timeout 15 นาที (~50 lines) |
+
+### SQL Migration
+| ไฟล์ | สถานะ SIT | สถานะ Prod | หมายเหตุ |
+|------|-----------|------------|----------|
+| pg_cron extension + schedule | ✅ Done (11 ก.พ.) | ⏳ รอ | `cron.schedule('cleanup-card-locks', '0 0 * * *', ...)` |
+
+---
+
 ## [8.1.0] - 2026-02-10
 
-> **สถานะ: Production — deployed**
-> **⚠️ SQL v8.0 (card_print_locks) + v8.1 (pg_trgm) ต้อง run บน Production Supabase แยก**
+> **สถานะ: Production — deployed ✅**
+> **✅ SQL v8.0 (card_print_locks) + v8.1 (pg_trgm) — run บน Production Supabase สำเร็จ (11 ก.พ. 69)**
 
 ### Added — Fuzzy Search (pg_trgm)
 - **pg_trgm extension** สำหรับ fuzzy/similarity search
@@ -40,8 +93,8 @@
 
 ## [8.0.0] - 2026-02-10
 
-> **สถานะ: Production — deployed**
-> **⚠️ SQL v8.0 (card_print_locks) ต้อง run บน Production Supabase แยก**
+> **สถานะ: Production — deployed ✅**
+> **✅ SQL v8.0 (card_print_locks) — run บน Production Supabase สำเร็จ (11 ก.พ. 69)**
 
 ### Added — Card Print Lock (แทน Google Sheet "บันทึกรายการห้ามซ้ำ V3")
 
@@ -110,13 +163,14 @@
 | `index.html` | แก้ไข | ลิงก์ล็อกบัตร, ปุ่มเลือกที่ยังไม่พิมพ์ |
 
 ### Deployment Notes
-ก่อน deploy ต้อง:
-1. รัน `supabase-update-v8.0-card-print-lock.sql` บน SIT
-2. รัน `supabase-update-v8.1-fuzzy-search.sql` บน SIT
-3. ทดสอบ Card Print Lock: lock, duplicate (23505), Realtime, S/N, barcode
-4. ทดสอบ batch print optimization + fuzzy search
-5. ทดสอบ cross-use: lock → receipt form auto-fill
-6. ผ่าน SIT → รัน SQL บน Production → deploy
+✅ ทำสำเร็จทั้งหมดแล้ว:
+1. ✅ รัน SQL v8.0 + v8.1 บน SIT — ทดสอบผ่าน
+2. ✅ ทดสอบ Card Print Lock: lock, duplicate (23505), S/N, admin delete
+3. ✅ ทดสอบ fuzzy search: "TETS USER" → "TEST USER SIT"
+4. ✅ ทดสอบ cross-use: lock → receipt form auto-fill
+5. ✅ Commit e4100e5 + push to production (GitHub Pages) — 10 ก.พ. 69
+6. ✅ รัน SQL v8.0 + v8.1 บน Production Supabase — 11 ก.พ. 69
+   - Verified: 2 tables, 3 functions, 11 indexes, 1 extension (pg_trgm) — ครบ 15 objects
 
 ---
 

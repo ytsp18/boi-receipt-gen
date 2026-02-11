@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบล็อกพิมพ์บัตร - EWP Service Center</title>
-    <link rel="stylesheet" href="css/style.css?v=8.0">
+    <title>ระบบจองการพิมพ์บัตร - EWP Service Center</title>
+    <link rel="stylesheet" href="css/style.css?v=8.2">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         /* Card Print Lock specific styles */
@@ -121,6 +121,52 @@
         .stat-chip.spoiled {
             background: #fef2f2;
             color: #dc2626;
+        }
+
+        .stat-chip.own {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border: 1px solid #93c5fd;
+        }
+
+        .stat-chip.pending-others {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+        }
+
+        /* Typing indicator */
+        .typing-indicator {
+            display: none;
+            background: #eff6ff;
+            border: 1px solid #93c5fd;
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+            color: #1d4ed8;
+            animation: typing-pulse 1.5s ease-in-out infinite;
+        }
+
+        .typing-indicator.show {
+            display: block;
+        }
+
+        .typing-indicator.warning {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #dc2626;
+            animation: typing-pulse-warn 1s ease-in-out infinite;
+        }
+
+        @keyframes typing-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        @keyframes typing-pulse-warn {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
         }
 
         /* Locks table */
@@ -353,7 +399,7 @@
         <!-- Header -->
         <header class="header">
             <div class="header-left">
-                <h1>ระบบล็อกพิมพ์บัตร</h1>
+                <h1>ระบบจองการพิมพ์บัตร</h1>
                 <p class="subtitle">ป้องกันพิมพ์ซ้ำ - EWP Service Center</p>
             </div>
             <div class="header-right">
@@ -367,9 +413,12 @@
         </header>
 
         <div class="card-print-container">
+            <!-- Typing Indicator (Realtime Broadcast) -->
+            <div id="typingIndicator" class="typing-indicator"></div>
+
             <!-- Lock Form -->
             <div class="lock-form-card">
-                <h2>ล็อกรายการใหม่</h2>
+                <h2>จองรายการใหม่</h2>
                 <div class="officer-display">เจ้าหน้าที่: <strong id="officerNameDisplay">-</strong></div>
                 <form id="lockForm" autocomplete="off">
                     <div class="lock-form-row">
@@ -389,12 +438,12 @@
                             <label for="nameInput">ชื่อ</label>
                             <input type="text" id="nameInput" placeholder="ชื่อ (ถ้ามี)">
                         </div>
-                        <button type="submit" class="btn-lock" id="lockBtn">ล็อก</button>
+                        <button type="submit" class="btn-lock" id="lockBtn">จอง</button>
                     </div>
                 </form>
                 <div class="duplicate-warning" id="duplicateWarning"></div>
                 <div class="shortcut-hint">
-                    <kbd>Enter</kbd> ล็อกทันที &nbsp; <kbd>Ctrl+L</kbd> focus ช่องนัดหมาย
+                    <kbd>Enter</kbd> จองทันที &nbsp; <kbd>Ctrl+L</kbd> focus ช่องนัดหมาย
                 </div>
             </div>
 
@@ -421,7 +470,7 @@
                         </tr>
                     </thead>
                     <tbody id="locksTableBody">
-                        <tr><td colspan="10" class="empty-state"><p>ยังไม่มีรายการล็อกวันนี้</p></td></tr>
+                        <tr><td colspan="10" class="empty-state"><p>ยังไม่มีรายการจองวันนี้</p></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -432,11 +481,11 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- Version Badge -->
-    <div class="version-badge">v8.0</div>
+    <div class="version-badge">v8.2</div>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/supabase-config.js?v=8.0"></script>
+    <script src="js/supabase-config.js?v=8.2"></script>
     <script>
         // Ensure Supabase is initialized (retry if CDN loaded late)
         if (!window.supabaseClient && window.supabase) {
@@ -450,8 +499,8 @@
             }, 100);
         }
     </script>
-    <script src="js/auth.js?v=8.0"></script>
-    <script src="js/card-print-app.js?v=8.0"></script>
+    <script src="js/auth.js?v=8.2"></script>
+    <script src="js/card-print-app.js?v=8.2"></script>
 
     <script>
         // Show environment badge if not production

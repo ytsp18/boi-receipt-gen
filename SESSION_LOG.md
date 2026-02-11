@@ -1230,9 +1230,92 @@ git push origin main --force
 ---
 
 ## Session End (v8.0-8.1 development)
-- **Status:** Development in progress
-- **Current Dev Version:** 8.1.0-dev
-- **Production Version:** ยังไม่ deploy (production เป็น v7.0 หรือก่อนหน้า)
-- **Features Done:** Batch optimization, cache, recent receipts, query hash, card print lock, batch UX, journey tracking, fuzzy search
-- **Features In Progress:** Quick Print Mode
-- **SQL Pending:** v8.0 card-print-lock + v8.1 fuzzy-search → ต้องรันบน SIT ก่อน test
+- **Status:** ✅ Deployed to Production
+- **Production Version:** v8.1.0
+- **Features Done:** ทุก feature ครบ — Batch optimization, cache, recent receipts, query hash, card print lock, batch UX, journey tracking, fuzzy search, quick print mode
+- **SQL:** ✅ v8.0 + v8.1 run บน Production Supabase สำเร็จ (11 ก.พ. 69)
+
+---
+
+## 11 กุมภาพันธ์ 2569 — SQL Migration Production + Documentation Update
+
+### สิ่งที่ทำ
+
+**1. Run SQL v8.0 บน Production Supabase**
+- เปิด Supabase Dashboard → SQL Editor → Production project
+- สร้าง new query tab → paste `supabase-update-v8.0-card-print-lock.sql`
+- Run → Success. No rows returned
+- สร้าง: table `card_print_locks`, `card_print_locks_archive`, trigger, functions, RLS, Realtime, indexes
+
+**2. Run SQL v8.1 บน Production Supabase**
+- สร้าง new query tab → paste `supabase-update-v8.1-fuzzy-search.sql`
+- Run → Success. No rows returned
+- สร้าง: extension `pg_trgm`, GIN indexes, function `search_receipts_fuzzy()`
+
+**3. Verification**
+- Run verification query → ยืนยัน 15 objects ครบทั้งหมด:
+  - 2 tables: card_print_locks, card_print_locks_archive
+  - 3 functions: normalize_appointment_id, cleanup_old_card_locks, search_receipts_fuzzy
+  - 1 extension: pg_trgm
+  - 9 indexes: card_print_locks (4) + archive (3) + trgm (2)
+
+**4. Documentation Update**
+- อัพเดท CHANGELOG.md — SQL migration status เป็น ✅ Done
+- อัพเดท DEVELOPMENT_ROADMAP.md — deploy checklist ✅ COMPLETED, SQL status ✅ Done
+- อัพเดท SESSION_LOG.md — เพิ่ม session นี้
+- อัพเดท MEMORY.md — SQL status
+
+### สรุป
+- ✅ SQL v8.0 + v8.1 run บน Production สำเร็จ
+- ✅ ยืนยัน 15 objects สร้างครบ
+- ✅ Documentation อัพเดทครบ
+- ⏸️ v7.0 E-Sign ยังคง On Hold (รอ hardware testing)
+- ⏳ pg_cron cleanup job ยังไม่ได้ schedule (แนะนำ: `cron.schedule('cleanup-card-locks', '0 0 * * *', 'SELECT cleanup_old_card_locks()')`)
+- ⏳ 38 deleted records recovery ยังรอ staff input
+
+---
+
+## 11 กุมภาพันธ์ 2569 — Quick Wins v8.2.0 Development + SIT Testing
+
+### สิ่งที่ทำ
+
+**1. Q1+Q2: ปรับชื่อระบบหน้า Login**
+- `login.html`: เปลี่ยนชื่อ → "ระบบสร้างแบบฟอร์มการรับบัตร BOI"
+- Subtitle → "ศูนย์บริการ EWP"
+- Footer → "© 2026 EWP Service Center"
+
+**2. Q3: เปลี่ยน "ล็อก" → "จอง" ทั้งระบบ**
+- `index.html`: เมนู "จองการพิมพ์บัตร"
+- `card-print.html`: title, H1, H2, ปุ่ม, kbd hint, empty state (6 จุด)
+- `card-print-app.js`: toast, status badges, warnings (9 จุด)
+
+**3. Q4: Session Timeout 15 นาที**
+- `js/auth.js`: เพิ่ม ~50 lines — passive listeners + setInterval check
+- Warning ที่ 14 นาที, force logout ที่ 15 นาที
+
+**4. Q5: Realtime Typing Indicator**
+- `card-print.html`: CSS styles + HTML div
+- `card-print-app.js`: ~90 lines — setupTypingBroadcast(), sendTypingEvent(), sendIdleEvent(), updateTypingIndicator()
+- ใช้ Supabase Realtime Broadcast (ไม่ผ่าน DB)
+- Conflict detection สีแดง ⚠️ เมื่อ 2 คนกรอกเลขเดียวกัน
+
+**5. Cache Bust + Version Badge**
+- `index.html`: ?v=8.1 → ?v=8.2 (5 จุด)
+- `card-print.html`: ?v=8.0 → ?v=8.2 (4 จุด) + version badge v8.2
+
+**6. Q6: pg_cron Cleanup Job บน SIT Supabase**
+- CREATE EXTENSION pg_cron
+- cron.schedule('cleanup-card-locks', '0 0 * * *', 'SELECT cleanup_old_card_locks()')
+- Verified: jobid=1, active=true
+
+### Testing (SIT — localhost:8899?env=sit)
+- ✅ Q1+Q2: login page แสดงถูกต้อง
+- ✅ Q3: card-print ทุกจุดเปลี่ยนเป็น "จอง"
+- ✅ Q4: Console "Session timeout armed (15 min)"
+- ✅ Q5: Typing indicator แสดง + Conflict สีแดง ⚠️
+- ✅ Q6: pg_cron job active บน SIT
+
+### สรุป
+- ✅ Quick Wins Q1-Q6 ครบทั้งหมด
+- ✅ ทดสอบบน SIT ผ่านทุกข้อ
+- ⏳ Deploy Production + pg_cron บน Production รอดำเนินการ

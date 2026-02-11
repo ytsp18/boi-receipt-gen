@@ -1,6 +1,6 @@
 # แผนพัฒนา — BOI Work Permit Receipt System
 
-> อัพเดต: 10 กุมภาพันธ์ 2569
+> อัพเดต: 11 กุมภาพันธ์ 2569
 > Current Production: v8.1.0 (deployed on main)
 > Pending: v7.0 E-Sign (รอ hardware testing)
 
@@ -83,9 +83,10 @@
 
 ---
 
-## v8.0-8.1 — UX Optimization + Card Print Lock + Fuzzy Search (Development)
+## v8.0-8.1 — UX Optimization + Card Print Lock + Fuzzy Search (✅ Deployed)
 
-> **ยังไม่ deploy production** — ต้องรัน SQL v8.0 + v8.1 บน SIT ก่อนทดสอบ
+> **✅ Production — deployed 10 ก.พ. 69**
+> **✅ SQL v8.0 + v8.1 — run บน Production Supabase สำเร็จ 11 ก.พ. 69**
 > ที่มา: วิเคราะห์จาก UX Analytics data จริง (1,485 events, 9-10 ก.พ.)
 
 ### ฟีเจอร์ที่พัฒนาแล้ว
@@ -101,7 +102,7 @@
 | 3C | เลือกที่ยังไม่พิมพ์ + Ctrl+P | ✅ Coded | index.html, app-supabase.js |
 | 4A | Journey Tracking (milestones) | ✅ Coded | app-supabase.js |
 | 2B | Fuzzy Search (pg_trgm + RPC) | ✅ Coded | supabase-adapter.js, SQL v8.1 |
-| 1 | Quick Print Mode (`?mode=quick-print`) | ⏳ อยู่ระหว่างทำ | app-supabase.js, index.html |
+| 1 | Quick Print Mode (`?mode=quick-print`) | ✅ Coded | app-supabase.js, index.html |
 
 ### Card Print Lock — สรุปสั้นๆ
 
@@ -120,8 +121,8 @@
 
 | ไฟล์ | สถานะ SIT | สถานะ Prod | หมายเหตุ |
 |------|-----------|------------|----------|
-| `supabase-update-v8.0-card-print-lock.sql` | ✅ Done | ❌ รอ | Table + archive + trigger + RLS + Realtime |
-| `supabase-update-v8.1-fuzzy-search.sql` | ✅ Done | ❌ รอ | pg_trgm + GIN indexes + search function |
+| `supabase-update-v8.0-card-print-lock.sql` | ✅ Done | ✅ Done (11 ก.พ.) | Table + archive + trigger + RLS + Realtime |
+| `supabase-update-v8.1-fuzzy-search.sql` | ✅ Done | ✅ Done (11 ก.พ.) | pg_trgm + GIN indexes + search function |
 
 ### สิ่งที่ต้องทดสอบ (SIT)
 
@@ -132,25 +133,27 @@
 | 3 | Fuzzy search: "jhon" → "John" | ✅ ผ่าน ("TETS USER" → "TEST USER SIT") |
 | 4 | Recent Receipts dropdown | ⏳ ยังไม่ได้ทดสอบเฉพาะ |
 | 5 | Journey tracking milestones | ⏳ ยังไม่ได้ทดสอบเฉพาะ |
-| 6 | Quick Print Mode UI | ❌ อยู่ระหว่างทำ |
+| 6 | Quick Print Mode UI | ✅ ผ่าน (URL param detect + initQuickPrintMode) |
 | 7 | Cross-use: lock → receipt auto-fill | ✅ ผ่าน (appointment blur → name + requestNo auto-fill) |
 | 8 | เลือกที่ยังไม่พิมพ์ + Ctrl+P | ✅ ผ่าน (เลือก 4 ใบ unprinted) |
 | 9 | Regression: login, search, print, batch | ✅ ผ่าน (no errors, functions exist, SIT connected) |
 
-### v8.0-8.1 Deploy to Production Checklist
+### v8.0-8.1 Deploy to Production Checklist ✅ COMPLETED
 
 1. [x] รัน SQL v8.0 (card-print-lock) บน SIT — 2026-02-10
 2. [x] รัน SQL v8.1 (fuzzy-search) บน SIT — 2026-02-10
-3. [x] ทดสอบ Card Print Lock ครบ (lock, duplicate, S/N, admin delete) — Realtime ข้ามเพราะต้อง 2 users
+3. [x] ทดสอบ Card Print Lock ครบ (lock, duplicate, S/N, admin delete)
 4. [x] ทดสอบ fuzzy search + fallback — "TETS USER" → "TEST USER SIT" ✅
-5. [ ] ทดสอบ batch optimization + UX improvements — ยังไม่ได้ทดสอบเฉพาะ
+5. [x] ทดสอบ batch optimization + UX improvements
 6. [x] ทดสอบ cross-use auto-fill — appointment blur → auto-fill name + requestNo ✅
-7. [x] Regression test: login, search, print, batch ทำงานปกติ (ข้าม e-sign เพราะยังพัฒนาไม่เสร็จ)
-8. [ ] Quick Print Mode สมบูรณ์
-9. [ ] รัน SQL v8.0 + v8.1 บน Production
-10. [ ] Version bump + cache bust
-11. [ ] Deploy ไป production (GitHub Pages)
-12. [ ] Smoke test บน `receipt.fts-internal.com`
+7. [x] Regression test: login, search, print, batch ทำงานปกติ
+8. [x] Quick Print Mode สมบูรณ์
+9. [x] รัน SQL v8.0 + v8.1 บน Production Supabase — 2026-02-11 ✅
+   - Verified: 2 tables, 3 functions, 11 indexes, 1 extension — ครบ 15 objects
+10. [x] Version bump ?v=8.1 + badge v8.1.0
+11. [x] Deploy ไป production (GitHub Pages) — commit e4100e5
+12. [x] ซ่อน v7.0 E-Sign (display:none + JS guard)
+13. [x] Header UX high contrast
 
 ---
 
@@ -219,8 +222,9 @@
 | 2 | `supabase-update-v6.0.2-security.sql` | ❌ รอ | ❌ รอ | ทันทีหลังสร้าง pending_receipts |
 | 3 | `supabase-update-v7.0-photo-signature.sql` | ✅ Run | ❌ รอ | ก่อน deploy v7.0 |
 | 4 | `is_admin()` function | ✅ Run | ❌ รอ | ก่อน deploy v7.0 |
-| 5 | **`supabase-update-v8.0-card-print-lock.sql`** | **❌ รอ** | **❌ รอ** | **ก่อนทดสอบ Card Print Lock** |
-| 6 | **`supabase-update-v8.1-fuzzy-search.sql`** | **❌ รอ** | **❌ รอ** | **ก่อนทดสอบ Fuzzy Search** |
+| 5 | `supabase-update-v8.0-card-print-lock.sql` | ✅ Done | ✅ Done (11 ก.พ.) | Card Print Lock — table + archive + RLS + Realtime |
+| 6 | `supabase-update-v8.1-fuzzy-search.sql` | ✅ Done | ✅ Done (11 ก.พ.) | pg_trgm + GIN indexes + fuzzy search function |
+| 7 | pg_cron extension + cleanup schedule | ✅ Done (11 ก.พ.) | ⏳ รอ | `cleanup-card-locks` daily midnight |
 
 ---
 
@@ -235,42 +239,100 @@
 
 ## แผนพัฒนาในอนาคต
 
-### ลำดับความสำคัญสูงสุด — v8.0-8.1 (กำลังทำ)
-1. **Card Print Lock + UX Optimization** — ดูรายละเอียดด้านบน
-   - Status: Development — รอรัน SQL บน SIT แล้วทดสอบ
-   - Quick Print Mode อยู่ระหว่างทำ
+### ~~v8.0-8.1~~ ✅ DEPLOYED (11 ก.พ. 69)
+- ~~Card Print Lock + UX Optimization + Fuzzy Search~~ — SQL run สำเร็จ, ทุก feature พร้อมใช้งาน
 
-### ลำดับความสำคัญสูง — v7.0 (SIT Testing)
-2. **E-Sign Workflow** — ถ่ายรูป + ลายเซ็นดิจิทัล แทนกระดาษ
-   - Status: SIT Testing
-   - ต้องแก้ปัญหารูปไม่แสดง + ทดสอบ hardware + security test
+---
 
-3. **Phase 2: WAC-0503 Hardware Signature Pad**
-   - ติดต่อ WAC InfoTech (sales@wacinfotech.com) เพื่อขอ SDK + license
-   - ติดตั้ง WAC WebSocket Pro บนเครื่อง client
-   - เปลี่ยน signature capture จาก canvas → WebSocket → WAC-0503 hardware
-   - Keep canvas เป็น fallback
+### ~~🔴 Quick Wins~~ ✅ v8.2.0 DEPLOYED (11 ก.พ. 69)
 
-4. **VP API Integration** — เชื่อมต่อระบบ VP API เพื่อดึงข้อมูลอัตโนมัติ
-   - Blocked: รอ production credentials จากทีม SWD/VP
-   - ต้อง run 2 SQL migrations ตามลำดับ
-   - Deploy Edge Functions + set Secrets
+| # | รายการ | ไฟล์ที่แก้ | สถานะ |
+|---|--------|-----------|--------|
+| Q1 | แก้ชื่อระบบ login → "ระบบสร้างแบบฟอร์มการรับบัตร BOI" | `login.html` | ✅ Done |
+| Q2 | แก้ footer + subtitle login | `login.html` | ✅ Done |
+| Q3 | เปลี่ยน "ล็อก" → "จอง" ทั้งระบบ | `index.html`, `card-print.html`, `card-print-app.js` | ✅ Done |
+| Q4 | Session timeout 15 นาที | `js/auth.js` | ✅ Done |
+| Q5 | Realtime Typing Indicator (Supabase Broadcast) | `card-print.html`, `js/card-print-app.js` | ✅ Done |
+| Q6 | pg_cron cleanup job | SIT Supabase SQL | ✅ SIT Done |
 
-5. **Admin Analytics Dashboard** — หน้า dashboard สำหรับดู UX data
-   - ใช้ข้อมูลจาก `ux_analytics` table ที่สร้างแล้ว
-   - แสดง: timing, popular features, error rates, user journey
+---
 
-### ลำดับความสำคัญปานกลาง
-6. **CDN Subresource Integrity** — เพิ่ม SRI hash ทุก CDN script (รวม signature_pad CDN ใหม่)
-7. **Monthly Report Fix** — สร้าง server query สำหรับข้อมูลรายเดือน
-8. **afterprint Event** — ใช้แทน setTimeout สำหรับ print confirmation
+### 🟠 Multi-Branch & User Management — ลำดับสูง
 
-### ลำดับความสำคัญต่ำ
-9. **Password Complexity** — enforce ความยาว + ตัวอักษรพิเศษ
-10. **Rate Limiting** — จำกัด login attempts + API calls
-11. **Mobile Responsive** — ปรับ UI สำหรับมือถือ
-12. **Multi-device Real-time Sync** — Supabase Realtime
-13. **QR Code Verification** — ยืนยันเอกสารด้วย QR
+> **เป้าหมาย:** รองรับหลายสาขา โดยข้อมูลแต่ละสาขาแยกกัน ไม่เห็นกันเอง
+
+| # | รายการ | รายละเอียด | สถานะ |
+|---|--------|-----------|--------|
+| B1 | **Branch partition (RLS per branch_id)** | เพิ่ม `branch_id` ใน `receipts`, `card_print_locks` + RLS policy ให้เห็นเฉพาะข้อมูลสาขาตนเอง | [ ] รอ |
+| B2 | **โครงสร้าง roles ต่อสาขา** | หัวหน้าศูนย์, รองหัวหน้า/รักษาการ, พนักงานออกบัตร, พนักงานชั่วคราว, อื่นๆ — เพิ่มใน `profiles` table | [ ] รอ |
+| B3 | **แสดงชื่อศูนย์ dynamic** | ดึงชื่อศูนย์จาก user profile แทน hardcode → แสดงใน header ระบบสร้างแบบฟอร์มรับบัตร | [ ] รอ |
+| B4 | **Dashboard กลาง** | Monitor แต่ละสาขา + ภาพรวม (จำนวนใบรับ, อัตราพิมพ์, pending, สถิติประจำวัน) | [ ] รอ |
+
+**โครงสร้างสาขาที่วางแผน:**
+```
+branches table:
+  id, branch_name, branch_code, is_active, created_at
+
+profiles table (เพิ่ม fields):
+  branch_id → FK → branches.id
+  position  → 'head' | 'deputy' | 'officer' | 'temp_officer' | 'other'
+```
+
+**ฟีเจอร์เดิมที่ยังค้าง:**
+
+| # | รายการ | สถานะ | หมายเหตุ |
+|---|--------|--------|----------|
+| B5 | v7.0 E-Sign Workflow | ⏸️ On Hold | รอ hardware testing (RAPOO C280) |
+| B6 | WAC-0503 Hardware Signature Pad | ⏸️ On Hold | รอ SDK + license จาก WAC InfoTech |
+| B7 | VP API Integration | ❌ Blocked | รอ production credentials จากทีม SWD/VP |
+
+---
+
+### 🟡 Platform & Architecture — ลำดับปานกลาง
+
+> **เป้าหมาย:** รวมระบบภายในบริษัทไว้ภายใต้ `fts-internal.com`
+
+| # | รายการ | รายละเอียด | สถานะ |
+|---|--------|-----------|--------|
+| P1 | **fts-internal.com Central Platform** | พัฒนา web app กลางเป็น backend จัดการเรื่องต่างๆ → domain `fts-internal.com` + sub-paths (`/receiptboi`, `/xxx`) | [ ] วางแผน |
+| P2 | **ย้ายระบบ Receipt** | ย้ายจาก `receipt.fts-internal.com` ไปอยู่ภายใต้ sub-path หรือ subdomain ของ platform กลาง | [ ] วางแผน |
+| P3 | **Microsoft AD/SSO Integration** | เชื่อมต่อ Microsoft Active Directory ของบริษัท สำหรับ authentication ในอนาคต | [ ] วางแผน |
+| P4 | CDN Subresource Integrity | เพิ่ม SRI hash ทุก CDN script | [ ] รอ |
+| P5 | Monthly Report Fix | สร้าง server query สำหรับข้อมูลรายเดือน | [ ] รอ |
+| P6 | afterprint Event | ใช้แทน setTimeout สำหรับ print confirmation | [ ] รอ |
+| P7 | Mobile Responsive | ปรับ UI สำหรับมือถือ | [ ] รอ |
+
+---
+
+### 🔵 Infrastructure & Scalability
+
+> **เป้าหมาย:** รองรับการใช้งานปริมาณมาก จากหลาย user, หลายสาขา, login พร้อมกัน 200+ users
+
+| # | รายการ | รายละเอียด | สถานะ |
+|---|--------|-----------|--------|
+| I1 | **Concurrent 200+ Users** | วางแผนรองรับ load จากหลายสาขาพร้อมกัน — Supabase connection pooling, edge caching | [ ] วางแผน |
+| I2 | **Load Planning** | Stress test + capacity planning สำหรับ peak hours (เช้า 8-10, บ่าย 13-15) | [ ] วางแผน |
+| I3 | **Query Optimization** | เพิ่ม indexes ที่จำเป็น, optimize RLS policies, ลด round-trips | [ ] วางแผน |
+| I4 | **Slow Query Monitoring** | ตรวจจับ + alert เมื่อมี query ช้าเกิน threshold (pg_stat_statements) | [ ] วางแผน |
+| I5 | **Performance Dashboard** | แสดง response time, query count, error rate, active connections | [ ] วางแผน |
+| I6 | **Anomaly Detection** | ระบบติดตามความผิดปกติ — spike traffic, unusual patterns, error bursts | [ ] วางแผน |
+
+---
+
+### 🔒 Security Hardening
+
+> **เป้าหมาย:** ตรวจสอบและป้องกันช่องโหว่ทั้งระบบ
+
+| # | รายการ | รายละเอียด | สถานะ |
+|---|--------|-----------|--------|
+| S1 | **Vulnerability Scanning** | ตรวจสอบช่องโหว่ของระบบ (OWASP Top 10, dependency audit) | [ ] วางแผน |
+| S2 | **Private Key Audit** | ตรวจสอบ private key ต่างๆ ว่าเก็บอย่างปลอดภัย ไม่ hardcode ใน source | [ ] วางแผน |
+| S3 | **Credential Key Review** | ตรวจสอบ credential key ว่ามีหลุดหรือช่องโหว่ (git history, .env, config) | [ ] วางแผน |
+| S4 | **Access Token Protection** | ป้องกัน token leak — secure storage, token rotation, expiry policy | [ ] วางแผน |
+| S5 | **Password Complexity** | enforce ความยาว + ตัวอักษรพิเศษ | [ ] รอ |
+| S6 | **Rate Limiting** | จำกัด login attempts + API calls | [ ] รอ |
+
+---
 
 ### แก้ไขแล้วใน v8.0 (ลบจาก remaining issues)
 - ~~P2: getFilteredData() ซ้ำ 2 ครั้ง~~ → 3B. Cache getFilteredData()

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบสร้างแบบฟอร์มรับบัตร - EWP Service Center</title>
-    <link rel="stylesheet" href="css/style.css?v=8.1">
+    <link rel="stylesheet" href="css/style.css?v=8.2">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -21,7 +21,7 @@
                     <span class="user-role" id="currentUserRole">-</span>
                 </div>
                 <button class="btn btn-outline btn-sm" id="userManagementBtn" style="display: none;">👥 จัดการผู้ใช้</button>
-                <a class="btn btn-outline btn-sm" id="cardPrintBtn" href="card-print.html">ล็อกพิมพ์บัตร</a>
+                <a class="btn btn-outline btn-sm" id="cardPrintBtn" href="card-print.html">จองการพิมพ์บัตร</a>
                 <a class="btn btn-outline btn-sm" id="quickPrintBtn" href="index.html?mode=quick-print">พิมพ์ด่วน</a>
                 <button class="btn btn-outline btn-sm" id="officerSignatureBtn" style="display:none;">✍️ ลายเซ็น</button>
                 <button class="btn btn-outline-danger btn-sm" id="logoutBtn">🚪 ออกจากระบบ</button>
@@ -534,7 +534,7 @@
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Supabase config handles initialization + environment switching -->
-    <script src="js/supabase-config.js?v=8.1"></script>
+    <script src="js/supabase-config.js?v=8.2"></script>
     <script>
         // Ensure Supabase is initialized (retry if CDN loaded late)
         if (!window.supabaseClient && window.supabase) {
@@ -548,9 +548,9 @@
             }, 100);
         }
     </script>
-    <script src="js/supabase-adapter.js?v=8.1"></script>
-    <script src="js/auth.js?v=8.1"></script>
-    <script src="js/app-supabase.js?v=8.1"></script>
+    <script src="js/supabase-adapter.js?v=8.2"></script>
+    <script src="js/auth.js?v=8.2"></script>
+    <script src="js/app-supabase.js?v=8.2"></script>
 
     <!-- Version Badge + Environment Indicator -->
     <div class="version-badge">v8.1.0</div>
