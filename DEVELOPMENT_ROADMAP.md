@@ -224,7 +224,7 @@
 | 4 | `is_admin()` function | ✅ Run | ❌ รอ | ก่อน deploy v7.0 |
 | 5 | `supabase-update-v8.0-card-print-lock.sql` | ✅ Done | ✅ Done (11 ก.พ.) | Card Print Lock — table + archive + RLS + Realtime |
 | 6 | `supabase-update-v8.1-fuzzy-search.sql` | ✅ Done | ✅ Done (11 ก.พ.) | pg_trgm + GIN indexes + fuzzy search function |
-| 7 | pg_cron extension + cleanup schedule | ✅ Done (11 ก.พ.) | ⏳ รอ | `cleanup-card-locks` daily midnight |
+| 7 | pg_cron extension + cleanup schedule | ✅ Done (11 ก.พ.) | ✅ Done (11 ก.พ.) | `cleanup-card-locks` daily midnight |
 
 ---
 

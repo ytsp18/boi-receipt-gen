@@ -49,7 +49,7 @@
 ### SQL Migration
 | ไฟล์ | สถานะ SIT | สถานะ Prod | หมายเหตุ |
 |------|-----------|------------|----------|
-| pg_cron extension + schedule | ✅ Done (11 ก.พ.) | ⏳ รอ | `cron.schedule('cleanup-card-locks', '0 0 * * *', ...)` |
+| pg_cron extension + schedule | ✅ Done (11 ก.พ.) | ✅ Done (11 ก.พ.) | `cron.schedule('cleanup-card-locks', '0 0 * * *', ...)` |
 
 ---
 
