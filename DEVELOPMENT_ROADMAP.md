@@ -357,12 +357,12 @@
 | 7 | Data isolation: user สาขา A ไม่เห็นข้อมูลสาขา B | ✅ ผ่าน | CMI user เห็น 0 records ของ BKK |
 | 8 | Feature access: สาขาไม่มี receipt_module → redirect landing | ✅ ผ่าน | Redirect ไป landing.html + แสดงชื่อสาขา |
 | 9 | สร้าง receipt → branch_id ถูกต้อง | ✅ ผ่าน | branch_id = CMI ใน DB |
-| 10 | Print receipt → ชื่อศูนย์ตรงกับสาขาของ receipt | ⏳ กำลังทดสอบ | Preview ถูกต้อง, รอทดสอบ print จริง |
-| 11 | Card print lock Realtime → เฉพาะ branch | ⏳ รอทดสอบ | |
-| 12 | Monthly report → branch filter | ⏳ รอทดสอบ | |
-| 13 | SN duplicate check ข้ามสาขา | ⏳ รอทดสอบ | |
-| 14 | Branch Management UI (เพิ่ม/แก้/ปิดสาขา) | ⏳ รอทดสอบ | |
-| 15 | ย้ายสาขา + เปลี่ยน role | ⏳ รอทดสอบ | |
+| 10 | Print receipt → ชื่อศูนย์ตรงกับสาขาของ receipt | ✅ ผ่าน | Preview ถูกต้อง (MEMORY.md test #6) |
+| 11 | Card print lock Realtime → เฉพาะ branch | ✅ ผ่าน | CMI user sees only CMI locks (MEMORY.md test #7) |
+| 12 | Monthly report → branch filter | ✅ ผ่าน | CMI=1, BKK=8 (MEMORY.md test #8) |
+| 13 | SN duplicate check ข้ามสาขา | ✅ ผ่าน | RPC SECURITY DEFINER bypasses RLS (MEMORY.md test #9) |
+| 14 | Branch Management UI (เพิ่ม/แก้/ปิดสาขา) | ✅ ผ่าน | List/Edit/Features toggle (MEMORY.md test #10) |
+| 15 | ย้ายสาขา + เปลี่ยน role | ✅ ผ่าน | Role + branch transfer both work (MEMORY.md test #11) |
 
 **Bugs Found During SIT Testing:**
 | Bug | สถานะ | หมายเหตุ |
@@ -370,7 +370,10 @@
 | applyPermissions() selectors ไม่ตรง HTML | ✅ แก้แล้ว | เปลี่ยนเป็น redirect ไป landing.html แทน |
 | landing.html ขาด Supabase CDN → redirect loop | ✅ แก้แล้ว | เพิ่ม CDN script tag (commit 4776a3c) |
 | getUsers() JOIN branches error | ✅ แก้แล้ว | ใช้ LEFT JOIN แทน |
-| Card Printer Name ไม่แสดง | 🔴 ยังไม่แก้ | ผู้ใช้แจ้ง — รอ investigate |
+| Card Printer Name ไม่ save | ✅ แก้แล้ว | `if (receiptData.cardPrinterName)` blocks empty → `|| null` |
+| Reset Password "requires an email" | ✅ แก้แล้ว | สร้าง RPC `get_user_email()` SECURITY DEFINER (commit `68dcc08`) |
+| Role Tooltip ล้นกล่อง | ✅ แก้แล้ว | `max-width:250px` + `word-break` (commit `68dcc08`) |
+| Browser autofill confusion | ✅ แก้แล้ว | เพิ่ม `autocomplete` attribute ทุก password field (commit `68dcc08`) |
 
 **Deploy to Production Checklist:**
 > **ห้าม deploy จนกว่าจะทำครบทุกข้อ**

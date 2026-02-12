@@ -69,6 +69,28 @@
 | `login.html` | Branch dropdown in register form, hostname auto-detect SIT |
 | `landing.html` | **NEW** — Landing page for non-receipt branches (auth check + branch name display) |
 
+### Pre-MD Improvements (13 ก.พ. 69)
+
+**🎯 Tooltips & Hints (Priority 1.1):**
+- Batch Print Tooltip: แสดง tooltip เมื่อกด checkbox ครั้งแรก (localStorage `batch_print_tooltip_shown`)
+- User Management Hint: toast เข้าหน้าจัดการผู้ใช้ครั้งแรก
+- Approve User Hint: toast แจ้ง "อย่าลืมกำหนด Role ให้เหมาะสม"
+- Role Description Tooltip: ℹ️ icon ข้าง Branch Role dropdown → toggle คำอธิบายทุก role
+- First-time Onboarding Toast: "ยินดีต้อนรับ! ระบบบริหารจัดการข้อมูล" (localStorage `onboarded_v9`)
+
+**🔍 SN Duplicate Cross-Branch (Priority 1.2):**
+- แก้ RPC `check_sn_duplicate()` ให้ return `branch_code` ด้วย (SECURITY DEFINER)
+- Warning message แสดงชื่อสาขา: `SN "XXX" มีอยู่แล้วใน: R001 (John Doe) - สาขา BKK-SC-M-001`
+
+**📊 Monthly Report Reminder (Priority 1.3):**
+- เตือน export เมื่อวันที่ ≥ 25 ของเดือน (localStorage `monthly_reminder_${month}_${year}`)
+
+### Bug Fixes (13 ก.พ. 69)
+
+- **Fix: Reset Password "requires an email"** — `handleResetPassword()` ใช้ `user.username` ซึ่ง profiles table ไม่มี email column → สร้าง RPC `get_user_email()` SECURITY DEFINER ดึงจาก `auth.users` + เฉพาะ admin/super_admin เรียกได้
+- **Fix: Role Description Tooltip ล้นกล่อง** — เพิ่ม `max-width:250px`, `word-break:break-word`, ปรับ layout ให้กระชับ
+- **Fix: Browser autofill confusion** — เพิ่ม `autocomplete` attribute ทุก password field (login: `current-password`, register+add+edit user: `new-password`)
+
 ---
 
 ## [8.6.2] - 2026-02-12

@@ -804,3 +804,27 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION check_sn_duplicate(text, text) TO authenticated;
+
+-- =====================================================
+-- RPC: get_user_email — Admin reset password fix
+-- profiles table has no email column, email lives in auth.users
+-- SECURITY DEFINER because client cannot read auth.users directly
+-- Only admin/super_admin can call (checked inside function)
+-- =====================================================
+CREATE OR REPLACE FUNCTION get_user_email(p_user_id UUID)
+RETURNS TEXT AS $$
+DECLARE
+  v_email TEXT;
+  v_is_admin BOOLEAN;
+BEGIN
+  SELECT (is_admin(auth.uid()) OR is_super_admin(auth.uid())) INTO v_is_admin;
+  IF NOT v_is_admin THEN
+    RAISE EXCEPTION 'Permission denied';
+  END IF;
+
+  SELECT email INTO v_email FROM auth.users WHERE id = p_user_id;
+  RETURN v_email;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION get_user_email(UUID) TO authenticated;
