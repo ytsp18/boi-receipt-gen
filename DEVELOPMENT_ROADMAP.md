@@ -379,25 +379,37 @@
 | Edit User modal ล้นกล่อง | ✅ แก้แล้ว | CSS min-width:0 + label truncation + branch format (commit `edeb555`) |
 
 **Deploy to Production Checklist:**
-> **ห้าม deploy จนกว่าจะทำครบทุกข้อ**
+> **ห้าม deploy จนกว่าจะทำครบทุกข้อ** | แผนละเอียด: `.claude/plans/witty-wibbling-eclipse.md`
 
-1. [ ] ผ่าน SIT Testing ครบทุกข้อด้านบน
-2. [ ] Supabase Migration Free → Pro เสร็จ
-3. [ ] Run `supabase-update-v9.0-multi-branch.sql` บน Production Supabase
-4. [ ] Set super admin บน Production
-5. [ ] Merge `sit` → `main`
-6. [ ] Version bump + cache bust `?v=9.0.0`
-7. [ ] Smoke test บน production
-8. [ ] สร้าง git tag v9.0.0
+1. [x] ผ่าน SIT Testing ครบทุกข้อด้านบน (15/15 tests passed)
+2. [x] Bug fixes ทั้งหมดแก้เสร็จ (10 bugs fixed)
+3. [x] สร้าง Rollback Script (`rollback-v9.0-to-v8.6.2.sql`)
+4. [ ] **P0:** Supabase Transfer Project — FTS org (Free) → ytsp18 org (Pro)
+5. [ ] **P1:** ทดสอบ Rollback Script บน SIT (เสาร์เช้า)
+6. [ ] **P2:** Backup Production DB + Run SQL migration
+7. [ ] **P2:** Verify: branches table + branch_id ≠ NULL + BKK-SC-M-001 active
+8. [ ] **P3:** Merge `sit` → `main` + Push → GitHub Pages auto-deploy
+9. [ ] **P3:** Smoke test (login, receipt CRUD, print, export, user mgmt, card print lock)
+10. [ ] **P4:** Set `admin@boireciptgen.go.th` เป็น super_admin
+11. [ ] **P4:** Set branch_role = 'officer' ให้ user ทุกคน (admin แก้เป็น head ผ่าน UI)
+12. [ ] **P6:** Monitor Day 1 (activity_logs + ux_analytics)
+
+**Rollback Plan (3 ระดับ):**
+- **ระดับ 1:** Code Rollback — `git revert HEAD` (~5 นาที)
+- **ระดับ 2:** DB + Code — Run `rollback-v9.0-to-v8.6.2.sql` (~20-30 นาที)
+- **ระดับ 3:** Full Restore from Backup (~30-60 นาที)
 
 **Deployment Architecture:**
 ```
 Production: main branch → GitHub Pages → receipt.fts-internal.com
-            Supabase: pyyltrcqeyfhidpcdtvc (v8.6.2 schema)
+            Supabase: pyyltrcqeyfhidpcdtvc → org ytsp18 (Pro) [pending transfer]
 
 SIT:        sit branch → Cloudflare Pages → boi-receipt-gen-sit.pages.dev
-            Supabase: cctzbereqvuaunweuqho (v9.0.0 schema)
+            Supabase: cctzbereqvuaunweuqho → org FTS (Free) [stays here]
             Auto-detect: hostname contains "sit.pages.dev" → SIT env
+
+Note: SIT อยู่คนละ org กับ Production ได้ — billing per-org
+      URL/keys ไม่เปลี่ยนหลัง Transfer
 ```
 
 **ฟีเจอร์เดิมที่ยังค้าง:**
