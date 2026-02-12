@@ -26,6 +26,7 @@
 | BF3 | Browser autofill — เพิ่ม `autocomplete` attribute ทุก password field | ✅ แก้แล้ว | `68dcc08` |
 | BF4 | เพิ่มผู้ใช้ใหม่ alert "undefined" — `addUser()` เป็น stub + ไม่มี `await` → เปลี่ยนเป็น registration guide | ✅ แก้แล้ว | `59397aa` |
 | BF5 | SQL migration `get_user_email` — `is_admin(auth.uid())` → `is_admin()` (no params) | ✅ แก้แล้ว | `59397aa` |
+| BF6 | Edit User modal ล้นกล่อง — CSS `min-width:0` + label truncation + branch `code — name` format | ✅ แก้แล้ว | `edeb555` |
 
 ---
 
