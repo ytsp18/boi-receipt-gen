@@ -3682,11 +3682,13 @@ async function showEditUserForm(userId) {
 
     // v9.0: Super admin toggle (super admin only, can't toggle self)
     const superAdminHtml = state.isSuperAdmin && user.id !== state.currentUserId ? `
-        <div class="form-group" style="margin-top:8px;">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="checkbox" id="editSuperAdmin" ${user.is_super_admin ? 'checked' : ''}>
-                <span>Super Admin (เข้าถึงทุกสาขา)</span>
-            </label>
+        <div class="form-row">
+            <div class="form-group" style="margin-top:8px;">
+                <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="checkbox" id="editSuperAdmin" ${user.is_super_admin ? 'checked' : ''}>
+                    <span>Super Admin (เข้าถึงทุกสาขา)</span>
+                </label>
+            </div>
         </div>
     ` : '';
 
@@ -3694,8 +3696,8 @@ async function showEditUserForm(userId) {
         <form class="user-form" id="editUserForm">
             <div class="form-row">
                 <div class="form-group">
-                    <label>ชื่อผู้ใช้ (Username)</label>
-                    <input type="text" id="editUsername" value="${sanitizeHTML(user.username || user.email || '')}" readonly style="background:#f0f0f0;cursor:not-allowed;">
+                    <label>ชื่อแสดง (Display Name)</label>
+                    <input type="text" id="editName" value="${sanitizeHTML(user.name)}" required>
                 </div>
                 <div class="form-group">
                     <label>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label>
@@ -3704,18 +3706,12 @@ async function showEditUserForm(userId) {
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>ชื่อแสดง (Display Name)</label>
-                    <input type="text" id="editName" value="${sanitizeHTML(user.name)}" required>
-                </div>
-                <div class="form-group">
                     <label>ตำแหน่ง (Branch Role)</label>
                     <select id="editBranchRole" class="filter-select">
                         ${branchRoles.map(r => `<option value="${r.value}" ${currentBranchRole === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
                     </select>
                     <div id="rolePermSummary" style="font-size:0.8rem; color:#666; margin-top:4px;"></div>
                 </div>
-            </div>
-            <div class="form-row">
                 ${branchSelectorHtml}
             </div>
             ${superAdminHtml}
