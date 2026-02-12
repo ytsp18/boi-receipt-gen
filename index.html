@@ -262,41 +262,36 @@
         <!-- Daily Summary Panel -->
         <section class="summary-panel">
             <div class="summary-header">
-                <h2>📊 สรุปรายวัน</h2>
+                <h2>สรุปรายวัน</h2>
                 <div class="summary-controls">
                     <input type="date" id="summaryDate" class="summary-date-input">
                     <div class="export-dropdown">
-                        <button class="btn btn-outline btn-sm dropdown-toggle" onclick="this.parentElement.classList.toggle('open')">📥 Export ▾</button>
+                        <button class="btn btn-outline btn-sm dropdown-toggle" onclick="this.parentElement.classList.toggle('open')">Export ▾</button>
                         <div class="dropdown-menu">
-                            <button class="dropdown-item" id="exportCsvBtn">📊 CSV</button>
-                            <button class="dropdown-item" id="exportPdfBtn">📄 PDF</button>
+                            <button class="dropdown-item" id="exportCsvBtn">CSV</button>
+                            <button class="dropdown-item" id="exportPdfBtn">PDF</button>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="summary-cards" id="summaryCards">
                 <div class="summary-card">
-                    <div class="summary-icon">📝</div>
                     <div class="summary-number" id="summaryTotal">0</div>
                     <div class="summary-label">ผลิตบัตรทั้งหมด</div>
                 </div>
                 <div class="summary-card printed">
-                    <div class="summary-icon">✅</div>
                     <div class="summary-number" id="summaryPrinted">0</div>
                     <div class="summary-label">พิมพ์ใบรับแล้ว</div>
                 </div>
                 <div class="summary-card pending">
-                    <div class="summary-icon">⏳</div>
                     <div class="summary-number" id="summaryPendingPrint">0</div>
                     <div class="summary-label">รอพิมพ์ใบรับ</div>
                 </div>
                 <div class="summary-card received">
-                    <div class="summary-icon">🎫</div>
                     <div class="summary-number" id="summaryReceived">0</div>
                     <div class="summary-label">รับบัตรแล้ว</div>
                 </div>
                 <div class="summary-card waiting">
-                    <div class="summary-icon">📦</div>
                     <div class="summary-number" id="summaryWaiting">0</div>
                     <div class="summary-label">รอรับบัตร</div>
                 </div>
@@ -337,10 +332,10 @@
                         <!-- v7.0 E-Sign filters - hidden until deployed -->
                         <!-- <option value="signed">✍️ เซ็นชื่อแล้ว</option> -->
                         <!-- <option value="not-signed">📝 ยังไม่เซ็นชื่อ</option> -->
-                        <option value="received">🎫 รับบัตรแล้ว</option>
-                        <option value="not-received">📦 รอรับบัตร</option>
-                        <option value="printed">✅ พิมพ์แล้ว</option>
-                        <option value="not-printed">⏳ รอพิมพ์</option>
+                        <option value="received">รับบัตรแล้ว</option>
+                        <option value="not-received">รอรับบัตร</option>
+                        <option value="printed">พิมพ์แล้ว</option>
+                        <option value="not-printed">รอพิมพ์</option>
                     </select>
                     <button class="btn btn-outline btn-sm" id="refreshDataBtn">🔄 รีเฟรช</button>
                 </div>
@@ -378,10 +373,10 @@
             <!-- Tab Navigation -->
             <div class="tab-navigation">
                 <button class="tab-btn active" data-tab="monthlyReport" id="tabMonthlyReport">
-                    📅 รายงานรายเดือน
+                    รายงานรายเดือน
                 </button>
                 <button class="tab-btn" data-tab="activityLog" id="tabActivityLog">
-                    📋 Activity Log
+                    Activity Log
                 </button>
             </div>
 
@@ -397,12 +392,12 @@
                             <select id="reportYear" class="filter-select">
                                 <option value="">-- เลือกปี --</option>
                             </select>
-                            <button class="btn btn-primary btn-sm" id="generateReportBtn">📊 สร้างรายงาน</button>
+                            <button class="btn btn-primary btn-sm" id="generateReportBtn">สร้างรายงาน</button>
                             <div class="export-dropdown">
-                                <button class="btn btn-outline btn-sm dropdown-toggle" onclick="this.parentElement.classList.toggle('open')">📥 Export ▾</button>
+                                <button class="btn btn-outline btn-sm dropdown-toggle" onclick="this.parentElement.classList.toggle('open')">Export ▾</button>
                                 <div class="dropdown-menu">
-                                    <button class="dropdown-item" id="exportMonthlyCsvBtn">📊 CSV</button>
-                                    <button class="dropdown-item" id="exportMonthlyPdfBtn">📄 PDF</button>
+                                    <button class="dropdown-item" id="exportMonthlyCsvBtn">CSV</button>
+                                    <button class="dropdown-item" id="exportMonthlyPdfBtn">PDF</button>
                                 </div>
                             </div>
                         </div>
@@ -423,7 +418,7 @@
                             </div>
                             <div class="stat-card warning">
                                 <div class="stat-number" id="monthlyPending">0</div>
-                                <div class="stat-label">รอดำเนินการ</div>
+                                <div class="stat-label">ยังไม่ได้รับบัตร</div>
                             </div>
                         </div>
                         <div class="daily-breakdown" id="dailyBreakdown">

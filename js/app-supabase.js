@@ -1331,7 +1331,7 @@ async function generateMonthlyReport() {
         } finally {
             if (elements.generateReportBtn) {
                 elements.generateReportBtn.disabled = false;
-                elements.generateReportBtn.textContent = '📊 สร้างรายงาน';
+                elements.generateReportBtn.textContent = 'สร้างรายงาน';
             }
         }
     }
@@ -1394,7 +1394,7 @@ function generateDailyBreakdown(data, month, year) {
                     <th>ผลิตบัตร</th>
                     <th>พิมพ์แล้ว</th>
                     <th>รับบัตรแล้ว</th>
-                    <th>รอดำเนินการ</th>
+                    <th>ยังไม่ได้รับบัตร</th>
                 </tr>
             </thead>
             <tbody>
@@ -1512,7 +1512,7 @@ async function exportMonthlyPDF() {
                 </div>
                 <div style="background: #fef3c7; padding: 15px; text-align: center; border-radius: 8px; border: 1px solid #f59e0b;">
                     <div style="font-size: 24px; font-weight: 700; color: #333;">${data.length - received}</div>
-                    <div style="font-size: 12px; color: #666;">รอดำเนินการ</div>
+                    <div style="font-size: 12px; color: #666;">ยังไม่ได้รับบัตร</div>
                 </div>
             </div>
 
@@ -1524,7 +1524,7 @@ async function exportMonthlyPDF() {
                         <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">ผลิตบัตร</th>
                         <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">พิมพ์แล้ว</th>
                         <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">รับบัตรแล้ว</th>
-                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">รอดำเนินการ</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; text-align: center;">ยังไม่ได้รับบัตร</th>
                     </tr>
                 </thead>
                 <tbody>
