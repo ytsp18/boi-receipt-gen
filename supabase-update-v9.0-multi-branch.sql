@@ -785,3 +785,22 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 */
+
+-- ============================================================
+-- v9.0.1 - SN Duplicate Check with Branch Info
+-- ============================================================
+-- Updated: returns branch_code for cross-branch SN warnings
+DROP FUNCTION IF EXISTS check_sn_duplicate(text, text);
+CREATE OR REPLACE FUNCTION check_sn_duplicate(p_sn_number text, p_exclude_receipt_no text DEFAULT NULL)
+RETURNS TABLE(receipt_no text, foreigner_name text, branch_code text) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT r.receipt_no, r.foreigner_name, b.branch_code
+  FROM receipts r
+  LEFT JOIN branches b ON r.branch_id = b.id
+  WHERE r.sn_number = p_sn_number
+  AND (p_exclude_receipt_no IS NULL OR r.receipt_no != p_exclude_receipt_no);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION check_sn_duplicate(text, text) TO authenticated;
