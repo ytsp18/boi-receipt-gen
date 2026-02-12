@@ -851,6 +851,14 @@ function toggleSelectItem(receiptNo) {
         state.selectedItems.splice(index, 1);
     } else {
         state.selectedItems.push(receiptNo);
+
+        // v9.0: Show batch print tooltip on first checkbox selection
+        if (!localStorage.getItem('batch_print_tooltip_shown')) {
+            localStorage.setItem('batch_print_tooltip_shown', '1');
+            setTimeout(() => {
+                showToast('💡 เลือกหลายรายการแล้วกด "พิมพ์ที่เลือก" เพื่อพิมพ์ทีเดียว', 'info', 5000);
+            }, 500);
+        }
     }
     updateBatchPrintUI();
 }
@@ -1353,6 +1361,18 @@ async function generateMonthlyReport() {
 
     // Generate daily breakdown
     generateDailyBreakdown(data, month, year);
+
+    // v9.0: Monthly report export reminder (show once per month when day >= 25)
+    const today = new Date();
+    if (today.getDate() >= 25) {
+        const reminderKey = `monthly_reminder_${today.getMonth() + 1}_${today.getFullYear()}`;
+        if (!localStorage.getItem(reminderKey)) {
+            localStorage.setItem(reminderKey, '1');
+            setTimeout(() => {
+                showToast('📊 ใกล้สิ้นเดือนแล้ว อย่าลืม export รายงานประจำเดือน', 'info', 6000);
+            }, 1000);
+        }
+    }
 }
 
 function generateDailyBreakdown(data, month, year) {
@@ -2000,9 +2020,12 @@ async function saveData() {
                 : Promise.resolve([])
         ]);
 
-        // Process SN duplicate result
+        // Process SN duplicate result (v9.0: include branch info)
         if (snResult.status === 'fulfilled' && snResult.value.length > 0) {
-            const details = snResult.value.map(d => `${d.receipt_no} (${d.foreigner_name})`).join(', ');
+            const details = snResult.value.map(d => {
+                const branchInfo = d.branch_code ? ` - สาขา ${d.branch_code}` : '';
+                return `${d.receipt_no} (${d.foreigner_name})${branchInfo}`;
+            }).join(', ');
             duplicateWarnings.push(`SN "${state.formData.snNumber}" มีอยู่แล้วใน: ${details}`);
         }
 
@@ -3402,6 +3425,14 @@ async function showUserManagement() {
 
     modalTitle.textContent = '👥 จัดการผู้ใช้งาน';
 
+    // v9.0: Show user management hint on first visit
+    if (!localStorage.getItem('user_mgmt_hint_shown')) {
+        localStorage.setItem('user_mgmt_hint_shown', '1');
+        setTimeout(() => {
+            showToast('💡 กดที่ชื่อผู้ใช้เพื่อแก้ไข หรือใช้ปุ่มด้านขวาเพื่อจัดการ', 'info', 5000);
+        }, 500);
+    }
+
     // v9.0: Load users with branch info, filter by branch for non-super-admin
     const filterBranchId = state.isSuperAdmin ? null : state.currentBranchId;
     const allUsers = await window.AuthSystem.getUsers(filterBranchId);
@@ -3572,7 +3603,7 @@ async function handleApproveUser(userId) {
 
     const result = await window.AuthSystem.approveUser(userId);
     if (result.success) {
-        alert('อนุมัติผู้ใช้เรียบร้อยแล้ว');
+        showToast('✅ อนุมัติผู้ใช้แล้ว — อย่าลืมกำหนด Role ให้เหมาะสม', 'success', 5000);
         showUserManagement(); // Refresh
     } else {
         alert('เกิดข้อผิดพลาด: ' + result.error);
@@ -3706,11 +3737,17 @@ async function showEditUserForm(userId) {
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>ตำแหน่ง (Branch Role)</label>
+                    <label>ตำแหน่ง (Branch Role) <span id="roleHelpIcon" style="cursor:pointer; color:#3b82f6; font-size:0.85rem;" title="คลิกเพื่อดูรายละเอียด">ℹ️</span></label>
                     <select id="editBranchRole" class="filter-select">
                         ${branchRoles.map(r => `<option value="${r.value}" ${currentBranchRole === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
                     </select>
                     <div id="rolePermSummary" style="font-size:0.8rem; color:#666; margin-top:4px;"></div>
+                    <div id="roleDescTooltip" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:10px; margin-top:6px; font-size:0.8rem; line-height:1.6;">
+                        <strong>head:</strong> หัวหน้าศูนย์ — เห็นทุกข้อมูล + จัดการผู้ใช้ในสาขา<br>
+                        <strong>deputy:</strong> รองหัวหน้า — สิทธิ์เหมือน head<br>
+                        <strong>officer:</strong> เจ้าหน้าที่ — สร้าง/แก้ไข/พิมพ์ข้อมูลของตัวเอง<br>
+                        <strong>temp_officer:</strong> เจ้าหน้าที่ชั่วคราว — สิทธิ์เหมือน officer
+                    </div>
                 </div>
                 ${branchSelectorHtml}
             </div>
@@ -3733,6 +3770,12 @@ async function showEditUserForm(userId) {
     }
     document.getElementById('editBranchRole')?.addEventListener('change', updatePermSummary);
     updatePermSummary();
+
+    // v9.0: Toggle role description tooltip
+    document.getElementById('roleHelpIcon')?.addEventListener('click', () => {
+        const tooltip = document.getElementById('roleDescTooltip');
+        if (tooltip) tooltip.style.display = tooltip.style.display === 'none' ? 'block' : 'none';
+    });
 
     document.getElementById('editUserForm').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -4142,6 +4185,14 @@ async function applyPermissions() {
     if (!hasExport) {
         const exportBtns = document.querySelectorAll('.export-dropdown');
         exportBtns.forEach(btn => btn.style.display = 'none');
+    }
+
+    // v9.0 — First-time user onboarding (show once per browser)
+    if (!localStorage.getItem('onboarded_v9')) {
+        localStorage.setItem('onboarded_v9', '1');
+        setTimeout(() => {
+            showToast('👋 ยินดีต้อนรับ! ระบบบริหารจัดการข้อมูล — ข้อมูลจะแสดงเฉพาะสาขาของคุณ', 'info', 6000);
+        }, 1500);
     }
 
     // v8.5.2 — Manager onboarding (show once per browser)
