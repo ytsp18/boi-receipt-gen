@@ -4187,20 +4187,23 @@ async function applyPermissions() {
 
 // v9.0 — Render branch selector for super admin
 function renderBranchSelector() {
-    const headerActions = document.querySelector('.header-actions') || document.querySelector('.user-info');
-    if (!headerActions || document.getElementById('branchSelector')) return;
+    if (document.getElementById('branchSelector')) return;
+
+    // Place in header-left under subtitle for clear visibility
+    const headerLeft = document.querySelector('.header-left');
+    if (!headerLeft) return;
 
     const selectorHtml = `
-        <div id="branchSelector" style="margin-right:12px; display:inline-flex; align-items:center; gap:6px;">
-            <label style="font-size:0.8rem; color:#666;">ดูข้อมูลสาขา:</label>
-            <select id="branchSelectorDropdown" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem; max-width:250px;">
-                <option value="">สาขาของตนเอง</option>
-                <option value="all">ทุกสาขา</option>
-                ${state.branches.map(b => `<option value="${b.id}" ${b.id === state.currentBranchId ? 'selected' : ''}>${b.name_th} (${b.code})</option>`).join('')}
+        <div id="branchSelector" style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+            <span style="font-size:0.75rem; color:rgba(255,255,255,0.7);">📍 สาขา:</span>
+            <select id="branchSelectorDropdown" style="padding:3px 8px; border:1px solid rgba(255,255,255,0.3); border-radius:6px; font-size:0.8rem; background:rgba(255,255,255,0.15); color:#fff; max-width:280px; cursor:pointer;">
+                <option value="" style="color:#333;">🏢 สาขาของตนเอง</option>
+                <option value="all" style="color:#333;">🌐 ทุกสาขา</option>
+                ${state.branches.map(b => `<option value="${b.id}" style="color:#333;" ${b.id === state.currentBranchId ? 'selected' : ''}>${b.code} — ${b.name_th}</option>`).join('')}
             </select>
         </div>
     `;
-    headerActions.insertAdjacentHTML('afterbegin', selectorHtml);
+    headerLeft.insertAdjacentHTML('beforeend', selectorHtml);
 
     document.getElementById('branchSelectorDropdown').addEventListener('change', async (e) => {
         const val = e.target.value;
