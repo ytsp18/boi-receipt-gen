@@ -363,7 +363,6 @@ async function updateUser(id, userData) {
         // Build update payload — only include fields that are provided
         const updatePayload = {};
         if (userData.name !== undefined) updatePayload.name = userData.name;
-        if (userData.username !== undefined) updatePayload.username = userData.username;
         if (userData.role !== undefined) updatePayload.role = userData.role;
         if (userData.branch_role !== undefined) updatePayload.branch_role = userData.branch_role;
         if (userData.branch_id !== undefined) updatePayload.branch_id = userData.branch_id;

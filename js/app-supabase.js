@@ -3695,7 +3695,7 @@ async function showEditUserForm(userId) {
             <div class="form-row">
                 <div class="form-group">
                     <label>ชื่อผู้ใช้ (Username)</label>
-                    <input type="text" id="editUsername" value="${sanitizeHTML(user.username)}" required>
+                    <input type="text" id="editUsername" value="${sanitizeHTML(user.username || user.email || '')}" readonly style="background:#f0f0f0;cursor:not-allowed;">
                 </div>
                 <div class="form-group">
                     <label>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label>
@@ -3742,7 +3742,6 @@ async function showEditUserForm(userId) {
         e.preventDefault();
 
         const updateData = {
-            username: document.getElementById('editUsername').value,
             name: document.getElementById('editName').value,
             branch_role: document.getElementById('editBranchRole').value
         };
