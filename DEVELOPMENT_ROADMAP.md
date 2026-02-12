@@ -374,6 +374,9 @@
 | Reset Password "requires an email" | ✅ แก้แล้ว | สร้าง RPC `get_user_email()` SECURITY DEFINER (commit `68dcc08`) |
 | Role Tooltip ล้นกล่อง | ✅ แก้แล้ว | `max-width:250px` + `word-break` (commit `68dcc08`) |
 | Browser autofill confusion | ✅ แก้แล้ว | เพิ่ม `autocomplete` attribute ทุก password field (commit `68dcc08`) |
+| เพิ่มผู้ใช้ใหม่ alert "undefined" | ✅ แก้แล้ว | `addUser()` stub + ไม่มี await → เปลี่ยนเป็น registration guide (commit `59397aa`) |
+| SQL migration is_admin params | ✅ แก้แล้ว | `is_admin(auth.uid())` → `is_admin()` no params (commit `59397aa`) |
+| Edit User modal ล้นกล่อง | ✅ แก้แล้ว | CSS min-width:0 + label truncation + branch format (commit `edeb555`) |
 
 **Deploy to Production Checklist:**
 > **ห้าม deploy จนกว่าจะทำครบทุกข้อ**
@@ -404,6 +407,56 @@ SIT:        sit branch → Cloudflare Pages → boi-receipt-gen-sit.pages.dev
 | B10 | v7.0 E-Sign Workflow | ⏸️ On Hold | รอ hardware testing (RAPOO C280) |
 | B11 | WAC-0503 Hardware Signature Pad | ⏸️ On Hold | รอ SDK + license จาก WAC InfoTech |
 | B12 | VP API Integration | ❌ Blocked | รอ production credentials จากทีม SWD/VP |
+
+---
+
+### 🟠 Card Issuance Work Dashboard — ลำดับสูง (Priority 2)
+
+> **เป้าหมาย:** Dashboard แสดงสถิติการออกบัตรใบอนุญาตทำงาน + นำเข้าข้อมูลจาก Excel SW Report
+> **ประมาณเวลา:** 1-2 วัน
+
+**Database:**
+
+| # | รายการ | สถานะ | หมายเหตุ |
+|---|--------|--------|----------|
+| D1 | สร้างตาราง `card_issuance` | [ ] รอ | UUID PK, branch_id FK, RLS branch-scoped |
+| D2 | RLS policy `card_issuance_select` | [ ] รอ | `branch_id = get_user_branch_id()` OR `is_super_admin()` |
+| D3 | Indexes: `(branch_id, issued_at)` + `(serial_number)` | [ ] รอ | |
+| D4 | UNIQUE constraint: `(appointment_id, serial_number)` | [ ] รอ | สำหรับ dedup ตอน import |
+
+**Data Import (CSV/Excel Upload):**
+
+| # | รายการ | สถานะ | หมายเหตุ |
+|---|--------|--------|----------|
+| I1 | Tab "นำเข้าข้อมูล" ใน Dashboard | [ ] รอ | Upload Excel/CSV |
+| I2 | Parse client-side ด้วย SheetJS | [ ] รอ | Map 11 columns จาก SW Report |
+| I3 | Preview table ก่อน insert | [ ] รอ | แสดงข้อมูลที่ parse แล้ว |
+| I4 | Auto-map `branch_code` → `branch_id` | [ ] รอ | Lookup จาก branches table |
+| I5 | Insert to Supabase + skip duplicates | [ ] รอ | ON CONFLICT DO NOTHING |
+
+**Dashboard UI (หน้า `dashboard.html`):**
+
+| # | รายการ | สถานะ | หมายเหตุ |
+|---|--------|--------|----------|
+| U1 | KPI Cards (4 ใบ) | [ ] รอ | บัตรทั้งหมด / สำเร็จ(G) / เสีย(B) / %สำเร็จ |
+| U2 | Chart: Daily Mixed (Stacked Bar + Line) | [ ] รอ | ECharts — REQUEST/RENEW_REQ/Bad + total line |
+| U3 | Chart: Form Type Pie | [ ] รอ | REQUEST vs RENEW_REQ |
+| U4 | Chart: Print Status Pie | [ ] รอ | Good vs Bad |
+| U5 | Chart: Officer Performance Bar | [ ] รอ | Horizontal bar per officer |
+| U6 | Filters: Date range + Branch + Quick buttons | [ ] รอ | วันนี้ / 7วัน / 30วัน / รีเซ็ต |
+| U7 | Detail Table: sortable + searchable | [ ] รอ | |
+
+**Files to Create/Modify:**
+
+| ไฟล์ | Action | รายละเอียด |
+|------|--------|-----------|
+| `dashboard.html` | สร้างใหม่ | Dashboard page + ECharts CDN |
+| `js/dashboard-app.js` | สร้างใหม่ | Dashboard logic, charts, filters, data import |
+| `js/supabase-config.js` | แก้ไข | เพิ่ม `SupabaseCardIssuance` module |
+| `js/supabase-adapter.js` | แก้ไข | เพิ่ม `loadCardIssuance`, `getCardIssuanceStats` |
+| `index.html` | แก้ไข | เพิ่ม link ไป dashboard ใน nav |
+| `landing.html` | แก้ไข | เพิ่ม link ไป dashboard |
+| SQL migration | รันบน SIT | CREATE TABLE + RLS + indexes |
 
 ---
 
