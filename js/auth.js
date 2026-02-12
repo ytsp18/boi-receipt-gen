@@ -310,15 +310,23 @@ async function requirePermission(permission) {
 // User Management Functions (Admin only)
 // ==================== //
 
-async function getUsers() {
+async function getUsers(filterBranchId) {
     try {
         const client = getSupabaseClient();
         if (!client) return [];
 
-        const { data, error } = await client
+        // v9.0: JOIN branches to get branch name + code
+        let query = client
             .from('profiles')
-            .select('*')
+            .select('*, branches(id, code, name_th)')
             .order('created_at', { ascending: true });
+
+        // v9.0: Filter by branch if specified
+        if (filterBranchId) {
+            query = query.eq('branch_id', filterBranchId);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
         return data || [];
