@@ -526,6 +526,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 8b. cleanup_old_card_locks() -- preserve branch_id when archiving
+-- Must DROP first because return type changed (void → integer)
+DROP FUNCTION IF EXISTS cleanup_old_card_locks();
 CREATE OR REPLACE FUNCTION cleanup_old_card_locks()
 RETURNS INTEGER AS $$
 DECLARE
