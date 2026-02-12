@@ -294,8 +294,10 @@ function renderLocksTable() {
     }
 
     const currentUserId = state.currentUser?.userId;
+    const isAdmin = state.currentUser?.role === 'admin';
     const html = state.locks.map((lock, i) => {
         const isOwn = lock.officer_id === currentUserId;
+        const canEdit = isOwn || isAdmin;
         const colorClass = getOfficerColor(lock.officer_name);
         const statusBadge = getStatusBadge(lock.status);
 
@@ -303,7 +305,7 @@ function renderLocksTable() {
         let imageCell;
         if (lock.card_image_url) {
             imageCell = `<td><img class="card-thumb" src="${escapeHtml(lock.card_image_url)}" onclick="showImagePreview('${escapeHtml(lock.card_image_url)}')" title="คลิกเพื่อดูขนาดเต็ม"></td>`;
-        } else if (isOwn) {
+        } else if (canEdit) {
             imageCell = `<td><button class="btn-upload-img" onclick="triggerImageUpload('${lock.id}')">📷 แนบรูป</button></td>`;
         } else {
             imageCell = `<td><span style="color:#9ca3af;font-size:0.72rem;">-</span></td>`;
@@ -328,10 +330,10 @@ function renderLocksTable() {
             snSpoiledCell = `<td>${escapeHtml(lock.sn_spoiled || '-')}</td>`;
 
             const actions = [];
-            if (isOwn && lock.status === 'locked') {
+            if (canEdit && lock.status === 'locked') {
                 actions.push(`<button class="btn-sn-add" onclick="startSNEdit('${lock.id}')">+ S/N</button>`);
             }
-            if (isOwn && lock.status === 'printed') {
+            if (canEdit && lock.status === 'printed') {
                 actions.push(`<button class="btn-sn-add" onclick="startSNEdit('${lock.id}')">แก้ S/N</button>`);
             }
             // Admin can delete (unlock)
@@ -345,9 +347,9 @@ function renderLocksTable() {
         let receiptCell;
         if (lock.status === 'completed') {
             receiptCell = `<td><span class="receipt-badge">✅ สร้างแล้ว</span></td>`;
-        } else if (lock.sn_good && lock.card_image_url && isOwn) {
+        } else if (lock.sn_good && lock.card_image_url && canEdit) {
             receiptCell = `<td><button class="btn-create-receipt" onclick="createReceiptFromLock('${lock.id}')">📄 สร้างใบรับ</button></td>`;
-        } else if (isOwn) {
+        } else if (canEdit) {
             const hints = [];
             if (!lock.sn_good) hints.push('รอ SN');
             if (!lock.card_image_url) hints.push('รอรูป');
@@ -359,7 +361,7 @@ function renderLocksTable() {
         // v8.5 — inline editable cells for own rows (not completed)
         const editableCell = (field, value) => {
             const display = escapeHtml(value || '-');
-            if (isOwn && lock.status !== 'completed') {
+            if (canEdit && lock.status !== 'completed') {
                 return `<td><span class="inline-editable" onclick="startInlineEdit('${lock.id}','${field}', this)" title="คลิกเพื่อแก้ไข">${display}<span class="edit-hint"> ✏️</span></span></td>`;
             }
             return `<td>${display}</td>`;
