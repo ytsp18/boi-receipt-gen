@@ -35,6 +35,12 @@
 - ชื่อศูนย์ใน header, receipt confirmation, footer, monthly report → ดึงจาก `branches` table
 - แทนที่ hardcode "ศูนย์บริการ EWP อาคาร One Bangkok" ทั้งหมด
 
+**🚪 Landing Page (Non-Receipt Branches):**
+- `landing.html` — หน้า standalone สำหรับสาขาที่ยังไม่เปิด receipt_module
+- แสดงชื่อสาขา + ข้อความ "ระบบยังไม่เปิดใช้งานสำหรับสาขานี้"
+- Auth check: redirect ไป login ถ้าไม่ login / redirect ไป index.html ถ้ามี receipt_module
+- `applyPermissions()` ใน app-supabase.js redirect ไป landing.html แทนการซ่อน elements
+
 **🌐 SIT Deployment (Cloudflare Pages):**
 - Git branch `sit` → auto-deploy ที่ `boi-receipt-gen-sit.pages.dev`
 - Hostname auto-detection: `*sit.pages.dev` → ใช้ SIT Supabase อัตโนมัติ
@@ -61,6 +67,7 @@
 | `index.html` | Dynamic elements, branch mgmt button, version bump `?v=9.0.0` |
 | `card-print.html` | Dynamic header, version bump `?v=9.0.0` |
 | `login.html` | Branch dropdown in register form, hostname auto-detect SIT |
+| `landing.html` | **NEW** — Landing page for non-receipt branches (auth check + branch name display) |
 
 ---
 
