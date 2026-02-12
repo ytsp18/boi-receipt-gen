@@ -1,5 +1,69 @@
 # Change Log - Work Permit Receipt System
 
+## [9.0.0] - 2026-02-12
+
+> **สถานะ: SIT Testing 🧪** — Deploy บน Cloudflare Pages (`boi-receipt-gen-sit.pages.dev`)
+
+### Major Feature — Multi-Branch & User Management
+
+ระบบรองรับหลายสาขา (55+ สาขาทั่วประเทศ) — ข้อมูลแยกด้วย RLS, role ใหม่ต่อสาขา, super admin เห็นทุกสาขา
+
+**🏢 Branch System:**
+- สร้าง `branches` table — seed 52 service centers + 8 mobile units จาก Data Master Branch.xlsx
+- เพิ่ม `branch_id` FK ใน `profiles`, `receipts`, `card_print_locks`, `card_print_locks_archive`, `activity_logs`, `ux_analytics`
+- Migrate ข้อมูลเดิมทั้งหมด → สาขา BKK-SC-M-001 (One Bangkok)
+- Feature access control: `branches.features` JSONB → เปิด `receipt_module` เฉพาะ 4 สาขา (BKK, CBI, CMI, PKT)
+
+**👥 Role System:**
+- Branch roles ใหม่: `head`, `deputy`, `officer`, `temp_officer`, `other`
+- Map จาก legacy roles: admin→head, manager→deputy, staff→officer
+- `is_super_admin` flag — เห็นทุกสาขา + ทุก permission
+- Role-based permissions: head ได้ user_management, deputy ได้ export, officer ได้ create/edit/print
+
+**🔒 RLS (Row-Level Security):**
+- Helper functions: `get_user_branch_id()`, `is_super_admin()`, `is_branch_head()`
+- Branch-scoped policies ทุก table — user เห็นเฉพาะสาขาตัวเอง
+- Super admin bypass ทุก branch filter
+
+**📝 Registration & User Management:**
+- ฟอร์ม register มี branch dropdown — user เลือกสาขาตั้งแต่สมัคร
+- Approve flow แสดงสาขาที่ user เลือก + กำหนด branch_role
+- User management: เพิ่มคอลัมน์สาขา+ตำแหน่ง, edit role, ย้ายสาขา
+- Branch management UI (super admin) — เพิ่ม/แก้/ปิดสาขา
+
+**🏷️ Dynamic Center Names:**
+- ชื่อศูนย์ใน header, receipt confirmation, footer, monthly report → ดึงจาก `branches` table
+- แทนที่ hardcode "ศูนย์บริการ EWP อาคาร One Bangkok" ทั้งหมด
+
+**🌐 SIT Deployment (Cloudflare Pages):**
+- Git branch `sit` → auto-deploy ที่ `boi-receipt-gen-sit.pages.dev`
+- Hostname auto-detection: `*sit.pages.dev` → ใช้ SIT Supabase อัตโนมัติ
+- แยกจาก production (GitHub Pages จาก `main` branch)
+
+**📍 Branch Selector (Super Admin):**
+- Dropdown ใน header-left ใต้ subtitle — "📍 สาขา: [dropdown]"
+- เลือก "สาขาของตนเอง" / "ทุกสาขา" / สาขาเฉพาะ → reload data ตาม
+
+### SQL Migration
+| ไฟล์ | สถานะ |
+|------|--------|
+| `supabase-update-v9.0-multi-branch.sql` | ✅ Run on SIT (12 ก.พ. 69) |
+
+### Files Changed
+| ไฟล์ | เปลี่ยนแปลง |
+|------|------------|
+| `supabase-update-v9.0-multi-branch.sql` | **NEW** — branches table, seed 60 branches, ALTER tables, helper functions, RLS policies, triggers, indexes |
+| `js/auth.js` | Branch role system, branch permissions, registerUser with branchId, approve/transfer user |
+| `js/supabase-config.js` | SupabaseBranches module, branch_id in all modules, hostname auto-detect SIT |
+| `js/supabase-adapter.js` | Branch filter in all queries, cross-branch SN duplicate check |
+| `js/app-supabase.js` | Dynamic center names, branch mgmt UI, user mgmt upgrade, branch selector, feature access control |
+| `js/card-print-app.js` | Branch-scoped realtime, branch_id in lock/receipt |
+| `index.html` | Dynamic elements, branch mgmt button, version bump `?v=9.0.0` |
+| `card-print.html` | Dynamic header, version bump `?v=9.0.0` |
+| `login.html` | Branch dropdown in register form, hostname auto-detect SIT |
+
+---
+
 ## [8.6.2] - 2026-02-12
 
 > **สถานะ: Deployed ✅**

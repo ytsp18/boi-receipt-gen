@@ -1,9 +1,10 @@
 # แผนพัฒนา — BOI Work Permit Receipt System
 
-> อัพเดต: 12 กุมภาพันธ์ 2569 (rev.5)
-> Current Production: **v8.6.2** (deployed on main)
+> อัพเดต: 12 กุมภาพันธ์ 2569 (rev.6)
+> Current Production: **v8.6.2** (deployed on main → GitHub Pages)
+> SIT Testing: **v9.0.0** Multi-Branch (deployed on sit → Cloudflare Pages)
 > Pending: v7.0 E-Sign (รอ hardware testing)
-> 🔜 Next: Supabase Migration Free → Pro (cross-org)
+> 🔜 Next: v9.0 SIT Testing → Production Deploy (หลัง Supabase Migration Free → Pro)
 
 ---
 
@@ -26,6 +27,7 @@
 | **v8.6.0** | **12 ก.พ. 69** | **✅ Deployed** | **UX Improvements จาก Analytics (P1–P3: parallel ops, export dropdowns, summary colors)** |
 | v8.6.1 | 12 ก.พ. 69 | ✅ Deployed | Fix admin แก้ไขรายการจองของเจ้าหน้าที่คนอื่นไม่ได้ |
 | **v8.6.2** | **12 ก.พ. 69** | **✅ Deployed** | **Fix table overflow ซ่อนปุ่ม + S/N และ ลบ** |
+| **v9.0.0** | **12 ก.พ. 69** | **🧪 SIT Testing** | **Multi-Branch & User Management — Cloudflare Pages SIT** |
 | v7.0.0-dev | 10 ก.พ. 69 | ⏸️ On Hold | E-Sign Workflow (ซ่อน UI, รอ hardware testing) |
 
 ---
@@ -236,6 +238,7 @@
 | 5 | `supabase-update-v8.0-card-print-lock.sql` | ✅ Done | ✅ Done (11 ก.พ.) | Card Print Lock — table + archive + RLS + Realtime |
 | 6 | `supabase-update-v8.1-fuzzy-search.sql` | ✅ Done | ✅ Done (11 ก.พ.) | pg_trgm + GIN indexes + fuzzy search function |
 | 7 | pg_cron extension + cleanup schedule | ✅ Done (11 ก.พ.) | ✅ Done (11 ก.พ.) | `cleanup-card-locks` daily midnight |
+| 8 | `supabase-update-v9.0-multi-branch.sql` | ✅ Done (12 ก.พ.) | ❌ รอ (หลัง Supabase Migration) | branches + branch_id + RLS + helper functions |
 
 ---
 
@@ -318,34 +321,78 @@
 
 ---
 
-### 🟠 Multi-Branch & User Management — ลำดับสูง
+### 🟠 v9.0.0 Multi-Branch & User Management — 🧪 SIT Testing
 
-> **เป้าหมาย:** รองรับหลายสาขา โดยข้อมูลแต่ละสาขาแยกกัน ไม่เห็นกันเอง
+> **เป้าหมาย:** รองรับหลายสาขา (55+ สาขาทั่วประเทศ) โดยข้อมูลแยกด้วย RLS
+> **SIT URL:** `boi-receipt-gen-sit.pages.dev` (Cloudflare Pages, auto-deploy จาก `sit` branch)
+> **SQL Migration:** ✅ Run on SIT (12 ก.พ. 69)
+> **Super Admin:** `adminsit@boireciptgen.go.th`
 
 | # | รายการ | รายละเอียด | สถานะ |
 |---|--------|-----------|--------|
-| B1 | **Branch partition (RLS per branch_id)** | เพิ่ม `branch_id` ใน `receipts`, `card_print_locks` + RLS policy ให้เห็นเฉพาะข้อมูลสาขาตนเอง | [ ] รอ |
-| B2 | **โครงสร้าง roles ต่อสาขา** | หัวหน้าศูนย์, รองหัวหน้า/รักษาการ, พนักงานออกบัตร, พนักงานชั่วคราว, อื่นๆ — เพิ่มใน `profiles` table | [ ] รอ |
-| B3 | **แสดงชื่อศูนย์ dynamic** | ดึงชื่อศูนย์จาก user profile แทน hardcode → แสดงใน header ระบบสร้างแบบฟอร์มรับบัตร | [ ] รอ |
-| B4 | **Dashboard กลาง** | Monitor แต่ละสาขา + ภาพรวม (จำนวนใบรับ, อัตราพิมพ์, pending, สถิติประจำวัน) | [ ] รอ |
+| B1 | **Branch partition (RLS per branch_id)** | `branches` table + `branch_id` FK ใน 6 tables + branch-scoped RLS policies | ✅ Coded + SIT Migrated |
+| B2 | **โครงสร้าง roles ต่อสาขา** | head, deputy, officer, temp_officer, other — `branch_role` ใน profiles | ✅ Coded + SIT Migrated |
+| B3 | **แสดงชื่อศูนย์ dynamic** | ดึงจาก `branches` table แทน hardcode → header, receipt, footer, monthly report | ✅ Coded |
+| B4 | **Branch Management UI** | Super admin เพิ่ม/แก้/ปิดสาขา + branch selector ใน header | ✅ Coded |
+| B5 | **User Management upgrade** | คอลัมน์สาขา+ตำแหน่ง, edit role, ย้ายสาขา, approve with branch | ✅ Coded |
+| B6 | **Registration with branch** | Dropdown เลือกสาขาตอนสมัคร → branch_id set ตั้งแต่สร้าง profile | ✅ Coded |
+| B7 | **Feature access control** | `branches.features` JSONB — เปิด receipt_module เฉพาะ 4 สาขา | ✅ Coded |
+| B8 | **SIT Deployment (Cloudflare Pages)** | Hostname auto-detect → SIT Supabase, แยกจาก production | ✅ Deployed |
+| B9 | **Dashboard กลาง** | Monitor แต่ละสาขา + ภาพรวม (จำนวนใบรับ, อัตราพิมพ์) | [ ] อนาคต |
 
-**โครงสร้างสาขาที่วางแผน:**
+**SQL Migration:**
+| ไฟล์ | สถานะ SIT | สถานะ Prod | หมายเหตุ |
+|------|-----------|------------|----------|
+| `supabase-update-v9.0-multi-branch.sql` | ✅ Done (12 ก.พ.) | ❌ รอ (หลัง Supabase Migration) | branches + branch_id + RLS + helpers |
+
+**SIT Testing Checklist:**
+| # | รายการทดสอบ | สถานะ |
+|---|-----------|--------|
+| 1 | SQL migration run สำเร็จ | ✅ ผ่าน |
+| 2 | Super admin set + login | ✅ ผ่าน |
+| 3 | Branch selector แสดง + เปลี่ยนสาขา | ✅ ผ่าน (UI ย้ายไป header-left) |
+| 4 | Dynamic center name ใน header | ✅ ผ่าน |
+| 5 | Branch Management UI (เพิ่ม/แก้/ปิดสาขา) | ⏳ รอทดสอบ |
+| 6 | Registration → เลือกสาขาจาก dropdown | ⏳ รอทดสอบ |
+| 7 | Approve → เห็นสาขาที่ user เลือก + กำหนด role | ⏳ รอทดสอบ |
+| 8 | Data isolation: user สาขา A ไม่เห็นข้อมูลสาขา B | ⏳ รอทดสอบ |
+| 9 | Feature access: สาขาไม่มี receipt_module → เห็นหน้าว่าง | ⏳ รอทดสอบ |
+| 10 | สร้าง receipt → branch_id ถูกต้อง | ⏳ รอทดสอบ |
+| 11 | Card print lock Realtime → เฉพาะ branch | ⏳ รอทดสอบ |
+| 12 | Monthly report → branch filter | ⏳ รอทดสอบ |
+| 13 | SN duplicate check ข้ามสาขา | ⏳ รอทดสอบ |
+| 14 | ย้ายสาขา + เปลี่ยน role | ⏳ รอทดสอบ |
+| 15 | Print receipt → ชื่อศูนย์ตรงกับสาขาของ receipt | ⏳ รอทดสอบ |
+
+**Deploy to Production Checklist:**
+> **ห้าม deploy จนกว่าจะทำครบทุกข้อ**
+
+1. [ ] ผ่าน SIT Testing ครบทุกข้อด้านบน
+2. [ ] Supabase Migration Free → Pro เสร็จ
+3. [ ] Run `supabase-update-v9.0-multi-branch.sql` บน Production Supabase
+4. [ ] Set super admin บน Production
+5. [ ] Merge `sit` → `main`
+6. [ ] Version bump + cache bust `?v=9.0.0`
+7. [ ] Smoke test บน production
+8. [ ] สร้าง git tag v9.0.0
+
+**Deployment Architecture:**
 ```
-branches table:
-  id, branch_name, branch_code, is_active, created_at
+Production: main branch → GitHub Pages → receipt.fts-internal.com
+            Supabase: pyyltrcqeyfhidpcdtvc (v8.6.2 schema)
 
-profiles table (เพิ่ม fields):
-  branch_id → FK → branches.id
-  position  → 'head' | 'deputy' | 'officer' | 'temp_officer' | 'other'
+SIT:        sit branch → Cloudflare Pages → boi-receipt-gen-sit.pages.dev
+            Supabase: cctzbereqvuaunweuqho (v9.0.0 schema)
+            Auto-detect: hostname contains "sit.pages.dev" → SIT env
 ```
 
 **ฟีเจอร์เดิมที่ยังค้าง:**
 
 | # | รายการ | สถานะ | หมายเหตุ |
 |---|--------|--------|----------|
-| B5 | v7.0 E-Sign Workflow | ⏸️ On Hold | รอ hardware testing (RAPOO C280) |
-| B6 | WAC-0503 Hardware Signature Pad | ⏸️ On Hold | รอ SDK + license จาก WAC InfoTech |
-| B7 | VP API Integration | ❌ Blocked | รอ production credentials จากทีม SWD/VP |
+| B10 | v7.0 E-Sign Workflow | ⏸️ On Hold | รอ hardware testing (RAPOO C280) |
+| B11 | WAC-0503 Hardware Signature Pad | ⏸️ On Hold | รอ SDK + license จาก WAC InfoTech |
+| B12 | VP API Integration | ❌ Blocked | รอ production credentials จากทีม SWD/VP |
 
 ---
 
