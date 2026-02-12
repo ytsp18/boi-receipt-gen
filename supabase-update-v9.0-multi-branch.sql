@@ -817,7 +817,7 @@ DECLARE
   v_email TEXT;
   v_is_admin BOOLEAN;
 BEGIN
-  SELECT (is_admin(auth.uid()) OR is_super_admin(auth.uid())) INTO v_is_admin;
+  SELECT (is_admin() OR is_super_admin()) INTO v_is_admin;
   IF NOT v_is_admin THEN
     RAISE EXCEPTION 'Permission denied';
   END IF;

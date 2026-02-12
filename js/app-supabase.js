@@ -3628,55 +3628,55 @@ function showAddUserForm() {
 
     modalTitle.textContent = '➕ เพิ่มผู้ใช้ใหม่';
 
+    // v9.0: Use registration flow — admin cannot directly create users
+    // because Supabase signUp() would switch the current session.
+    // Instead, guide the user to self-register via login page.
+    const sitParam = typeof getEnvParam === 'function' ? getEnvParam() : '';
+    const loginUrl = 'login.html' + sitParam;
+
     modalBody.innerHTML = `
-        <form class="user-form" id="addUserForm">
-            <div class="form-row">
-                <div class="form-group">
-                    <label>ชื่อผู้ใช้ (Username)</label>
-                    <input type="text" id="newUsername" required placeholder="username">
-                </div>
-                <div class="form-group">
-                    <label>รหัสผ่าน (Password)</label>
-                    <input type="password" id="newPassword" required placeholder="password" autocomplete="new-password">
-                </div>
+        <div style="padding:16px 8px;">
+            <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:16px; margin-bottom:16px;">
+                <h4 style="margin:0 0 8px 0; color:#0369a1;">📋 วิธีเพิ่มผู้ใช้ใหม่</h4>
+                <ol style="margin:0; padding-left:20px; line-height:1.8; color:#334155;">
+                    <li>ให้ผู้ใช้ใหม่เปิดหน้า <b>Login</b> แล้วกด <b>"ลงทะเบียน"</b></li>
+                    <li>ผู้ใช้กรอก Email, รหัสผ่าน, ชื่อ และเลือกสาขา</li>
+                    <li>ผู้ใช้จะอยู่ในสถานะ <b>"รออนุมัติ"</b></li>
+                    <li>กลับมาที่หน้านี้ → แท็บ <b>"รออนุมัติ"</b> → กดอนุมัติ + กำหนดตำแหน่ง</li>
+                </ol>
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>ชื่อแสดง (Display Name)</label>
-                    <input type="text" id="newName" required placeholder="ชื่อ-นามสกุล">
-                </div>
-                <div class="form-group">
-                    <label>Role</label>
-                    <select id="newRole" class="filter-select">
-                        <option value="staff">Staff</option>
-                        <option value="manager">Manager</option>
-                        <option value="admin">Admin</option>
-                    </select>
+            <div style="background:#fefce8; border:1px solid #fde68a; border-radius:8px; padding:12px; margin-bottom:16px;">
+                <p style="margin:0; font-size:0.85rem; color:#92400e;">
+                    💡 <b>ส่ง Link ลงทะเบียน:</b> คัดลอก URL ด้านล่างส่งให้ผู้ใช้ใหม่
+                </p>
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <input type="text" id="registerLinkInput" value="${window.location.origin}/${loginUrl}#register" readonly
+                        style="flex:1; padding:6px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:0.8rem; background:#fff;">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="copyRegisterLink()" id="copyLinkBtn">📋 คัดลอก</button>
                 </div>
             </div>
             <div class="form-actions">
-                <button type="button" class="btn btn-secondary" onclick="showUserManagement()">ยกเลิก</button>
-                <button type="submit" class="btn btn-success">💾 บันทึก</button>
+                <button type="button" class="btn btn-secondary" onclick="showUserManagement()">← กลับ</button>
             </div>
-        </form>
+        </div>
     `;
+}
 
-    document.getElementById('addUserForm').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const result = window.AuthSystem.addUser({
-            username: document.getElementById('newUsername').value,
-            password: document.getElementById('newPassword').value,
-            name: document.getElementById('newName').value,
-            role: document.getElementById('newRole').value
+// Copy register link to clipboard
+function copyRegisterLink() {
+    const input = document.getElementById('registerLinkInput');
+    if (input) {
+        navigator.clipboard.writeText(input.value).then(() => {
+            const btn = document.getElementById('copyLinkBtn');
+            if (btn) {
+                btn.textContent = '✅ คัดลอกแล้ว';
+                setTimeout(() => { btn.textContent = '📋 คัดลอก'; }, 2000);
+            }
+        }).catch(() => {
+            input.select();
+            document.execCommand('copy');
         });
-
-        if (result.success) {
-            alert('เพิ่มผู้ใช้สำเร็จ');
-            showUserManagement();
-        } else {
-            alert(result.error);
-        }
-    });
+    }
 }
 
 async function showEditUserForm(userId) {
