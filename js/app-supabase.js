@@ -206,6 +206,12 @@ const state = {
     // Current user
     currentUserRole: 'staff',
     currentUserId: null,
+    // v9.0 — Branch context
+    currentBranchId: null,
+    currentBranch: null,   // Full branch object {id, code, name_th, name_en, features, ...}
+    branches: [],          // All branches (for selectors)
+    viewingBranchId: null, // Super admin: viewing another branch's data
+    isSuperAdmin: false,
     // Pagination - Registry
     currentPage: 1,
     pageSize: 50,
@@ -1123,8 +1129,8 @@ function generateSinglePrintContent(formData) {
 
             <!-- ข้อความยืนยัน -->
             <div style="margin: 5px 0; padding: 8px 12px; background: #f0f9ff; border-radius: 6px; border-left: 3px solid #2563eb;">
-                <p style="font-size: 11px; line-height: 1.4; color: #1f2937; margin: 0 0 3px 0;">ข้าพเจ้าตรวจความถูกต้องของใบอนุญาตทำงานแล้ว และยืนยันว่าได้รับใบอนุญาตทำงาน ณ ศูนย์บริการวีซ่าและใบอนุญาตทำงาน อาคาร One Bangkok</p>
-                <p style="font-size: 9px; line-height: 1.3; color: #6b7280; font-style: italic; margin: 0;">I have verified that all information on the work permit card is correct and confirm receipt at the Visa and Work Permit Service Center, One Bangkok Building.</p>
+                <p style="font-size: 11px; line-height: 1.4; color: #1f2937; margin: 0 0 3px 0;">ข้าพเจ้าตรวจความถูกต้องของใบอนุญาตทำงานแล้ว และยืนยันว่าได้รับใบอนุญาตทำงาน ณ ${state.currentBranch?.name_th || 'ศูนย์บริการวีซ่าและใบอนุญาตทำงาน'}</p>
+                <p style="font-size: 9px; line-height: 1.3; color: #6b7280; font-style: italic; margin: 0;">I have verified that all information on the work permit card is correct and confirm receipt at ${state.currentBranch?.name_en || 'the Visa and Work Permit Service Center'}.</p>
             </div>
 
             <!-- v7.0 - Recipient Photo (if available) -->
@@ -1158,7 +1164,7 @@ function generateSinglePrintContent(formData) {
 
             <!-- Footer with Org Name, Doc No and Barcode -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 4px; border-top: 1px solid #d1d5db;">
-                <div style="font-size: 8px; color: #9ca3af;">ศูนย์บริการ EWP อาคาร One Bangkok</div>
+                <div style="font-size: 8px; color: #9ca3af;">${state.currentBranch?.name_th || 'ศูนย์บริการ EWP'}</div>
                 <div style="text-align: right;">
                     <div style="font-size: 13px; color: #111; font-weight: 700; margin-bottom: 1px;">Doc No.: ${safeReceiptNo}</div>
                     <svg class="receipt-barcode" data-receipt-no="${safeReceiptNo}"></svg>
@@ -2457,7 +2463,7 @@ function exportToPDF() {
         <div style="font-family: 'Sarabun', sans-serif; padding: 20px; max-width: 1000px; margin: 0 auto;">
             <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2563eb; padding-bottom: 20px;">
                 <h2 style="color: #2563eb; margin: 0 0 10px 0;">รายงานสรุปการผลิตบัตร Work Permit</h2>
-                <p style="color: #666; margin: 0;">ศูนย์บริการ EWP อาคาร One Bangkok</p>
+                <p style="color: #666; margin: 0;">${state.currentBranch?.name_th || 'ศูนย์บริการ EWP'}</p>
                 <p style="color: #333; margin: 10px 0 0 0; font-weight: 600;">วันที่: ${dateStr}</p>
             </div>
 
@@ -3396,17 +3402,39 @@ async function showUserManagement() {
 
     modalTitle.textContent = '👥 จัดการผู้ใช้งาน';
 
-    const allUsers = await window.AuthSystem.getUsers();
+    // v9.0: Load users with branch info, filter by branch for non-super-admin
+    const filterBranchId = state.isSuperAdmin ? null : state.currentBranchId;
+    const allUsers = await window.AuthSystem.getUsers(filterBranchId);
     const pendingUsers = allUsers.filter(u => u.is_approved === false);
     const approvedUsers = allUsers.filter(u => u.is_approved !== false);
 
+    // v9.0: Branch role labels
+    const branchRoleLabels = {
+        head: 'หัวหน้าศูนย์',
+        deputy: 'รองหัวหน้า',
+        officer: 'เจ้าหน้าที่',
+        temp_officer: 'เจ้าหน้าที่ชั่วคราว',
+        other: 'อื่นๆ'
+    };
     const roleLabels = {
         admin: 'Admin',
         manager: 'Manager',
         staff: 'Staff'
     };
 
+    // v9.0: Branch filter dropdown for super admin
+    const branchFilterHtml = state.isSuperAdmin ? `
+        <div style="margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+            <label style="font-size:0.85rem; white-space:nowrap;">กรองสาขา:</label>
+            <select id="umBranchFilter" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem; flex:1; max-width:300px;">
+                <option value="">ทุกสาขา</option>
+                ${state.branches.map(b => `<option value="${b.id}">${b.name_th} (${b.code})</option>`).join('')}
+            </select>
+        </div>
+    ` : '';
+
     modalBody.innerHTML = `
+        ${branchFilterHtml}
         <!-- Tabs -->
         <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
             <button class="btn btn-primary btn-sm" id="tabApproved" onclick="switchUserTab('approved')" style="flex: 1;">
@@ -3422,13 +3450,16 @@ async function showUserManagement() {
         <div id="approvedUsersTab">
             <div style="margin-bottom: 15px;">
                 <button class="btn btn-success btn-sm" onclick="showAddUserForm()">➕ เพิ่มผู้ใช้ใหม่</button>
+                ${state.isSuperAdmin ? '<button class="btn btn-primary btn-sm" onclick="showBranchManagement()" style="margin-left:8px;">🏢 จัดการสาขา</button>' : ''}
             </div>
+            <div style="overflow-x:auto;">
             <table class="user-table">
                 <thead>
                     <tr>
                         <th>ชื่อผู้ใช้</th>
                         <th>ชื่อ</th>
-                        <th>Role</th>
+                        <th>สาขา</th>
+                        <th>ตำแหน่ง</th>
                         <th>การดำเนินการ</th>
                     </tr>
                 </thead>
@@ -3436,13 +3467,18 @@ async function showUserManagement() {
                     ${approvedUsers.map(user => {
                         const safeUsername = sanitizeHTML(user.username || '-');
                         const safeName = sanitizeHTML(user.name || '-');
-                        const safeRole = sanitizeHTML(user.role);
                         const safeId = sanitizeHTML(user.id);
+                        const branchName = user.branches?.name_th || '-';
+                        const branchCode = user.branches?.code || '';
+                        const bRole = user.branch_role || user.role || 'officer';
+                        const bRoleLabel = branchRoleLabels[bRole] || roleLabels[bRole] || bRole;
+                        const superBadge = user.is_super_admin ? ' <span style="background:#dc2626;color:#fff;padding:1px 4px;border-radius:3px;font-size:10px;">SA</span>' : '';
                         return `
                         <tr>
                             <td>${safeUsername}</td>
-                            <td>${safeName}</td>
-                            <td><span class="role-badge ${safeRole}">${roleLabels[user.role] || safeRole}</span></td>
+                            <td>${safeName}${superBadge}</td>
+                            <td style="font-size:0.85rem;">${sanitizeHTML(branchName)}<br><span style="color:#999; font-size:0.75rem;">${sanitizeHTML(branchCode)}</span></td>
+                            <td><span class="role-badge ${bRole}">${bRoleLabel}</span></td>
                             <td>
                                 <button class="btn btn-primary btn-sm" onclick="showEditUserForm('${safeId}')" title="แก้ไข">✏️</button>
                                 <button class="btn btn-warning btn-sm" onclick="handleResetPassword('${safeId}')" title="Reset Password">🔑</button>
@@ -3452,16 +3488,19 @@ async function showUserManagement() {
                     }).join('')}
                 </tbody>
             </table>
+            </div>
         </div>
 
         <!-- Pending Users Tab -->
         <div id="pendingUsersTab" style="display: none;">
             ${pendingUsers.length === 0 ? '<p style="text-align: center; color: #6b7280; padding: 20px;">ไม่มีผู้ใช้รออนุมัติ</p>' : `
+                <div style="overflow-x:auto;">
                 <table class="user-table">
                     <thead>
                         <tr>
                             <th>อีเมล</th>
                             <th>ชื่อ</th>
+                            <th>สาขาที่เลือก</th>
                             <th>วันที่สมัคร</th>
                             <th>การดำเนินการ</th>
                         </tr>
@@ -3471,10 +3510,12 @@ async function showUserManagement() {
                             const safeUsername = sanitizeHTML(user.username || '-');
                             const safeName = sanitizeHTML(user.name || '-');
                             const safeId = sanitizeHTML(user.id);
+                            const branchName = user.branches?.name_th || '-';
                             return `
                             <tr>
                                 <td>${safeUsername}</td>
                                 <td>${safeName}</td>
+                                <td style="font-size:0.85rem;">${sanitizeHTML(branchName)}</td>
                                 <td>${user.created_at ? new Date(user.created_at).toLocaleDateString('th-TH') : '-'}</td>
                                 <td>
                                     <button class="btn btn-success btn-sm" onclick="handleApproveUser('${safeId}')" title="อนุมัติ">✅ อนุมัติ</button>
@@ -3484,9 +3525,21 @@ async function showUserManagement() {
                         }).join('')}
                     </tbody>
                 </table>
+                </div>
             `}
         </div>
     `;
+
+    // v9.0: Branch filter event for super admin
+    const umBranchFilter = document.getElementById('umBranchFilter');
+    if (umBranchFilter) {
+        umBranchFilter.addEventListener('change', async () => {
+            const bId = umBranchFilter.value || null;
+            const filteredUsers = await window.AuthSystem.getUsers(bId);
+            // Re-render with filtered users — simplified: reload the whole modal
+            showUserManagement();
+        });
+    }
 
     modal.style.display = 'flex';
 }
@@ -3607,6 +3660,36 @@ async function showEditUserForm(userId) {
 
     modalTitle.textContent = '✏️ แก้ไขผู้ใช้';
 
+    // v9.0: Branch role options
+    const branchRoles = [
+        { value: 'head', label: 'หัวหน้าศูนย์ (Head)', perms: 'ทุกสิทธิ์ในสาขา + จัดการผู้ใช้' },
+        { value: 'deputy', label: 'รองหัวหน้า (Deputy)', perms: 'สร้าง/แก้ไข/พิมพ์/Export + จัดการผู้ใช้' },
+        { value: 'officer', label: 'เจ้าหน้าที่ (Officer)', perms: 'ดู/สร้าง/แก้ไข/พิมพ์' },
+        { value: 'temp_officer', label: 'เจ้าหน้าที่ชั่วคราว (Temp)', perms: 'ดู/สร้าง/แก้ไข/พิมพ์' },
+        { value: 'other', label: 'อื่นๆ (Other)', perms: 'ดูอย่างเดียว' }
+    ];
+    const currentBranchRole = user.branch_role || user.role || 'officer';
+
+    // v9.0: Branch selector (super admin only)
+    const branchSelectorHtml = state.isSuperAdmin ? `
+        <div class="form-group">
+            <label>สาขา</label>
+            <select id="editBranch" class="filter-select">
+                ${state.branches.map(b => `<option value="${b.id}" ${b.id === user.branch_id ? 'selected' : ''}>${b.name_th} (${b.code})</option>`).join('')}
+            </select>
+        </div>
+    ` : '';
+
+    // v9.0: Super admin toggle (super admin only, can't toggle self)
+    const superAdminHtml = state.isSuperAdmin && user.id !== state.currentUserId ? `
+        <div class="form-group" style="margin-top:8px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="editSuperAdmin" ${user.is_super_admin ? 'checked' : ''}>
+                <span>Super Admin (เข้าถึงทุกสาขา)</span>
+            </label>
+        </div>
+    ` : '';
+
     modalBody.innerHTML = `
         <form class="user-form" id="editUserForm">
             <div class="form-row">
@@ -3625,14 +3708,17 @@ async function showEditUserForm(userId) {
                     <input type="text" id="editName" value="${sanitizeHTML(user.name)}" required>
                 </div>
                 <div class="form-group">
-                    <label>Role</label>
-                    <select id="editRole" class="filter-select">
-                        <option value="staff" ${user.role === 'staff' ? 'selected' : ''}>Staff</option>
-                        <option value="manager" ${user.role === 'manager' ? 'selected' : ''}>Manager</option>
-                        <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                    <label>ตำแหน่ง (Branch Role)</label>
+                    <select id="editBranchRole" class="filter-select">
+                        ${branchRoles.map(r => `<option value="${r.value}" ${currentBranchRole === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
                     </select>
+                    <div id="rolePermSummary" style="font-size:0.8rem; color:#666; margin-top:4px;"></div>
                 </div>
             </div>
+            <div class="form-row">
+                ${branchSelectorHtml}
+            </div>
+            ${superAdminHtml}
             <div class="form-actions">
                 <button type="button" class="btn btn-secondary" onclick="showUserManagement()">ยกเลิก</button>
                 <button type="submit" class="btn btn-primary">💾 อัพเดท</button>
@@ -3640,14 +3726,38 @@ async function showEditUserForm(userId) {
         </form>
     `;
 
+    // v9.0: Show permission summary on role change
+    function updatePermSummary() {
+        const sel = document.getElementById('editBranchRole');
+        const summary = document.getElementById('rolePermSummary');
+        if (sel && summary) {
+            const role = branchRoles.find(r => r.value === sel.value);
+            summary.textContent = role ? `สิทธิ์: ${role.perms}` : '';
+        }
+    }
+    document.getElementById('editBranchRole')?.addEventListener('change', updatePermSummary);
+    updatePermSummary();
+
     document.getElementById('editUserForm').addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const updateData = {
             username: document.getElementById('editUsername').value,
             name: document.getElementById('editName').value,
-            role: document.getElementById('editRole').value
+            branch_role: document.getElementById('editBranchRole').value
         };
+
+        // v9.0: Branch transfer (super admin)
+        const editBranch = document.getElementById('editBranch');
+        if (editBranch && editBranch.value !== user.branch_id) {
+            updateData.branch_id = editBranch.value;
+        }
+
+        // v9.0: Super admin toggle
+        const editSuperAdmin = document.getElementById('editSuperAdmin');
+        if (editSuperAdmin) {
+            updateData.is_super_admin = editSuperAdmin.checked;
+        }
 
         const newPassword = document.getElementById('editPassword').value;
         if (newPassword) {
@@ -3663,6 +3773,222 @@ async function showEditUserForm(userId) {
             alert(result.error);
         }
     });
+}
+
+// v9.0 — Branch Management UI (super admin only)
+async function showBranchManagement() {
+    const modalBody = document.getElementById('userModalBody');
+    const modalTitle = document.getElementById('userModalTitle');
+
+    modalTitle.textContent = '🏢 จัดการสาขา';
+
+    const branches = await window.SupabaseBranches.getAll(true);
+    const userCounts = await window.SupabaseBranches.getUserCounts();
+
+    modalBody.innerHTML = `
+        <div style="margin-bottom:15px; display:flex; gap:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="showUserManagement()">← กลับไปจัดการผู้ใช้</button>
+            <button class="btn btn-success btn-sm" onclick="showAddBranchForm()">➕ เพิ่มสาขาใหม่</button>
+        </div>
+        <div style="overflow-x:auto;">
+        <table class="user-table" style="font-size:0.85rem;">
+            <thead>
+                <tr>
+                    <th>รหัส</th>
+                    <th>ชื่อสาขา (TH)</th>
+                    <th>ชื่อสาขา (EN)</th>
+                    <th>จำนวนผู้ใช้</th>
+                    <th>Features</th>
+                    <th>สถานะ</th>
+                    <th>จัดการ</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${branches.map(b => {
+                    const count = userCounts[b.id] || 0;
+                    const features = b.features || {};
+                    const featureTags = Object.keys(features).filter(k => features[k]).map(k => `<span style="background:#dbeafe; color:#1e40af; padding:1px 4px; border-radius:3px; font-size:10px;">${k}</span>`).join(' ') || '<span style="color:#999;">-</span>';
+                    return `
+                    <tr style="${!b.is_active ? 'opacity:0.5;' : ''}">
+                        <td style="font-family:monospace; font-size:0.8rem;">${sanitizeHTML(b.code)}</td>
+                        <td>${sanitizeHTML(b.name_th)}</td>
+                        <td style="font-size:0.8rem;">${sanitizeHTML(b.name_en)}</td>
+                        <td style="text-align:center;">${count}</td>
+                        <td>${featureTags}</td>
+                        <td>${b.is_active ? '<span style="color:green;">เปิดใช้</span>' : '<span style="color:red;">ปิด</span>'}</td>
+                        <td>
+                            <button class="btn btn-primary btn-sm" onclick="showEditBranchForm('${b.id}')" title="แก้ไข">✏️</button>
+                            ${b.is_active ?
+                                `<button class="btn btn-outline-danger btn-sm" onclick="toggleBranchStatus('${b.id}', false)" title="ปิดใช้งาน">⏸️</button>` :
+                                `<button class="btn btn-success btn-sm" onclick="toggleBranchStatus('${b.id}', true)" title="เปิดใช้งาน">▶️</button>`
+                            }
+                        </td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>
+        </div>
+    `;
+}
+
+async function showEditBranchForm(branchId) {
+    const branch = await window.SupabaseBranches.getById(branchId);
+    if (!branch) { alert('ไม่พบข้อมูลสาขา'); return; }
+
+    const modalBody = document.getElementById('userModalBody');
+    const modalTitle = document.getElementById('userModalTitle');
+    modalTitle.textContent = '✏️ แก้ไขสาขา';
+
+    const features = branch.features || {};
+    modalBody.innerHTML = `
+        <form id="editBranchForm" class="user-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>รหัสสาขา</label>
+                    <input type="text" value="${sanitizeHTML(branch.code)}" disabled style="background:#f3f4f6;">
+                </div>
+                <div class="form-group">
+                    <label>จังหวัด</label>
+                    <input type="text" id="editBranchProvince" value="${sanitizeHTML(branch.province_code || '')}">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>ชื่อสาขา (TH)</label>
+                    <input type="text" id="editBranchNameTh" value="${sanitizeHTML(branch.name_th)}" required>
+                </div>
+                <div class="form-group">
+                    <label>ชื่อสาขา (EN)</label>
+                    <input type="text" id="editBranchNameEn" value="${sanitizeHTML(branch.name_en)}" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>ที่อยู่ (TH)</label>
+                    <textarea id="editBranchAddrTh" rows="2">${sanitizeHTML(branch.address_th || '')}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>ที่อยู่ (EN)</label>
+                    <textarea id="editBranchAddrEn" rows="2">${sanitizeHTML(branch.address_en || '')}</textarea>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>ความจุ (ลูกค้า/วัน)</label>
+                    <input type="number" id="editBranchCapacity" value="${branch.max_capacity || 160}">
+                </div>
+                <div class="form-group">
+                    <label>ลำดับแสดง</label>
+                    <input type="number" id="editBranchOrder" value="${branch.display_order || 0}">
+                </div>
+            </div>
+            <div style="margin:12px 0; padding:12px; background:#f8fafc; border-radius:8px;">
+                <label style="font-weight:600; margin-bottom:8px; display:block;">Feature Access</label>
+                <label style="display:flex; align-items:center; gap:8px; margin-bottom:6px; cursor:pointer;">
+                    <input type="checkbox" id="featureReceipt" ${features.receipt_module ? 'checked' : ''}>
+                    <span>ระบบใบรับบัตร (Receipt Module)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="checkbox" id="featureCardPrint" ${features.card_print_lock ? 'checked' : ''}>
+                    <span>ระบบจองพิมพ์บัตร (Card Print Lock)</span>
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="showBranchManagement()">ยกเลิก</button>
+                <button type="submit" class="btn btn-primary">💾 อัพเดท</button>
+            </div>
+        </form>
+    `;
+
+    document.getElementById('editBranchForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            await window.SupabaseBranches.update(branchId, {
+                province_code: document.getElementById('editBranchProvince').value,
+                name_th: document.getElementById('editBranchNameTh').value,
+                name_en: document.getElementById('editBranchNameEn').value,
+                address_th: document.getElementById('editBranchAddrTh').value,
+                address_en: document.getElementById('editBranchAddrEn').value,
+                max_capacity: parseInt(document.getElementById('editBranchCapacity').value) || 160,
+                display_order: parseInt(document.getElementById('editBranchOrder').value) || 0,
+                features: {
+                    receipt_module: document.getElementById('featureReceipt').checked,
+                    card_print_lock: document.getElementById('featureCardPrint').checked
+                }
+            });
+            alert('อัพเดทสาขาสำเร็จ');
+            showBranchManagement();
+        } catch (err) {
+            alert('เกิดข้อผิดพลาด: ' + err.message);
+        }
+    });
+}
+
+async function showAddBranchForm() {
+    const modalBody = document.getElementById('userModalBody');
+    const modalTitle = document.getElementById('userModalTitle');
+    modalTitle.textContent = '➕ เพิ่มสาขาใหม่';
+
+    modalBody.innerHTML = `
+        <form id="addBranchForm" class="user-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>รหัสสาขา (เช่น BKK-SC-M-001)</label>
+                    <input type="text" id="addBranchCode" required placeholder="XXX-XX-X-XXX">
+                </div>
+                <div class="form-group">
+                    <label>จังหวัด</label>
+                    <input type="text" id="addBranchProvince" placeholder="BKK, CMI, ...">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>ชื่อสาขา (TH)</label>
+                    <input type="text" id="addBranchNameTh" required>
+                </div>
+                <div class="form-group">
+                    <label>ชื่อสาขา (EN)</label>
+                    <input type="text" id="addBranchNameEn" required>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="showBranchManagement()">ยกเลิก</button>
+                <button type="submit" class="btn btn-success">➕ สร้างสาขา</button>
+            </div>
+        </form>
+    `;
+
+    document.getElementById('addBranchForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+            await window.SupabaseBranches.create({
+                code: document.getElementById('addBranchCode').value,
+                province_code: document.getElementById('addBranchProvince').value,
+                name_th: document.getElementById('addBranchNameTh').value,
+                name_en: document.getElementById('addBranchNameEn').value
+            });
+            alert('สร้างสาขาสำเร็จ');
+            showBranchManagement();
+        } catch (err) {
+            alert('เกิดข้อผิดพลาด: ' + err.message);
+        }
+    });
+}
+
+async function toggleBranchStatus(branchId, activate) {
+    const action = activate ? 'เปิดใช้งาน' : 'ปิดใช้งาน';
+    if (!confirm(`ต้องการ${action}สาขานี้หรือไม่?`)) return;
+
+    try {
+        if (activate) {
+            await window.SupabaseBranches.reactivate(branchId);
+        } else {
+            await window.SupabaseBranches.deactivate(branchId);
+        }
+        showBranchManagement();
+    } catch (err) {
+        alert('เกิดข้อผิดพลาด: ' + err.message);
+    }
 }
 
 async function confirmDeleteUser(userId) {
@@ -3732,10 +4058,90 @@ async function applyPermissions() {
     // Update user info display and store role in state
     state.currentUserRole = session.role || 'staff';
     state.currentUserId = session.userId || null;
+
+    // v9.0 — Branch context
+    state.currentBranchId = session.branchId || null;
+    state.isSuperAdmin = session.isSuperAdmin || false;
+    window._currentBranchId = state.currentBranchId;
+
+    // Load branch info if available
+    if (session.branchId && window.SupabaseBranches) {
+        try {
+            state.currentBranch = await window.SupabaseBranches.getById(session.branchId);
+        } catch (e) {
+            console.warn('Could not load branch info:', e);
+        }
+    }
+
+    // Load all branches for super admin selector
+    if (state.isSuperAdmin && window.SupabaseBranches) {
+        try {
+            state.branches = await window.SupabaseBranches.getAll(true);
+        } catch (e) {
+            console.warn('Could not load branches list:', e);
+        }
+    }
+
+    // v9.0 — Dynamic center name
+    const subtitleEl = document.querySelector('.subtitle');
+    if (subtitleEl && state.currentBranch) {
+        subtitleEl.textContent = state.currentBranch.name_th;
+    }
+
+    // v9.0 — Dynamic confirmation text in preview
+    const confirmTh = document.querySelector('.confirmation-text-th');
+    const confirmEn = document.querySelector('.confirmation-text-en');
+    const footerOrg = document.querySelector('.footer-org');
+    if (state.currentBranch) {
+        if (confirmTh) {
+            confirmTh.textContent = `ข้าพเจ้าตรวจความถูกต้องของใบอนุญาตทำงานแล้ว และยืนยันว่าได้รับใบอนุญาตทำงาน ณ ${state.currentBranch.name_th}`;
+        }
+        if (confirmEn) {
+            confirmEn.textContent = `I have verified that all information on the work permit card is correct and confirm receipt at ${state.currentBranch.name_en}.`;
+        }
+        if (footerOrg) {
+            footerOrg.textContent = state.currentBranch.name_th;
+        }
+    }
+
     const userNameEl = document.getElementById('currentUserName');
     const userRoleEl = document.getElementById('currentUserRole');
     if (userNameEl) userNameEl.textContent = session.name;
-    if (userRoleEl) userRoleEl.textContent = session.role.toUpperCase();
+    if (userRoleEl) {
+        const roleLabel = session.branchRole || session.role || 'staff';
+        userRoleEl.textContent = roleLabel.toUpperCase();
+    }
+
+    // v9.0 — Feature access control: check if this branch has receipt_module
+    const branchFeatures = state.currentBranch?.features || {};
+    const hasReceiptModule = state.isSuperAdmin || branchFeatures.receipt_module === true;
+
+    if (!hasReceiptModule) {
+        // Hide all receipt-related UI elements
+        const receiptSections = document.querySelectorAll('#registrySection, #formSection, #previewSection, .tab-buttons');
+        receiptSections.forEach(el => { if (el) el.style.display = 'none'; });
+
+        // Show "not enabled" message
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent && !document.getElementById('branchNoAccessMsg')) {
+            const msg = document.createElement('div');
+            msg.id = 'branchNoAccessMsg';
+            msg.style.cssText = 'text-align:center; padding:60px 20px; color:#666;';
+            msg.innerHTML = `
+                <div style="font-size:48px; margin-bottom:16px;">🔒</div>
+                <h2 style="color:#333; margin-bottom:8px;">ยังไม่เปิดใช้งานสำหรับสาขานี้</h2>
+                <p>ระบบใบรับบัตรยังไม่เปิดใช้งานสำหรับ ${state.currentBranch?.name_th || 'สาขานี้'}</p>
+                <p style="font-size:0.9rem; margin-top:8px;">หากต้องการเปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ</p>
+            `;
+            mainContent.prepend(msg);
+        }
+        return; // Don't apply further permissions for non-receipt branches
+    }
+
+    // v9.0 — Super admin branch selector (header)
+    if (state.isSuperAdmin && state.branches.length > 0) {
+        renderBranchSelector();
+    }
 
     // Hide Activity Log tab if no permission
     const hasActivityLog = await window.AuthSystem.hasPermission('activity_log');
@@ -3777,6 +4183,40 @@ async function applyPermissions() {
 
     // Hide delete buttons if no permission
     // Will be applied when rendering table
+}
+
+// v9.0 — Render branch selector for super admin
+function renderBranchSelector() {
+    const headerActions = document.querySelector('.header-actions') || document.querySelector('.user-info');
+    if (!headerActions || document.getElementById('branchSelector')) return;
+
+    const selectorHtml = `
+        <div id="branchSelector" style="margin-right:12px; display:inline-flex; align-items:center; gap:6px;">
+            <label style="font-size:0.8rem; color:#666;">ดูข้อมูลสาขา:</label>
+            <select id="branchSelectorDropdown" style="padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem; max-width:250px;">
+                <option value="">สาขาของตนเอง</option>
+                <option value="all">ทุกสาขา</option>
+                ${state.branches.map(b => `<option value="${b.id}" ${b.id === state.currentBranchId ? 'selected' : ''}>${b.name_th} (${b.code})</option>`).join('')}
+            </select>
+        </div>
+    `;
+    headerActions.insertAdjacentHTML('afterbegin', selectorHtml);
+
+    document.getElementById('branchSelectorDropdown').addEventListener('change', async (e) => {
+        const val = e.target.value;
+        if (val === 'all') {
+            state.viewingBranchId = null;
+            window._viewingBranchId = null;
+        } else if (val) {
+            state.viewingBranchId = val;
+            window._viewingBranchId = val;
+        } else {
+            state.viewingBranchId = state.currentBranchId;
+            window._viewingBranchId = state.currentBranchId;
+        }
+        // Reload data with new branch context
+        await loadData();
+    });
 }
 
 // ==================== //

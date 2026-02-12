@@ -182,7 +182,7 @@ const SupabaseReceipts = {
         return data;
     },
 
-    // Create new receipt
+    // Create new receipt (v9.0: includes branch_id)
     async create(receiptData) {
         const client = getSupabase();
         const user = await SupabaseAuth.getUser();
@@ -191,7 +191,8 @@ const SupabaseReceipts = {
             .from('receipts')
             .insert({
                 ...receiptData,
-                created_by: user?.id
+                created_by: user?.id,
+                branch_id: receiptData.branch_id || window._currentBranchId || null
             })
             .select()
             .single();
@@ -385,7 +386,7 @@ const SupabaseStorage = {
 // ==================== //
 
 const SupabaseActivityLog = {
-    // Add log entry
+    // Add log entry (v9.0: includes branch_id)
     async add(action, receiptNo, details = {}) {
         const client = getSupabase();
         const profile = await SupabaseAuth.getProfile();
@@ -397,7 +398,8 @@ const SupabaseActivityLog = {
                 receipt_no: receiptNo,
                 details,
                 user_id: profile?.id,
-                user_name: profile?.name || 'Unknown'
+                user_name: profile?.name || 'Unknown',
+                branch_id: profile?.branch_id || window._currentBranchId || null
             });
 
         if (error) throw error;
@@ -432,18 +434,128 @@ const SupabaseActivityLog = {
 };
 
 // ==================== //
+// Branch Management Functions (v9.0)
+// ==================== //
+
+const SupabaseBranches = {
+    // Get all active branches (for dropdowns, selectors)
+    async getAll(includeInactive = false) {
+        const client = getSupabase();
+        let query = client
+            .from('branches')
+            .select('*')
+            .order('display_order', { ascending: true })
+            .order('name_th', { ascending: true });
+
+        if (!includeInactive) {
+            query = query.eq('is_active', true);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+    },
+
+    // Get single branch by ID
+    async getById(id) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('branches')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+        return data;
+    },
+
+    // Get single branch by code
+    async getByCode(code) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('branches')
+            .select('*')
+            .eq('code', code)
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+        return data;
+    },
+
+    // Create new branch (super admin only)
+    async create(branchData) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('branches')
+            .insert(branchData)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Update branch (super admin only)
+    async update(id, updates) {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('branches')
+            .update({ ...updates, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Soft-deactivate branch (super admin only)
+    async deactivate(id) {
+        return this.update(id, { is_active: false });
+    },
+
+    // Reactivate branch (super admin only)
+    async reactivate(id) {
+        return this.update(id, { is_active: true });
+    },
+
+    // Get user count per branch
+    async getUserCounts() {
+        const client = getSupabase();
+        const { data, error } = await client
+            .from('profiles')
+            .select('branch_id');
+
+        if (error) throw error;
+
+        const counts = {};
+        (data || []).forEach(p => {
+            if (p.branch_id) {
+                counts[p.branch_id] = (counts[p.branch_id] || 0) + 1;
+            }
+        });
+        return counts;
+    }
+};
+
+// ==================== //
 // User Management Functions
 // ==================== //
 
 const SupabaseUsers = {
-    // Get all profiles
-    async getAll() {
+    // Get all profiles (with branch info)
+    async getAll(branchId = null) {
         const client = getSupabase();
-        const { data, error } = await client
+        let query = client
             .from('profiles')
-            .select('*')
+            .select('*, branches:branch_id(id, code, name_th, name_en)')
             .order('created_at', { ascending: true });
 
+        if (branchId) {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
         return data;
     },
@@ -481,12 +593,15 @@ const SupabaseCardPrintLock = {
         return data || [];
     },
 
-    // Create a new lock
+    // Create a new lock (v9.0: includes branch_id)
     async create(lockData) {
         const client = getSupabase();
         const { data, error } = await client
             .from('card_print_locks')
-            .insert(lockData)
+            .insert({
+                ...lockData,
+                branch_id: lockData.branch_id || window._currentBranchId || null
+            })
             .select()
             .single();
         if (error) throw error;
@@ -629,6 +744,7 @@ window.SupabaseStorage = SupabaseStorage;
 window.SupabaseActivityLog = SupabaseActivityLog;
 window.SupabaseUsers = SupabaseUsers;
 window.SupabaseCardPrintLock = SupabaseCardPrintLock;
+window.SupabaseBranches = SupabaseBranches;
 window.getSupabase = getSupabase;
 
-console.log('✅ Supabase Config Loaded');
+console.log('✅ Supabase Config Loaded (v9.0)');

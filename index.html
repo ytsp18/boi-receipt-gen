@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบสร้างแบบฟอร์มรับบัตร - EWP Service Center</title>
-    <link rel="stylesheet" href="css/style.css?v=8.6.1">
+    <link rel="stylesheet" href="css/style.css?v=9.0.0">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -13,7 +13,7 @@
         <header class="header">
             <div class="header-left">
                 <h1>ระบบสร้างแบบฟอร์มรับบัตร</h1>
-                <p class="subtitle">ศูนย์บริการ EWP อาคาร One Bangkok</p>
+                <p class="subtitle">กำลังโหลด...</p>
             </div>
             <div class="header-right">
                 <div class="user-info" id="userInfo">
@@ -224,8 +224,8 @@
                         </div>
 
                         <div class="receipt-confirmation">
-                            <p class="confirmation-text-th">ข้าพเจ้าตรวจความถูกต้องของใบอนุญาตทำงานแล้ว และยืนยันว่าได้รับใบอนุญาตทำงาน ศูนย์บริการวีซ่าและใบอนุญาตทำงาน อาคาร One Bangkok.</p>
-                            <p class="confirmation-text-en">I have checked that all the information on the card is correct. and confirm that you received the card at One Stop Service Center at One Bangkok.</p>
+                            <p class="confirmation-text-th">ข้าพเจ้าตรวจความถูกต้องของใบอนุญาตทำงานแล้ว และยืนยันว่าได้รับใบอนุญาตทำงาน ณ ศูนย์บริการ</p>
+                            <p class="confirmation-text-en">I have verified that all information on the work permit card is correct and confirm receipt at the Service Center.</p>
                         </div>
 
                         <!-- Recipient Photo in Preview -->
@@ -251,7 +251,7 @@
 
                         <!-- Footer with Org Name and Doc No -->
                         <div class="receipt-bottom-footer">
-                            <div class="footer-org">ศูนย์บริการ EWP อาคาร One Bangkok</div>
+                            <div class="footer-org">ศูนย์บริการ</div>
                             <div class="footer-doc">Doc No.: <span id="previewDocNo">-</span></div>
                         </div>
                     </div>
@@ -550,7 +550,7 @@
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js" integrity="sha384-vhxlvgHDsZyM5pkkE2Mx3bO5MpatBRz+YNdhWekhSLp0pupx0PoA4MgT+IZODSgi" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3" integrity="sha384-aRAaCbKYByQpx0fjPuC0PQ9P9moWMEsHXP9tyzP7tbyD5fPK6oTp+THsxdWiq02L" crossorigin="anonymous"></script>
     <!-- Supabase config handles initialization + environment switching -->
-    <script src="js/supabase-config.js?v=8.6.1"></script>
+    <script src="js/supabase-config.js?v=9.0.0"></script>
     <script>
         // Ensure Supabase is initialized (retry if CDN loaded late)
         if (!window.supabaseClient && window.supabase) {
@@ -564,12 +564,12 @@
             }, 100);
         }
     </script>
-    <script src="js/supabase-adapter.js?v=8.6.1"></script>
-    <script src="js/auth.js?v=8.6.1"></script>
-    <script src="js/app-supabase.js?v=8.6.1"></script>
+    <script src="js/supabase-adapter.js?v=9.0.0"></script>
+    <script src="js/auth.js?v=9.0.0"></script>
+    <script src="js/app-supabase.js?v=9.0.0"></script>
 
     <!-- Version Badge + Environment Indicator -->
-    <div class="version-badge">v8.6.1</div>
+    <div class="version-badge">v9.0.0</div>
     <script>
         // Show environment badge if not production
         if (window.SUPABASE_ENV && window.SUPABASE_ENV.isSIT) {

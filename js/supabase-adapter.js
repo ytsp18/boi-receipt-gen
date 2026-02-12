@@ -28,9 +28,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Data Loading Functions
 // ==================== //
 
+// v9.0 — Helper to get current branch_id for queries
+function getCurrentBranchId() {
+    return window._viewingBranchId || window._currentBranchId || null;
+}
+
 // Load from Supabase - filtered by date (default = today)
 // Pass date as 'YYYY-MM-DD' string, or null to load today
-async function loadRegistryFromSupabase(date = null) {
+// v9.0: branchId param for explicit branch filter (super admin)
+async function loadRegistryFromSupabase(date = null, branchId = null) {
     try {
         // Default to today if no date provided
         if (!date) {
@@ -44,11 +50,20 @@ async function loadRegistryFromSupabase(date = null) {
             return [];
         }
 
-        const { data: records, error } = await window.supabaseClient
+        // v9.0: Apply branch filter (RLS also filters, but explicit is better for super admin)
+        const effectiveBranchId = branchId || getCurrentBranchId();
+
+        let query = window.supabaseClient
             .from('receipts')
             .select('*')
             .eq('receipt_date', date)
             .order('created_at', { ascending: false });
+
+        if (effectiveBranchId) {
+            query = query.eq('branch_id', effectiveBranchId);
+        }
+
+        const { data: records, error } = await query;
 
         if (error) throw error;
 
@@ -86,7 +101,8 @@ async function loadRegistryFromSupabase(date = null) {
 // NOTE: Current implementation loads full month client-side (~600-1500 records).
 // If data volume grows to 10,000+/day, migrate to Server-side RPC with
 // PostgreSQL GROUP BY + COUNT for aggregation (requires SQL migration).
-async function loadMonthlyDataFromSupabase(month, year) {
+// v9.0: branchId param for explicit branch filter (super admin cross-branch report)
+async function loadMonthlyDataFromSupabase(month, year, branchId = null) {
     try {
         const monthNum = parseInt(month);
         const yearNum = parseInt(year);
@@ -98,14 +114,23 @@ async function loadMonthlyDataFromSupabase(month, year) {
 
         console.log(`📊 Loading monthly data: ${startDate} to ${endDate}`);
 
+        // v9.0: Apply branch filter
+        const effectiveBranchId = branchId || getCurrentBranchId();
+
         // Select only columns needed for monthly report (skip images/signatures)
-        const { data: records, error } = await window.supabaseClient
+        let query = window.supabaseClient
             .from('receipts')
             .select('receipt_no, receipt_date, foreigner_name, sn_number, request_no, appointment_no, is_printed, is_received')
             .gte('receipt_date', startDate)
             .lte('receipt_date', endDate)
             .order('receipt_date', { ascending: true })
             .order('created_at', { ascending: false });
+
+        if (effectiveBranchId) {
+            query = query.eq('branch_id', effectiveBranchId);
+        }
+
+        const { data: records, error } = await query;
 
         if (error) throw error;
 
@@ -251,7 +276,9 @@ async function saveReceiptToSupabase(receiptData, cardImageFile = null) {
             sn_number: receiptData.snNumber || receiptData.sn,
             request_no: receiptData.requestNo,
             appointment_no: receiptData.appointmentNo,
-            card_image_url: cardImageUrl
+            card_image_url: cardImageUrl,
+            // v9.0: branch_id
+            branch_id: receiptData.branchId || window._currentBranchId || null
         };
 
         // Only include api_photo_url if it has a value (column may not exist yet before migration)
@@ -494,6 +521,7 @@ async function toggleReceivedInSupabase(receiptNo) {
 // Activity Log
 // ==================== //
 
+// v9.0: includes branch_id in activity log
 async function logActivity(action, receiptNo, details = {}) {
     try {
         const profile = await SupabaseAuth.getProfile();
@@ -505,20 +533,30 @@ async function logActivity(action, receiptNo, details = {}) {
                 receipt_no: receiptNo,
                 details,
                 user_id: profile?.id,
-                user_name: profile?.name || 'Unknown'
+                user_name: profile?.name || 'Unknown',
+                branch_id: profile?.branch_id || window._currentBranchId || null
             });
     } catch (e) {
         console.error('Error logging activity:', e);
     }
 }
 
-async function loadActivityLogFromSupabase(limit = 100) {
+// v9.0: branchId param for branch-scoped activity log
+async function loadActivityLogFromSupabase(limit = 100, branchId = null) {
     try {
-        const { data, error } = await window.supabaseClient
+        const effectiveBranchId = branchId || getCurrentBranchId();
+
+        let query = window.supabaseClient
             .from('activity_logs')
             .select('*')
             .order('created_at', { ascending: false })
             .limit(limit);
+
+        if (effectiveBranchId) {
+            query = query.eq('branch_id', effectiveBranchId);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -576,6 +614,7 @@ async function loadAnalyticsSummary(days = 30) {
 // ==================== //
 
 // Check if SN number already exists across all dates
+// v9.0: NO branch filter — SN must be unique across ALL branches (RLS bypassed via RPC if needed)
 async function checkDuplicateSNFromSupabase(snNumber, excludeReceiptNo = null) {
     try {
         if (!snNumber || !snNumber.trim()) return [];
@@ -626,6 +665,7 @@ async function checkDuplicateNameFromSupabase(foreignerName, receiptDate, exclud
 // Get Next Receipt Number
 // ==================== //
 
+// v9.0: scope by branch_id to prevent collision across branches
 async function getNextReceiptNoFromSupabase() {
     try {
         const today = new Date();
@@ -634,12 +674,20 @@ async function getNextReceiptNoFromSupabase() {
         const day = today.getDate().toString().padStart(2, '0');
         const datePrefix = `${year}${month}${day}`;
 
-        const { data, error } = await window.supabaseClient
+        let query = window.supabaseClient
             .from('receipts')
             .select('receipt_no')
             .like('receipt_no', `${datePrefix}-%`)
             .order('receipt_no', { ascending: false })
             .limit(1);
+
+        // v9.0: scope to current branch
+        const branchId = getCurrentBranchId();
+        if (branchId) {
+            query = query.eq('branch_id', branchId);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 

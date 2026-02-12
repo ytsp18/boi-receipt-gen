@@ -13,8 +13,10 @@ function getEnvParam() {
 }
 
 // ==================== //
-// Role Permissions
+// Role Permissions (v9.0 — Branch-based)
 // ==================== //
+
+// Legacy role mapping (backward compat)
 const ROLE_PERMISSIONS = {
     admin: {
         name: 'Admin',
@@ -32,6 +34,42 @@ const ROLE_PERMISSIONS = {
         permissions: ['view', 'create', 'edit', 'print']
     }
 };
+
+// New branch role permissions (v9.0)
+const BRANCH_ROLE_PERMISSIONS = {
+    head: {
+        name: 'หัวหน้าศูนย์',
+        name_en: 'Branch Head',
+        permissions: ['view', 'create', 'edit', 'delete', 'print', 'export', 'user_management', 'activity_log', 'monthly_report', 'branch_settings']
+    },
+    deputy: {
+        name: 'รองหัวหน้า',
+        name_en: 'Deputy Head',
+        permissions: ['view', 'create', 'edit', 'print', 'export', 'user_management', 'monthly_report']
+    },
+    officer: {
+        name: 'เจ้าหน้าที่',
+        name_en: 'Officer',
+        permissions: ['view', 'create', 'edit', 'print']
+    },
+    temp_officer: {
+        name: 'เจ้าหน้าที่ชั่วคราว',
+        name_en: 'Temp Officer',
+        permissions: ['view', 'create', 'edit', 'print']
+    },
+    other: {
+        name: 'อื่นๆ',
+        name_en: 'Other',
+        permissions: ['view']
+    }
+};
+
+// Super admin permissions (cross-branch)
+const SUPER_ADMIN_PERMISSIONS = [
+    'view', 'create', 'edit', 'delete', 'print', 'export',
+    'user_management', 'activity_log', 'monthly_report',
+    'branch_settings', 'branch_management', 'cross_branch_report', 'transfer_user'
+];
 
 // ==================== //
 // Cache for current user profile
@@ -91,14 +129,25 @@ async function login(email, password) {
             };
         }
 
+        const branchRole = profile?.branch_role || null;
+        const legacyRole = profile?.role || 'admin';
+
         return {
             success: true,
             session: {
                 userId: data.user.id,
                 email: data.user.email,
                 name: profile?.name || 'Admin',
-                role: profile?.role || 'admin',
-                username: profile?.username || email
+                role: branchRole || legacyRole,
+                legacyRole: legacyRole,
+                branchRole: branchRole,
+                username: profile?.username || email,
+                branchId: profile?.branch_id || null,
+                branchCode: profile?.branchCode || null,
+                branchName: profile?.branchName || null,
+                branchNameEn: profile?.branchNameEn || null,
+                branchFeatures: profile?.branchFeatures || {},
+                isSuperAdmin: profile?.is_super_admin || false
             }
         };
     } catch (e) {
@@ -134,12 +183,27 @@ async function getSession() {
             cachedProfile = await getProfile(session.user.id);
         }
 
+        // Determine effective role: use branch_role if available, fallback to legacy role
+        const branchRole = cachedProfile?.branch_role || null;
+        const legacyRole = cachedProfile?.role || 'staff';
+        const effectiveRole = branchRole || legacyRole;
+        const isSuperAdmin = cachedProfile?.is_super_admin || false;
+
         return {
             userId: session.user.id,
             email: session.user.email,
             name: cachedProfile?.name || 'Unknown',
-            role: cachedProfile?.role || 'staff',
-            username: cachedProfile?.username || session.user.email
+            role: effectiveRole,
+            legacyRole: legacyRole,
+            branchRole: branchRole,
+            username: cachedProfile?.username || session.user.email,
+            // Branch info (v9.0)
+            branchId: cachedProfile?.branch_id || null,
+            branchCode: cachedProfile?.branchCode || null,
+            branchName: cachedProfile?.branchName || null,
+            branchNameEn: cachedProfile?.branchNameEn || null,
+            branchFeatures: cachedProfile?.branchFeatures || {},
+            isSuperAdmin: isSuperAdmin
         };
     } catch (e) {
         console.error('Error getting session:', e);
@@ -162,9 +226,10 @@ async function getProfile(userId) {
             setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
         );
 
+        // JOIN with branches to get branch info
         const fetchPromise = client
             .from('profiles')
-            .select('*')
+            .select('*, branches:branch_id(id, code, name_th, name_en, address_th, address_en, features, is_active)')
             .eq('id', userId)
             .single();
 
@@ -173,6 +238,15 @@ async function getProfile(userId) {
         if (error) {
             console.warn('Profile fetch error (will use defaults):', error.message);
             return null;
+        }
+
+        // Flatten branch info into profile
+        if (data && data.branches) {
+            data.branchCode = data.branches.code;
+            data.branchName = data.branches.name_th;
+            data.branchNameEn = data.branches.name_en;
+            data.branchFeatures = data.branches.features || {};
+            data.branchActive = data.branches.is_active;
         }
 
         console.log('Profile loaded:', data);
@@ -196,9 +270,18 @@ async function hasPermission(permission) {
     const session = await getSession();
     if (!session) return false;
 
-    const roleInfo = ROLE_PERMISSIONS[session.role];
-    if (!roleInfo) return false;
+    // Super admin has all permissions
+    if (session.isSuperAdmin) return true;
 
+    // Check branch role first, then legacy role
+    const branchRoleInfo = BRANCH_ROLE_PERMISSIONS[session.branchRole];
+    if (branchRoleInfo) {
+        return branchRoleInfo.permissions.includes(permission);
+    }
+
+    // Fallback to legacy role
+    const roleInfo = ROLE_PERMISSIONS[session.legacyRole];
+    if (!roleInfo) return false;
     return roleInfo.permissions.includes(permission);
 }
 
@@ -269,13 +352,24 @@ async function updateUser(id, userData) {
         const client = getSupabaseClient();
         if (!client) return { success: false, error: 'ระบบไม่พร้อม' };
 
+        // Build update payload — only include fields that are provided
+        const updatePayload = {};
+        if (userData.name !== undefined) updatePayload.name = userData.name;
+        if (userData.username !== undefined) updatePayload.username = userData.username;
+        if (userData.role !== undefined) updatePayload.role = userData.role;
+        if (userData.branch_role !== undefined) updatePayload.branch_role = userData.branch_role;
+        if (userData.branch_id !== undefined) updatePayload.branch_id = userData.branch_id;
+        if (userData.is_super_admin !== undefined) updatePayload.is_super_admin = userData.is_super_admin;
+
+        // Sync legacy role from branch_role for backward compat
+        if (userData.branch_role) {
+            const roleMap = { head: 'admin', deputy: 'manager', officer: 'staff', temp_officer: 'staff', other: 'staff' };
+            updatePayload.role = roleMap[userData.branch_role] || 'staff';
+        }
+
         const { data, error } = await client
             .from('profiles')
-            .update({
-                name: userData.name,
-                role: userData.role,
-                username: userData.username
-            })
+            .update(updatePayload)
             .eq('id', id)
             .select()
             .single();
@@ -287,6 +381,26 @@ async function updateUser(id, userData) {
     } catch (e) {
         console.error('Error updating user:', e);
         return { success: false, error: 'เกิดข้อผิดพลาดในการอัพเดต' };
+    }
+}
+
+async function transferUser(userId, newBranchId) {
+    try {
+        const client = getSupabaseClient();
+        if (!client) return { success: false, error: 'ระบบไม่พร้อม' };
+
+        const { data, error } = await client
+            .from('profiles')
+            .update({ branch_id: newBranchId })
+            .eq('id', userId)
+            .select()
+            .single();
+
+        if (error) return { success: false, error: error.message };
+        return { success: true, user: data };
+    } catch (e) {
+        console.error('Error transferring user:', e);
+        return { success: false, error: 'เกิดข้อผิดพลาดในการย้ายสาขา' };
     }
 }
 
@@ -308,20 +422,25 @@ async function deleteUser(id) {
 // User Registration (with Approval)
 // ==================== //
 
-async function registerUser(email, password, name) {
+async function registerUser(email, password, name, branchId) {
     try {
         const client = getSupabaseClient();
         if (!client) {
             return { success: false, error: 'ระบบไม่พร้อม กรุณา refresh หน้า' };
         }
 
-        // Sign up with Supabase Auth
+        if (!branchId) {
+            return { success: false, error: 'กรุณาเลือกสาขา' };
+        }
+
+        // Sign up with Supabase Auth (pass branch_id in metadata for trigger)
         const { data, error } = await client.auth.signUp({
             email,
             password,
             options: {
                 data: {
-                    name: name
+                    name: name,
+                    branch_id: branchId
                 }
             }
         });
@@ -342,6 +461,8 @@ async function registerUser(email, password, name) {
                 username: email,
                 name: name,
                 role: 'staff',
+                branch_id: branchId,
+                branch_role: 'officer',
                 is_approved: false,
                 created_at: new Date().toISOString()
             });
@@ -353,6 +474,8 @@ async function registerUser(email, password, name) {
                 .from('profiles')
                 .update({
                     name: name,
+                    branch_id: branchId,
+                    branch_role: 'officer',
                     is_approved: false
                 })
                 .eq('id', data.user.id);
@@ -360,7 +483,7 @@ async function registerUser(email, password, name) {
 
         return {
             success: true,
-            message: 'สมัครสำเร็จ! กรุณารอการอนุมัติจาก Admin'
+            message: 'สมัครสำเร็จ! กรุณารอการอนุมัติจาก Admin / หัวหน้าศูนย์'
         };
     } catch (e) {
         console.error('Registration error:', e);
@@ -565,8 +688,11 @@ window.AuthSystem = {
     approveUser,
     rejectUser,
     resetPassword,
+    transferUser,
     startSessionTimeout,
-    ROLE_PERMISSIONS
+    ROLE_PERMISSIONS,
+    BRANCH_ROLE_PERMISSIONS,
+    SUPER_ADMIN_PERMISSIONS
 };
 
-console.log('✅ Auth System Loaded (Supabase)');
+console.log('✅ Auth System Loaded (Supabase v9.0 — Multi-Branch)');

@@ -22,7 +22,11 @@ const state = {
     // Typing indicator state
     typingChannel: null,
     typingDebounce: null,
-    othersTyping: {} // { officerId: { name, appointmentId, timestamp } }
+    othersTyping: {}, // { officerId: { name, appointmentId, timestamp } }
+    // v9.0 — Branch context
+    currentBranchId: null,
+    currentBranch: null,
+    isSuperAdmin: false
 };
 
 // Officer color palette (assigned dynamically)
@@ -79,8 +83,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         state.currentUser = session;
         DOM.currentUserName.textContent = session.name || session.email;
-        DOM.currentUserRole.textContent = session.role || '';
+        DOM.currentUserRole.textContent = (session.branchRole || session.role || '').toUpperCase();
         DOM.officerNameDisplay.textContent = session.name || session.email;
+
+        // v9.0 — Branch context
+        state.currentBranchId = session.branchId || null;
+        state.isSuperAdmin = session.isSuperAdmin || false;
+        window._currentBranchId = state.currentBranchId;
+
+        if (session.branchId && window.SupabaseBranches) {
+            try {
+                state.currentBranch = await window.SupabaseBranches.getById(session.branchId);
+                // Dynamic page title
+                const titleEl = document.querySelector('.page-title, h1');
+                if (titleEl && state.currentBranch) {
+                    titleEl.textContent = `จองคิวพิมพ์บัตร — ${state.currentBranch.name_th}`;
+                }
+            } catch (e) {
+                console.warn('Could not load branch info:', e);
+            }
+        }
     } catch (e) {
         console.error('Auth error:', e);
         const envParam2 = typeof getEnvParam === 'function' ? getEnvParam() : '';
@@ -464,26 +486,34 @@ window.deleteLock = deleteLock;
 function setupRealtime() {
     if (!window.supabaseClient) return;
 
+    // v9.0: Branch-scoped realtime filter
+    const branchFilter = state.currentBranchId && !state.isSuperAdmin
+        ? `branch_id=eq.${state.currentBranchId}`
+        : undefined;
+
     state.realtimeChannel = window.supabaseClient
         .channel('card-print-locks-changes')
         .on('postgres_changes', {
             event: 'INSERT',
             schema: 'public',
-            table: 'card_print_locks'
+            table: 'card_print_locks',
+            ...(branchFilter ? { filter: branchFilter } : {})
         }, (payload) => {
             handleRealtimeInsert(payload.new);
         })
         .on('postgres_changes', {
             event: 'UPDATE',
             schema: 'public',
-            table: 'card_print_locks'
+            table: 'card_print_locks',
+            ...(branchFilter ? { filter: branchFilter } : {})
         }, (payload) => {
             handleRealtimeUpdate(payload.new);
         })
         .on('postgres_changes', {
             event: 'DELETE',
             schema: 'public',
-            table: 'card_print_locks'
+            table: 'card_print_locks',
+            ...(branchFilter ? { filter: branchFilter } : {})
         }, (payload) => {
             handleRealtimeDelete(payload.old);
         })
