@@ -214,6 +214,9 @@ const state = {
     activityPageSize: 50,
     // Barcode scan detection
     barcodeScanLastKeyTime: 0,
+    // v8.5.2 — Batch print hint counter
+    printFromTableCount: 0,
+    batchPrintHintShown: false,
     // Cache for getFilteredData
     _filteredDataCache: null,
     _filteredDataCacheKey: null,
@@ -1981,26 +1984,26 @@ async function saveData() {
     const duplicateWarnings = [];
 
     try {
-        // Check duplicate SN across all dates
-        if (state.formData.snNumber) {
-            const snDuplicates = await SupabaseAdapter.checkDuplicateSN(state.formData.snNumber, excludeReceiptNo);
-            if (snDuplicates.length > 0) {
-                const details = snDuplicates.map(d => `${d.receipt_no} (${d.foreigner_name})`).join(', ');
-                duplicateWarnings.push(`SN "${state.formData.snNumber}" มีอยู่แล้วใน: ${details}`);
-            }
+        // v8.5.2 — Parallel duplicate checks (was sequential)
+        const [snResult, nameResult] = await Promise.allSettled([
+            state.formData.snNumber
+                ? SupabaseAdapter.checkDuplicateSN(state.formData.snNumber, excludeReceiptNo)
+                : Promise.resolve([]),
+            state.formData.foreignerName
+                ? SupabaseAdapter.checkDuplicateName(state.formData.foreignerName, state.formData.receiptDate, excludeReceiptNo)
+                : Promise.resolve([])
+        ]);
+
+        // Process SN duplicate result
+        if (snResult.status === 'fulfilled' && snResult.value.length > 0) {
+            const details = snResult.value.map(d => `${d.receipt_no} (${d.foreigner_name})`).join(', ');
+            duplicateWarnings.push(`SN "${state.formData.snNumber}" มีอยู่แล้วใน: ${details}`);
         }
 
-        // Check duplicate name on same date
-        if (state.formData.foreignerName) {
-            const nameDuplicates = await SupabaseAdapter.checkDuplicateName(
-                state.formData.foreignerName,
-                state.formData.receiptDate,
-                excludeReceiptNo
-            );
-            if (nameDuplicates.length > 0) {
-                const details = nameDuplicates.map(d => d.receipt_no).join(', ');
-                duplicateWarnings.push(`ชื่อ "${state.formData.foreignerName}" มีอยู่แล้วในวันเดียวกัน: ${details}`);
-            }
+        // Process name duplicate result
+        if (nameResult.status === 'fulfilled' && nameResult.value.length > 0) {
+            const details = nameResult.value.map(d => d.receipt_no).join(', ');
+            duplicateWarnings.push(`ชื่อ "${state.formData.foreignerName}" มีอยู่แล้วในวันเดียวกัน: ${details}`);
         }
     } catch (dupError) {
         console.warn('Duplicate check failed (non-blocking):', dupError.message);
@@ -2083,6 +2086,21 @@ async function saveData() {
                             })
                     );
                 }
+                // v8.5.2 — Card image upload in parallel with photo/signature
+                let cardImageUrl = state.formData.cardImage || null;
+                if (cardImageUrl && cardImageUrl.startsWith('data:')) {
+                    uploadPromises.push(
+                        SupabaseAdapter.uploadImage(state.formData.receiptNo, cardImageUrl)
+                            .then(url => {
+                                cardImageUrl = url;
+                                console.log('🖼️ Card image uploaded successfully:', url);
+                            })
+                            .catch(e => {
+                                console.error('🖼️ Card image upload FAILED:', e);
+                            })
+                    );
+                }
+
                 if (uploadPromises.length > 0) {
                     console.log('📷 Uploading', uploadPromises.length, 'file(s)...');
                     await Promise.all(uploadPromises);
@@ -2118,8 +2136,9 @@ async function saveData() {
                     cardPrinterName: state.formData.cardPrinterName || null
                 };
 
-                // Upload image if exists and save receipt
-                await SupabaseAdapter.saveReceipt(receiptData, state.formData.cardImage);
+                // v8.5.2 — Card image already uploaded in parallel above
+                receiptData.cardImage = cardImageUrl;
+                await SupabaseAdapter.saveReceipt(receiptData);
                 saved = true;
 
                 // If this was from a pending receipt, mark it as used
@@ -2336,6 +2355,14 @@ function updateSummary() {
     elements.summaryPendingPrint.textContent = pendingPrint;
     elements.summaryReceived.textContent = received;
     elements.summaryWaiting.textContent = waiting;
+
+    // v8.5.2 — Color-coded summary numbers for quick status scanning
+    elements.summaryPendingPrint.style.color = pendingPrint > 0 ? '#ea580c' : '';
+    elements.summaryPendingPrint.style.fontWeight = pendingPrint > 0 ? '700' : '';
+    elements.summaryWaiting.style.color = waiting > 0 ? '#ca8a04' : '';
+    elements.summaryWaiting.style.fontWeight = waiting > 0 ? '700' : '';
+    elements.summaryReceived.style.color = received > 0 ? '#16a34a' : '';
+    elements.summaryPrinted.style.color = printed > 0 ? '#16a34a' : '';
 
     // v7.0 - Signed count
     const summarySigned = document.getElementById('summarySigned');
@@ -2861,6 +2888,15 @@ function viewImage(receiptNo) {
 function printFromTable(receiptNo) {
     UXAnalytics.trackFeature('print_from_table');
     trackJourneyPrint();
+
+    // v8.5.2 — Batch print hint after 3 single prints in session
+    state.printFromTableCount++;
+    if (state.printFromTableCount === 3 && !state.batchPrintHintShown) {
+        state.batchPrintHintShown = true;
+        setTimeout(() => {
+            showToast('💡 Tip: เลือกหลายรายการจาก checkbox แล้วกด "พิมพ์ที่เลือก" เพื่อพิมพ์ครั้งเดียว', 'info', 5000);
+        }, 1000);
+    }
     const rowData = state.registryData.find(r => r.receiptNo === receiptNo);
     if (!rowData) return;
 
@@ -3001,8 +3037,15 @@ function setupEventListeners() {
     });
 
     elements.summaryDate.addEventListener('change', updateSummary);
-    elements.exportCsvBtn.addEventListener('click', exportToCSV);
-    elements.exportPdfBtn.addEventListener('click', exportToPDF);
+    elements.exportCsvBtn.addEventListener('click', (e) => { exportToCSV(); e.target.closest('.export-dropdown')?.classList.remove('open'); });
+    elements.exportPdfBtn.addEventListener('click', (e) => { exportToPDF(); e.target.closest('.export-dropdown')?.classList.remove('open'); });
+
+    // v8.5.2 — Close export dropdowns on click outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.export-dropdown')) {
+            document.querySelectorAll('.export-dropdown.open').forEach(d => d.classList.remove('open'));
+        }
+    });
 
     // Date Filter
     if (elements.dateFilter) {
@@ -3234,10 +3277,10 @@ function setupEventListeners() {
         elements.generateReportBtn.addEventListener('click', generateMonthlyReport);
     }
     if (elements.exportMonthlyPdfBtn) {
-        elements.exportMonthlyPdfBtn.addEventListener('click', exportMonthlyPDF);
+        elements.exportMonthlyPdfBtn.addEventListener('click', (e) => { exportMonthlyPDF(); e.target.closest('.export-dropdown')?.classList.remove('open'); });
     }
     if (elements.exportMonthlyCsvBtn) {
-        elements.exportMonthlyCsvBtn.addEventListener('click', exportMonthlyCSV);
+        elements.exportMonthlyCsvBtn.addEventListener('click', (e) => { exportMonthlyCSV(); e.target.closest('.export-dropdown')?.classList.remove('open'); });
     }
 
     // Activity Log
@@ -3711,8 +3754,22 @@ async function applyPermissions() {
     // Hide export buttons if no permission
     const hasExport = await window.AuthSystem.hasPermission('export');
     if (!hasExport) {
-        const exportBtns = document.querySelectorAll('#exportCsvBtn, #exportPdfBtn, #exportMonthlyPdfBtn, #exportMonthlyCsvBtn');
+        const exportBtns = document.querySelectorAll('.export-dropdown');
         exportBtns.forEach(btn => btn.style.display = 'none');
+    }
+
+    // v8.5.2 — Manager onboarding (show once per browser)
+    if (session.role === 'manager' && !localStorage.getItem('manager_onboarded')) {
+        localStorage.setItem('manager_onboarded', '1');
+        setTimeout(() => {
+            showToast('👋 ยินดีต้อนรับ Manager! คุณสามารถดู Monthly Report และ Export ข้อมูลได้จากแถบ Reports', 'info', 6000);
+            // Pulse animation on Reports tab
+            const monthlyTab = document.getElementById('tabMonthlyReport');
+            if (monthlyTab) {
+                monthlyTab.style.animation = 'pulse 1s ease 3';
+                setTimeout(() => { monthlyTab.style.animation = ''; }, 3000);
+            }
+        }, 2000);
     }
 
     // VP API integration disabled until migration is complete
@@ -3924,8 +3981,14 @@ async function markPendingAsUsed(pendingId, receiptNo) {
     }
 }
 
-function showToast(message) {
-    // Simple toast notification
+function showToast(message, type = 'success', duration = 2000) {
+    // Toast notification with type support (v8.5.2)
+    const colors = {
+        success: '#22c55e',
+        error: '#ef4444',
+        warning: '#f59e0b',
+        info: '#3b82f6'
+    };
     const toast = document.createElement('div');
     toast.className = 'toast-notification';
     toast.textContent = message;
@@ -3933,20 +3996,21 @@ function showToast(message) {
         position: fixed;
         bottom: 20px;
         right: 20px;
-        background: #22c55e;
+        background: ${colors[type] || colors.success};
         color: white;
         padding: 12px 20px;
         border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         z-index: 10000;
         animation: slideIn 0.3s ease;
+        max-width: 400px;
     `;
     document.body.appendChild(toast);
 
     setTimeout(() => {
         toast.style.animation = 'slideOut 0.3s ease';
         setTimeout(() => toast.remove(), 300);
-    }, 2000);
+    }, duration);
 }
 
 function openPendingModal() {
@@ -4116,15 +4180,19 @@ async function initializeApp() {
     // Set default date
     setDefaultDate();
 
-    // Auto-generate receipt number from Supabase
-    try {
-        const newReceiptNo = await SupabaseAdapter.getNextReceiptNo();
-        elements.receiptNo.value = newReceiptNo;
-        state.formData.receiptNo = newReceiptNo;
-    } catch (e) {
-        const fallbackNo = generateNextReceiptNo(state.registryData);
-        elements.receiptNo.value = fallbackNo;
-        state.formData.receiptNo = fallbackNo;
+    // v8.5.2 — Receipt number already generated by loadRegistryData() above
+    // (line 2631 checks filterDate===today && empty receiptNo → calls getNextReceiptNo)
+    // Only generate here as fallback if loadRegistryData didn't set it
+    if (!elements.receiptNo.value) {
+        try {
+            const newReceiptNo = await SupabaseAdapter.getNextReceiptNo();
+            elements.receiptNo.value = newReceiptNo;
+            state.formData.receiptNo = newReceiptNo;
+        } catch (e) {
+            const fallbackNo = generateNextReceiptNo(state.registryData);
+            elements.receiptNo.value = fallbackNo;
+            state.formData.receiptNo = fallbackNo;
+        }
     }
 
     state.formData.receiptDate = elements.receiptDate.value;
@@ -4141,6 +4209,18 @@ async function initializeApp() {
     // setTimeout(() => {
     //     updatePendingBadge();
     // }, 1000);
+
+    // v8.5.2 — Auto-refresh registry data every 60s for browse-only users
+    setInterval(async () => {
+        if (!state.isLoading && document.visibilityState === 'visible') {
+            try {
+                await loadRegistryData();
+                console.log('🔄 Auto-refresh complete');
+            } catch (e) {
+                console.log('Auto-refresh failed:', e.message);
+            }
+        }
+    }, 60000);
 
     console.log('✅ App initialized successfully');
 

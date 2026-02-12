@@ -22,7 +22,7 @@
                 </div>
                 <button class="btn btn-outline btn-sm" id="userManagementBtn" style="display: none;">👥 จัดการผู้ใช้</button>
                 <a class="btn btn-outline btn-sm" id="cardPrintBtn" href="card-print.html">จองการพิมพ์บัตร</a>
-                <a class="btn btn-outline btn-sm" id="quickPrintBtn" href="index.html?mode=quick-print">พิมพ์ด่วน</a>
+                <a class="btn btn-warning btn-sm" id="quickPrintBtn" href="index.html?mode=quick-print" title="โหมดพิมพ์ด่วน — ค้นหาแล้วพิมพ์ทันที ไม่ต้องกรอกฟอร์ม">⚡ พิมพ์ด่วน</a>
                 <button class="btn btn-outline btn-sm" id="officerSignatureBtn" style="display:none;">✍️ ลายเซ็น</button>
                 <button class="btn btn-outline-danger btn-sm" id="logoutBtn">🚪 ออกจากระบบ</button>
             </div>
@@ -265,8 +265,13 @@
                 <h2>📊 สรุปรายวัน</h2>
                 <div class="summary-controls">
                     <input type="date" id="summaryDate" class="summary-date-input">
-                    <button class="btn btn-outline btn-sm" id="exportCsvBtn">📊 Export CSV</button>
-                    <button class="btn btn-outline btn-sm" id="exportPdfBtn">📄 Export PDF</button>
+                    <div class="export-dropdown">
+                        <button class="btn btn-outline btn-sm dropdown-toggle" onclick="this.parentElement.classList.toggle('open')">📥 Export ▾</button>
+                        <div class="dropdown-menu">
+                            <button class="dropdown-item" id="exportCsvBtn">📊 CSV</button>
+                            <button class="dropdown-item" id="exportPdfBtn">📄 PDF</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="summary-cards" id="summaryCards">
@@ -315,7 +320,7 @@
                     <button class="btn btn-success btn-sm" id="addNewBtn">➕ เพิ่มข้อมูลใหม่</button>
                     <!-- Batch Print Buttons -->
                     <button class="btn btn-outline btn-sm" id="selectNotPrintedBtn" title="เลือกเฉพาะรายการที่ยังไม่พิมพ์ในหน้านี้">เลือกที่ยังไม่พิมพ์</button>
-                    <button class="btn btn-primary btn-sm" id="batchPrintBtn" disabled>🖨️ พิมพ์ที่เลือก (<span id="selectedCount">0</span>)</button>
+                    <button class="btn btn-primary btn-sm" id="batchPrintBtn" disabled title="เลือกรายการจาก checkbox แล้วกดพิมพ์พร้อมกัน">🖨️ พิมพ์ที่เลือก (<span id="selectedCount">0</span>)</button>
                     <!-- Date Filter -->
                     <div class="date-filter-group">
                         <input type="date" id="dateFilter" class="date-filter-input" title="เลือกวันที่">
@@ -393,8 +398,13 @@
                                 <option value="">-- เลือกปี --</option>
                             </select>
                             <button class="btn btn-primary btn-sm" id="generateReportBtn">📊 สร้างรายงาน</button>
-                            <button class="btn btn-outline btn-sm" id="exportMonthlyPdfBtn">📄 Export PDF</button>
-                            <button class="btn btn-outline btn-sm" id="exportMonthlyCsvBtn">📊 Export CSV</button>
+                            <div class="export-dropdown">
+                                <button class="btn btn-outline btn-sm dropdown-toggle" onclick="this.parentElement.classList.toggle('open')">📥 Export ▾</button>
+                                <div class="dropdown-menu">
+                                    <button class="dropdown-item" id="exportMonthlyCsvBtn">📊 CSV</button>
+                                    <button class="dropdown-item" id="exportMonthlyPdfBtn">📄 PDF</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="monthly-summary" id="monthlySummary">

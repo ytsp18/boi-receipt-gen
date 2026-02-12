@@ -228,10 +228,12 @@ function parseThaiDateToISO(thaiDate) {
 // Save a single receipt to Supabase
 async function saveReceiptToSupabase(receiptData, cardImageFile = null) {
     try {
+        // v8.5.2 — Card image upload moved to app-supabase.js (parallel with photo/sig)
+        // receiptData.cardImage is now already a URL (or null)
+        // Keep cardImageFile param for backward compatibility but prefer receiptData.cardImage
         let cardImageUrl = receiptData.cardImage;
-
-        // Upload image if it's a new base64 image
-        if (cardImageFile && cardImageFile.startsWith('data:')) {
+        if (!cardImageUrl && cardImageFile && cardImageFile.startsWith('data:')) {
+            // Fallback: upload here if caller still passes raw file (e.g. card-print-app.js)
             cardImageUrl = await uploadImageToSupabase(receiptData.receiptNo, cardImageFile);
         }
 
