@@ -293,6 +293,7 @@ const elements = {
     snNumber: document.getElementById('snNumber'),
     requestNo: document.getElementById('requestNo'),
     appointmentNo: document.getElementById('appointmentNo'),
+    cardPrinterName: document.getElementById('cardPrinterName'),
 
     // Image inputs
     cardImage: document.getElementById('cardImage'),
@@ -1747,6 +1748,9 @@ function updateFormState() {
     state.formData.snNumber = elements.snNumber.value;
     state.formData.requestNo = elements.requestNo.value;
     state.formData.appointmentNo = elements.appointmentNo.value;
+    if (elements.cardPrinterName) {
+        state.formData.cardPrinterName = elements.cardPrinterName.value || null;
+    }
 }
 
 function updateReceiptPreview() {
@@ -1817,6 +1821,7 @@ async function clearForm(skipConfirm = false) {
     elements.snNumber.value = '';
     elements.requestNo.value = '';
     elements.appointmentNo.value = '';
+    if (elements.cardPrinterName) elements.cardPrinterName.value = '';
     elements.cardImage.value = '';
 
     elements.cardPreview.src = '';
@@ -1869,8 +1874,11 @@ function loadFromRegistry(rowData) {
     elements.requestNo.value = rowData.requestNo || '';
     elements.appointmentNo.value = rowData.appointmentNo || '';
 
-    // v8.5 - Load card printer name
+    // v8.5 - Load card printer name into state and input field
     state.formData.cardPrinterName = rowData.cardPrinterName || null;
+    if (elements.cardPrinterName) {
+        elements.cardPrinterName.value = rowData.cardPrinterName || '';
+    }
 
     // Load image if exists
     if (rowData.cardImage) {
@@ -2969,6 +2977,9 @@ function setupEventListeners() {
                     // v8.5 — auto-fill card printer name from lock
                     if (lock.officer_name) {
                         state.formData.cardPrinterName = lock.officer_name;
+                        if (elements.cardPrinterName) {
+                            elements.cardPrinterName.value = lock.officer_name;
+                        }
                     }
                     updateReceiptPreview();
                     showToast('ดึงข้อมูลจากระบบล็อกบัตรสำเร็จ', 'success');
