@@ -3637,7 +3637,7 @@ function showAddUserForm() {
                 </div>
                 <div class="form-group">
                     <label>รหัสผ่าน (Password)</label>
-                    <input type="password" id="newPassword" required placeholder="password">
+                    <input type="password" id="newPassword" required placeholder="password" autocomplete="new-password">
                 </div>
             </div>
             <div class="form-row">
@@ -3732,7 +3732,7 @@ async function showEditUserForm(userId) {
                 </div>
                 <div class="form-group">
                     <label>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label>
-                    <input type="password" id="editPassword" placeholder="รหัสผ่านใหม่">
+                    <input type="password" id="editPassword" placeholder="รหัสผ่านใหม่" autocomplete="new-password">
                 </div>
             </div>
             <div class="form-row">
@@ -3742,11 +3742,11 @@ async function showEditUserForm(userId) {
                         ${branchRoles.map(r => `<option value="${r.value}" ${currentBranchRole === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
                     </select>
                     <div id="rolePermSummary" style="font-size:0.8rem; color:#666; margin-top:4px;"></div>
-                    <div id="roleDescTooltip" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:10px; margin-top:6px; font-size:0.8rem; line-height:1.6;">
-                        <strong>head:</strong> หัวหน้าศูนย์ — เห็นทุกข้อมูล + จัดการผู้ใช้ในสาขา<br>
-                        <strong>deputy:</strong> รองหัวหน้า — สิทธิ์เหมือน head<br>
-                        <strong>officer:</strong> เจ้าหน้าที่ — สร้าง/แก้ไข/พิมพ์ข้อมูลของตัวเอง<br>
-                        <strong>temp_officer:</strong> เจ้าหน้าที่ชั่วคราว — สิทธิ์เหมือน officer
+                    <div id="roleDescTooltip" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px; margin-top:6px; font-size:0.72rem; line-height:1.4; max-width:250px; box-sizing:border-box; word-break:break-word; overflow:hidden;">
+                        <b>head</b>: หัวหน้าศูนย์<br><span style="color:#666;margin-left:8px;">ทุกสิทธิ์ + จัดการผู้ใช้</span><br>
+                        <b>deputy</b>: รองหัวหน้า<br><span style="color:#666;margin-left:8px;">สิทธิ์เหมือน head</span><br>
+                        <b>officer</b>: เจ้าหน้าที่<br><span style="color:#666;margin-left:8px;">CRUD ข้อมูลตัวเอง</span><br>
+                        <b>temp_officer</b>: ชั่วคราว<br><span style="color:#666;margin-left:8px;">สิทธิ์เหมือน officer</span>
                     </div>
                 </div>
                 ${branchSelectorHtml}
@@ -4062,16 +4062,29 @@ async function handleResetPassword(userId) {
         return;
     }
 
-    if (!confirm(`ต้องการส่ง email reset password ให้ "${user.name}" (${user.username}) หรือไม่?`)) {
-        return;
-    }
+    // v9.0: Get email via RPC (profiles table has no email column)
+    try {
+        const client = window.SupabaseAuth?.getClient?.() || window.supabaseClient;
+        const { data: email, error: emailError } = await client.rpc('get_user_email', { p_user_id: userId });
+        if (emailError || !email) {
+            alert('ไม่สามารถดึง email ของผู้ใช้ได้: ' + (emailError?.message || 'ไม่พบ email'));
+            return;
+        }
 
-    const result = await window.AuthSystem.resetPassword(user.username);
+        if (!confirm(`ต้องการส่ง email reset password ให้ "${user.name}" (${email}) หรือไม่?`)) {
+            return;
+        }
 
-    if (result.success) {
-        alert(`ส่ง email reset password ไปที่ ${user.username} เรียบร้อยแล้ว\n\nผู้ใช้จะได้รับ link สำหรับตั้งรหัสผ่านใหม่ทาง email`);
-    } else {
-        alert('เกิดข้อผิดพลาด: ' + result.error);
+        const result = await window.AuthSystem.resetPassword(email);
+
+        if (result.success) {
+            alert(`ส่ง email reset password ไปที่ ${email} เรียบร้อยแล้ว\n\nผู้ใช้จะได้รับ link สำหรับตั้งรหัสผ่านใหม่ทาง email`);
+        } else {
+            alert('เกิดข้อผิดพลาด: ' + result.error);
+        }
+    } catch (e) {
+        console.error('Error in handleResetPassword:', e);
+        alert('เกิดข้อผิดพลาด: ' + e.message);
     }
 }
 
