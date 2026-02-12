@@ -617,16 +617,13 @@ async function checkDuplicateSNFromSupabase(snNumber, excludeReceiptNo = null) {
     try {
         if (!snNumber || !snNumber.trim()) return [];
 
-        let query = window.supabaseClient
-            .from('receipts')
-            .select('receipt_no, foreigner_name, receipt_date')
-            .eq('sn_number', snNumber.trim());
+        // Use RPC with SECURITY DEFINER to check cross-branch duplicates
+        const { data, error } = await window.supabaseClient
+            .rpc('check_sn_duplicate', {
+                p_sn_number: snNumber.trim(),
+                p_exclude_receipt_no: excludeReceiptNo || null
+            });
 
-        if (excludeReceiptNo) {
-            query = query.neq('receipt_no', excludeReceiptNo);
-        }
-
-        const { data, error } = await query.limit(5);
         if (error) throw error;
         return data || [];
     } catch (e) {
