@@ -3706,7 +3706,7 @@ async function showEditUserForm(userId) {
         <div class="form-group">
             <label>สาขา</label>
             <select id="editBranch" class="filter-select">
-                ${state.branches.map(b => `<option value="${b.id}" ${b.id === user.branch_id ? 'selected' : ''}>${b.name_th} (${b.code})</option>`).join('')}
+                ${state.branches.map(b => `<option value="${b.id}" ${b.id === user.branch_id ? 'selected' : ''}>${b.code} — ${b.name_th}</option>`).join('')}
             </select>
         </div>
     ` : '';
@@ -3731,7 +3731,7 @@ async function showEditUserForm(userId) {
                     <input type="text" id="editName" value="${sanitizeHTML(user.name)}" required>
                 </div>
                 <div class="form-group">
-                    <label>รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label>
+                    <label title="เว้นว่างถ้าไม่ต้องการเปลี่ยนรหัสผ่าน">รหัสผ่านใหม่</label>
                     <input type="password" id="editPassword" placeholder="รหัสผ่านใหม่" autocomplete="new-password">
                 </div>
             </div>

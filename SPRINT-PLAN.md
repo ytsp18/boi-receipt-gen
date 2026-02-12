@@ -24,6 +24,8 @@
 | BF1 | Reset Password "requires an email" — สร้าง RPC `get_user_email()` + แก้ `handleResetPassword()` | ✅ แก้แล้ว | `68dcc08` + SQL on SIT |
 | BF2 | Role Description Tooltip ล้นกล่อง — `max-width:250px` + `word-break` | ✅ แก้แล้ว | `68dcc08` |
 | BF3 | Browser autofill — เพิ่ม `autocomplete` attribute ทุก password field | ✅ แก้แล้ว | `68dcc08` |
+| BF4 | เพิ่มผู้ใช้ใหม่ alert "undefined" — `addUser()` เป็น stub + ไม่มี `await` → เปลี่ยนเป็น registration guide | ✅ แก้แล้ว | `59397aa` |
+| BF5 | SQL migration `get_user_email` — `is_admin(auth.uid())` → `is_admin()` (no params) | ✅ แก้แล้ว | `59397aa` |
 
 ---
 
