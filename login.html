@@ -301,6 +301,9 @@
             const urlParams = new URLSearchParams(window.location.search);
             const envParam = urlParams.get('env');
             if (envParam && SUPABASE_ENVIRONMENTS[envParam]) return envParam;
+            // Auto-detect from Cloudflare Pages SIT hostname
+            const hostname = window.location.hostname;
+            if (hostname.includes('sit.pages.dev') || hostname.includes('-sit.pages.dev')) return 'sit';
             return 'production';
         }
 
