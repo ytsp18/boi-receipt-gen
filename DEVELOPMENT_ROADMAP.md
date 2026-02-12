@@ -28,6 +28,7 @@
 | v8.6.1 | 12 ก.พ. 69 | ✅ Deployed | Fix admin แก้ไขรายการจองของเจ้าหน้าที่คนอื่นไม่ได้ |
 | **v8.6.2** | **12 ก.พ. 69** | **✅ Deployed** | **Fix table overflow ซ่อนปุ่ม + S/N และ ลบ** |
 | **v9.0.0** | **12 ก.พ. 69** | **🧪 SIT Testing** | **Multi-Branch & User Management — Cloudflare Pages SIT** |
+| **v9.0.1** | **13 ก.พ. 69** | **🧪 SIT Testing** | **Bug fixes + cache bust + Pre-MD improvements + Rollback script + Documentation** |
 | v7.0.0-dev | 10 ก.พ. 69 | ⏸️ On Hold | E-Sign Workflow (ซ่อน UI, รอ hardware testing) |
 
 ---
@@ -271,53 +272,31 @@
 
 ---
 
-### 🔴 Supabase Migration: Free → Pro (Cross-Org) — ลำดับสูงสุด
+### 🔴 Supabase Transfer: FTS org → ytsp18 org (P0 Blocker)
 
-> **เป้าหมาย:** ย้าย Supabase จาก Free plan (org เดิม) ไป Pro plan (org ใหม่)
-> **Downtime ประมาณ:** 2-3 ชั่วโมง
-> **แผนละเอียด:** ดู `MIGRATION-PLAN.md`
+> **เป้าหมาย:** ย้าย production project จาก FTS org (Free) → ytsp18 org (Pro)
+> **วิธี:** Supabase Transfer Project (ไม่ใช่ Clone — URL/keys ไม่เปลี่ยน)
+> **Downtime:** Zero — Transfer ไม่กระทบ app
 
 | # | Step | ใครทำ | สถานะ | หมายเหตุ |
 |---|------|-------|--------|----------|
-| **Phase 0 — เตรียมตัว** | | | | |
-| 0.1 | สร้าง Pro project ใน org ใหม่ | 👤 คุณ | [ ] รอ | เลือก region Southeast Asia |
-| 0.2 | จด URL + Anon Key + Service Role Key + DB Password | 👤 คุณ | [ ] รอ | จาก Dashboard project ใหม่ |
-| 0.3 | แจ้ง users เรื่อง downtime | 👤 คุณ | [ ] รอ | กำหนดช่วงใช้งานน้อยสุด |
-| 0.4 | เช็ค tools (psql, pg_dump) | 🤖 Claude | [ ] รอ | |
-| **Phase 1 — Backup** | | | | |
-| 1.1 | ให้ DB connection string project เดิม | 👤 คุณ | [ ] รอ | มี password |
-| 1.2 | pg_dump schema + data + auth users | 🤖 Claude | [ ] รอ | 3 ไฟล์ backup |
-| 1.3 | ตรวจสอบ backup + จด record count | 🤖 Claude | [ ] รอ | baseline ทุก table |
-| 1.4 | Download storage files (card-images) | 🤖 Claude | [ ] รอ | เขียน script + รัน |
-| **Phase 2 — Setup Schema** | | | | |
-| 2.1 | ให้ DB connection string project ใหม่ | 👤 คุณ | [ ] รอ | มี password |
-| 2.2 | Enable pg_trgm + Run migrations v5.1→v8.1 | 🤖 Claude | [ ] รอ | ตามลำดับ |
-| 2.3 | Verify schema ครบ (tables, functions, triggers, indexes, RLS) | 🤖 Claude | [ ] รอ | |
-| **Phase 3 — Restore Data** | | | | |
-| 3.1 | Disable trigger → restore auth.users → enable trigger | 🤖 Claude | [ ] รอ | ป้องกัน profile ซ้ำ |
-| 3.2 | Restore public data ทุก table | 🤖 Claude | [ ] รอ | |
-| 3.3 | Verify record count + profiles-auth linkage | 🤖 Claude | [ ] รอ | เทียบกับ baseline |
-| **Phase 4 — Storage** | | | | |
-| 4.1 | สร้าง bucket `card-images` (public) | 👤 คุณ | [ ] รอ | ใน Dashboard project ใหม่ |
-| 4.2 | Upload ทุกไฟล์เข้า bucket ใหม่ | 🤖 Claude | [ ] รอ | script |
-| 4.3 | Verify file count + test public URL | 🤖 Claude | [ ] รอ | |
-| **Phase 5-6 — Update URLs + Realtime** | | | | |
-| 5.1 | UPDATE image URLs ใน DB (เปลี่ยน project ref) | 🤖 Claude | [ ] รอ | receipts + profiles |
-| 5.2 | Verify ไม่เหลือ URL เดิม | 🤖 Claude | [ ] รอ | |
-| 6.1 | Enable Realtime (pending_receipts, card_print_locks) | 🤖 Claude | [ ] รอ | |
-| **Phase 7 — App Config + Deploy** | | | | |
-| 7.1 | แก้ `supabase-config.js` (URL + Anon Key) | 🤖 Claude | [ ] รอ | |
-| 7.2 | Git commit | 🤖 Claude | [ ] รอ | |
-| 7.3 | อนุมัติ git push (deploy) | 👤 คุณ | [ ] รอ | ยืนยันก่อน push |
-| **Phase 8 — Verification** | | | | |
-| 8.1 | ทดสอบ Login + ทุกฟีเจอร์จริง (16 จุด) | 👤 คุณ | [ ] รอ | ต้อง browser จริง |
-| 8.2 | ช่วยเช็ค DB side | 🤖 Claude | [ ] รอ | query verify |
-| **Phase 9 — Cleanup** | | | | |
-| 9.1 | อัพเดท MEMORY.md + docs | 🤖 Claude | [ ] รอ | |
-| 9.2 | ตั้ง pg_cron cleanup | 🤖 Claude | [ ] รอ | |
-| 9.3 | ตัดสินใจลบ project เดิม (แนะนำรอ 2 สัปดาห์) | 👤 คุณ | [ ] รอ | |
+| 1 | เข้า Supabase Dashboard → project production | 👤 Admin | [ ] รอ | project `pyyltrcqeyfhidpcdtvc` |
+| 2 | Settings → General → Transfer Project | 👤 Admin | [ ] รอ | |
+| 3 | เลือก target org: `ytsp18` | 👤 Admin | [ ] รอ | |
+| 4 | ยืนยัน transfer | 👤 Admin | [ ] รอ | |
+| 5 | ตรวจว่า project อยู่ใน ytsp18 (ข้างๆ BIO Dashboard) | 👤 Admin | [ ] รอ | |
+| 6 | ตรวจว่า daily backup เริ่มทำงาน (Pro feature) | 👤 Admin | [ ] รอ | |
 
-**Rollback:** เปลี่ยน config กลับ URL เดิม → project เดิมยังอยู่ → ข้อมูลไม่หาย
+**สำคัญ:**
+- URL/keys ไม่เปลี่ยน → ไม่ต้องแก้ `supabase-config.js`
+- Auth users, data, RLS, Storage ยังอยู่ครบ
+- SIT project อยู่ใน org FTS (Free) ต่อไปได้ — คนละ org ไม่กระทบกัน
+- **เงื่อนไข:** owner ของ FTS + member ของ ytsp18 + Organization-based Billing
+- [Supabase Transfer Docs](https://supabase.com/docs/guides/platform/project-transfer)
+
+**ถ้าทำไม่ทัน → เลื่อน deploy ทั้งหมดไปสัปดาห์ถัดไป**
+
+> ⚠️ แผน Clone (Phase 0-9) เดิมถูกแทนที่ด้วย Transfer — ง่ายกว่า + zero downtime
 
 ---
 

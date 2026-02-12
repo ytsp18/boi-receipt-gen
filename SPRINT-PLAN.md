@@ -1,8 +1,9 @@
 # Sprint Plan — BOI Work Permit Receipt System
 
-> อัพเดต: 13 กุมภาพันธ์ 2569
+> อัพเดต: 13 กุมภาพันธ์ 2569 (v9.0.1)
 > Branch: `sit` → Cloudflare Pages auto-deploy
 > SIT URL: `boi-receipt-gen-sit.pages.dev`
+> Version: v9.0.1 (SIT) / v8.6.2 (Production)
 
 ---
 
@@ -23,6 +24,19 @@
 | **P6** | Go Live + Monitor | จันทร์ | [ ] รอ |
 
 > 📄 แผนละเอียด: `.claude/plans/witty-wibbling-eclipse.md`
+
+### MD Improvements (ระหว่างรอ / หลัง Deploy)
+
+| Priority | งาน | สถานะ |
+|----------|------|-------|
+| **MD-1** ⭐ | สร้าง `CLAUDE.md` ที่ project root | ✅ เสร็จ |
+| **MD-2** | อัพเดท `MEMORY.md` — deploy results | [ ] รอ deploy |
+| **MD-3** | สร้าง `PATTERNS.md` — coding patterns | ✅ เสร็จ |
+| **MD-4** | สร้าง `DECISION-LOG.md` — decisions | ✅ เสร็จ |
+| **MD-5** | Security Quick Scan | [ ] อาทิตย์ |
+| **MD-6** | อัพเดท SPRINT-PLAN + ROADMAP | ✅ เสร็จ |
+| **MD-7** | Secret Scan | [ ] สัปดาห์ถัดไป |
+| **MD-8** | Auth/RLS Security Review | [ ] สัปดาห์ถัดไป |
 
 ---
 
