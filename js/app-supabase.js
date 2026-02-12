@@ -4555,10 +4555,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Check Supabase authentication
     try {
+        const envParam = (typeof getEnvParam === 'function') ? getEnvParam() : '';
         const client = window.supabaseClient;
         if (!client) {
             console.error('Supabase client not initialized');
-            window.location.href = 'login.html';
+            window.location.href = 'login.html' + envParam;
             return;
         }
 
@@ -4566,7 +4567,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!session) {
             console.log('❌ Not authenticated, redirecting to login...');
-            window.location.href = 'login.html';
+            window.location.href = 'login.html' + envParam;
             return;
         }
 
@@ -4576,7 +4577,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         await initializeApp();
     } catch (e) {
         console.error('Auth check error:', e);
-        window.location.href = 'login.html';
+        const envParam = (typeof getEnvParam === 'function') ? getEnvParam() : '';
+        window.location.href = 'login.html' + envParam;
     }
 });
 
