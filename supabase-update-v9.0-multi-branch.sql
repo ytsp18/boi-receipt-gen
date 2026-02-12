@@ -336,6 +336,12 @@ CREATE POLICY "branches_delete_super_admin"
     ON public.branches FOR DELETE
     USING (public.is_super_admin());
 
+-- Allow anon users to read active branches (for registration dropdown)
+CREATE POLICY "branches_select_anon_active"
+    ON public.branches FOR SELECT
+    TO anon
+    USING (is_active = true);
+
 -- -------------------------------------------------------
 -- 7b. profiles -- own + same branch (head/deputy) + all (super admin)
 -- -------------------------------------------------------
