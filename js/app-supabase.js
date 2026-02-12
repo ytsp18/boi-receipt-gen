@@ -127,7 +127,7 @@ const UXAnalytics = (() => {
         try {
             eventQueue.push({
                 session_id: sessionId,
-                user_id: null,
+                user_id: (typeof state !== 'undefined' && state.currentUserId) || null,
                 user_role: (typeof state !== 'undefined' && state.currentUserRole) || null,
                 event_type: eventType,
                 event_name: eventName,
@@ -203,8 +203,9 @@ const state = {
     // VP Pending data
     pendingData: [],
     pendingDataLoaded: false,
-    // Current user role
+    // Current user
     currentUserRole: 'staff',
+    currentUserId: null,
     // Pagination - Registry
     currentPage: 1,
     pageSize: 50,
@@ -2283,7 +2284,8 @@ function generatePrintContent() {
         ...state.formData,
         recipientPhotoUrl: photoUrl,
         recipientSignatureUrl: recipientSigUrl,
-        officerSignatureUrl: cachedOfficerSignatureUrl || null
+        officerSignatureUrl: cachedOfficerSignatureUrl || null,
+        cardPrinterName: state.formData.cardPrinterName || null
     };
 
     return generateSinglePrintContent(formDataForPrint);
@@ -3675,6 +3677,7 @@ async function applyPermissions() {
 
     // Update user info display and store role in state
     state.currentUserRole = session.role || 'staff';
+    state.currentUserId = session.userId || null;
     const userNameEl = document.getElementById('currentUserName');
     const userRoleEl = document.getElementById('currentUserRole');
     if (userNameEl) userNameEl.textContent = session.name;
