@@ -28,12 +28,18 @@ const SUPABASE_ENVIRONMENTS = {
 // Default environment - change this to switch
 const SUPABASE_DEFAULT_ENV = 'production';
 
-// Detect environment from URL param or use default
+// Detect environment from URL param, hostname, or use default
 function detectEnvironment() {
+    // 1. Check URL param first (?env=sit)
     const urlParams = new URLSearchParams(window.location.search);
     const envParam = urlParams.get('env');
     if (envParam && SUPABASE_ENVIRONMENTS[envParam]) {
         return envParam;
+    }
+    // 2. Auto-detect from hostname (Cloudflare Pages SIT domain)
+    const hostname = window.location.hostname;
+    if (hostname.includes('sit.pages.dev') || hostname.includes('-sit.pages.dev')) {
+        return 'sit';
     }
     return SUPABASE_DEFAULT_ENV;
 }
