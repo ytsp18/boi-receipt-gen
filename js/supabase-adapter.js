@@ -298,9 +298,7 @@ async function saveReceiptToSupabase(receiptData, cardImageFile = null) {
         }
 
         // v8.5 - Include card printer name (officer who printed the card)
-        if (receiptData.cardPrinterName) {
-            receiptPayload.card_printer_name = receiptData.cardPrinterName;
-        }
+        receiptPayload.card_printer_name = receiptData.cardPrinterName || null;
 
         console.log('📋 saveReceipt payload v7.0 fields:', {
             recipient_photo_url: receiptPayload.recipient_photo_url || '(none)',
