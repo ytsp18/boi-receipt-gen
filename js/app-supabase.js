@@ -4117,25 +4117,10 @@ async function applyPermissions() {
     const hasReceiptModule = state.isSuperAdmin || branchFeatures.receipt_module === true;
 
     if (!hasReceiptModule) {
-        // Hide all receipt-related UI elements
-        const receiptSections = document.querySelectorAll('#registrySection, #formSection, #previewSection, .tab-buttons');
-        receiptSections.forEach(el => { if (el) el.style.display = 'none'; });
-
-        // Show "not enabled" message
-        const mainContent = document.getElementById('mainContent');
-        if (mainContent && !document.getElementById('branchNoAccessMsg')) {
-            const msg = document.createElement('div');
-            msg.id = 'branchNoAccessMsg';
-            msg.style.cssText = 'text-align:center; padding:60px 20px; color:#666;';
-            msg.innerHTML = `
-                <div style="font-size:48px; margin-bottom:16px;">🔒</div>
-                <h2 style="color:#333; margin-bottom:8px;">ยังไม่เปิดใช้งานสำหรับสาขานี้</h2>
-                <p>ระบบใบรับบัตรยังไม่เปิดใช้งานสำหรับ ${state.currentBranch?.name_th || 'สาขานี้'}</p>
-                <p style="font-size:0.9rem; margin-top:8px;">หากต้องการเปิดใช้งาน กรุณาติดต่อผู้ดูแลระบบ</p>
-            `;
-            mainContent.prepend(msg);
-        }
-        return; // Don't apply further permissions for non-receipt branches
+        // v9.0 — Redirect to landing page for branches without receipt_module
+        const envParam = typeof getEnvParam === 'function' ? getEnvParam() : '';
+        window.location.href = 'landing.html' + envParam;
+        return;
     }
 
     // v9.0 — Super admin branch selector (header)
