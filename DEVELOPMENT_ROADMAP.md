@@ -1,8 +1,7 @@
 # แผนพัฒนา — BOI Work Permit Receipt System
 
-> อัพเดต: 11 กุมภาพันธ์ 2569 (rev.3)
-> Current Production: v8.3.0 (deployed on main)
-> SIT Testing: **v8.4.0** (แนบรูปบัตร + สร้างใบรับ — SIT tested ✅, รอ SQL Prod)
+> อัพเดต: 12 กุมภาพันธ์ 2569 (rev.5)
+> Current Production: **v8.6.2** (deployed on main)
 > Pending: v7.0 E-Sign (รอ hardware testing)
 > 🔜 Next: Supabase Migration Free → Pro (cross-org)
 
@@ -20,7 +19,13 @@
 | **v8.1.0** | **10 ก.พ. 69** | **✅ Deployed** | **Fuzzy Search + Quick Print Mode + Header UX** |
 | v8.2.0 | 11 ก.พ. 69 | ✅ Deployed | Quick Wins: Login branding, ล็อก→จอง, Session Timeout, pg_cron |
 | v8.3.0 | 11 ก.พ. 69 | ✅ Deployed | Pre-Migration Hardening: SRI Hash, Password Complexity |
-| **v8.4.0** | **11 ก.พ. 69** | **⏳ SIT Tested** | **แนบรูปบัตร + สร้างใบรับจากหน้าจอง (รอ SQL Prod)** |
+| **v8.4.0** | **11 ก.พ. 69** | **✅ Deployed** | **แนบรูปบัตร + สร้างใบรับจากหน้าจอง** |
+| **v8.5.0** | **11 ก.พ. 69** | **✅ Deployed** | **ผู้พิมพ์บัตรในใบรับ + ฟอร์มจองแค่เลขนัด + inline edit** |
+| v8.5.1 | 11 ก.พ. 69 | ✅ Deployed | Monthly report fix — query ทั้งเดือน + cache 5 นาที |
+| v8.5.2 | 11 ก.พ. 69 | ✅ Deployed | Card printer name input + fix ux_analytics user_id |
+| **v8.6.0** | **12 ก.พ. 69** | **✅ Deployed** | **UX Improvements จาก Analytics (P1–P3: parallel ops, export dropdowns, summary colors)** |
+| v8.6.1 | 12 ก.พ. 69 | ✅ Deployed | Fix admin แก้ไขรายการจองของเจ้าหน้าที่คนอื่นไม่ได้ |
+| **v8.6.2** | **12 ก.พ. 69** | **✅ Deployed** | **Fix table overflow ซ่อนปุ่ม + S/N และ ลบ** |
 | v7.0.0-dev | 10 ก.พ. 69 | ⏸️ On Hold | E-Sign Workflow (ซ่อน UI, รอ hardware testing) |
 
 ---
@@ -29,7 +34,7 @@
 
 > **ยังไม่ deploy production** — ทดสอบบน SIT environment เท่านั้น
 > Local: `http://localhost:8080/index.html?env=sit`
-> Production ที่ `receipt.fts-internal.com` ยังเป็น v6.3.0
+> Production ที่ `receipt.fts-internal.com` ปัจจุบัน v8.6.2
 
 ### ฟีเจอร์ที่พัฒนาแล้ว
 

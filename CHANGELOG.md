@@ -1,5 +1,85 @@
 # Change Log - Work Permit Receipt System
 
+## [8.6.2] - 2026-02-12
+
+> **สถานะ: Deployed ✅**
+
+### Bug Fix — ตารางหน้าจองตัดปุ่ม + S/N และ ลบ ออกจากหน้าจอ
+
+- **Table overflow ซ่อน action buttons**
+  - `.locks-table-wrapper` มี `overflow: hidden` ทำให้ column สุดท้าย (ปุ่ม + S/N, ลบ) ถูกตัดออก
+  - แก้: เปลี่ยนเป็น `overflow-x: auto` ให้ scroll ได้
+  - ลด cell padding (`12px` → `8px`) เพื่อให้ตารางพอดีจอมากขึ้น
+
+### Files Changed
+| ไฟล์ | เปลี่ยนแปลง |
+|------|------------|
+| `card-print.html` | แก้ CSS `overflow: hidden` → `overflow-x: auto`, ลด padding, cache busting `?v=8.6.2` |
+
+---
+
+## [8.6.1] - 2026-02-12
+
+> **สถานะ: Deployed ✅**
+
+### Bug Fix — Admin แก้ไขรายการจองของเจ้าหน้าที่คนอื่นไม่ได้
+
+- **Admin ไม่เห็นปุ่มแก้ไขในหน้าจองบัตร**
+  - สาเหตุ: เช็ค `isOwn = officer_id === currentUserId` เท่านั้น — Admin มี userId ต่างจากเจ้าหน้าที่
+  - แก้: เพิ่ม `canEdit = isOwn || isAdmin` แทน `isOwn` ใน 6 จุด
+  - ปุ่มที่ได้รับผล: + S/N, แก้ S/N, ✏️ inline edit, 📷 แนบรูป, 📄 สร้างใบรับ, pending hints
+
+### Files Changed
+| ไฟล์ | เปลี่ยนแปลง |
+|------|------------|
+| `js/card-print-app.js` | เพิ่ม `isAdmin` + `canEdit` logic ใน `renderLocksTable()` |
+| `card-print.html` | cache busting `?v=8.6.1` |
+| `index.html` | cache busting `?v=8.6.1` |
+
+---
+
+## [8.6.0] - 2026-02-12
+
+> **สถานะ: Deployed ✅**
+
+### New Features — UX Improvements จาก Production Analytics
+
+วิเคราะห์ UX Analytics (3,414 events, 543 sessions, 4 วัน) แล้วปรับปรุง 8 รายการ:
+
+**Performance (P1):**
+- **P1.1: Parallel duplicate checks** — `Promise.allSettled()` แทน sequential `await`
+- **P1.2: Guard redundant getNextReceiptNo** — ลบ call ซ้ำตอน page init
+- **P1.3: Parallel card image upload** — upload card image ร่วมกับ photo/signature ใน `Promise.all()`
+
+**Discoverability (P2):**
+- **P2.1: Batch print hint toast** — แสดง tip หลังพิมพ์ทีละใบ 3 ครั้ง
+- **P2.2: Quick Print button highlight** — เปลี่ยนสีปุ่มให้เด่นขึ้น + icon ⚡
+- **P2.3: Summary color coding** — สีส้ม/เหลือง/เขียว ตามสถานะ + auto-refresh 60s
+
+**Polish (P3):**
+- **P3.1: Export dropdowns** — รวม 4 ปุ่ม export เป็น 2 dropdown (daily + monthly)
+- **P3.2: Manager onboarding toast** — welcome message + Reports tab highlight
+
+### Files Changed
+| ไฟล์ | เปลี่ยนแปลง |
+|------|------------|
+| `js/app-supabase.js` | P1.1, P1.2, P1.3, P2.1, P2.3, P3.1, P3.2 |
+| `js/supabase-adapter.js` | P1.3 card image upload refactor |
+| `index.html` | P2.2, P2.3, P3.1 UI changes |
+
+---
+
+## [8.5.2] - 2026-02-11
+
+> **สถานะ: Deployed ✅**
+
+### Bug Fixes
+- **Card printer name input** — เพิ่มช่องกรอกชื่อผู้พิมพ์บัตร (editable สำหรับใบรับเก่า)
+- **Fix user_id in ux_analytics** — ส่ง user_id ถูกต้อง
+- **Fix card printer name in form print** — แสดงชื่อผู้พิมพ์บัตรใน print output
+
+---
+
 ## [8.5.1] - 2026-02-11
 
 > **สถานะ: Deployed ✅**
@@ -25,8 +105,7 @@
 
 ## [8.5.0] - 2026-02-11
 
-> **สถานะ: Deployed ✅**
-> **⚠️ ต้อง run SQL v8.5 บน Production Supabase ก่อน deploy**
+> **สถานะ: Deployed ✅ — SQL v8.5 run Production สำเร็จ 11 ก.พ. 69**
 
 ### New Features — ผู้พิมพ์บัตรในใบรับ + ฟอร์มจองแค่เลขนัด
 
@@ -63,8 +142,7 @@
 
 ## [8.4.0] - 2026-02-11
 
-> **สถานะ: SIT Tested ✅ — รอ deploy Production**
-> **⚠️ ต้อง run SQL v8.4 บน Production Supabase ก่อน deploy**
+> **สถานะ: Deployed ✅ — SQL v8.4 run Production สำเร็จ 11 ก.พ. 69**
 
 ### New Features — แนบรูปบัตร + สร้างใบรับจากหน้าจอง
 
