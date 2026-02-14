@@ -2,19 +2,22 @@
 
 ## [9.0.2] - 2026-02-15
 
-> **สถานะ: Deploying to Production** — P0-P1 complete, P2-P6 in progress
+> **สถานะ: Deploying to Production** — P0-P2 complete, P3-P6 in progress
 
 ### Deploy Progress (15 ก.พ. 69)
 
 - **P0: Supabase Transfer** ✅ — FTS org (Free) → ytsp18 org (Pro), zero downtime
 - **P1: Rollback Script Test** ✅ — Tested on SIT: rollback → verify v8.6.2 → re-migrate → verify v9.0.1
-- **P1 Bug Fix: Rollback dependency order** — trigger `trg_branches_updated_at` must be dropped before function `update_branches_updated_at()` (PostgreSQL 2BP01 error)
+- **P1 Bug Fix: Rollback dependency order** — trigger must be dropped before function (PostgreSQL 2BP01)
+- **P2: Production SQL Migration** ✅ — v9.0 migration + v9.0.1 RPCs + `is_admin()` function
+- **P2 Fix: Old RLS policies not dropped** — Production had different policy names than SIT; 12 old policies manually dropped (8 on receipts, 4 on activity_logs)
+- **P2 Verify** ✅ — 12/12 checks passed: 60 branches, 747 receipts, 308 locks, 2549 logs, 22 RLS policies
 - **MCP Setup** ✅ — Supabase MCP for prod + SIT connected (HTTP transport + OAuth)
 
 ### Files Changed (v9.0.2)
 | File | Change |
 |------|--------|
-| `rollback-v9.0-to-v8.6.2.sql` | Fix: moved STEP 13 (drop trigger) before STEP 10 (drop functions) to resolve dependency order |
+| `rollback-v9.0-to-v8.6.2.sql` | Fix: dependency order + add `is_admin()` drop for Production |
 | `.mcp.json` | **NEW** — Supabase MCP config (prod + SIT) |
 
 ---

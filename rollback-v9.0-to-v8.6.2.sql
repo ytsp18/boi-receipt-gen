@@ -8,6 +8,7 @@
 --
 -- Created: 2026-02-13
 -- Fixed: 2026-02-15 — Moved trigger drop before function drop (dependency order)
+-- Fixed: 2026-02-15 — Added is_admin() drop + note about Production policy name mismatch
 -- Reference: supabase-update-v9.0-multi-branch.sql lines 670-787
 -- ============================================================
 
@@ -138,11 +139,13 @@ DROP FUNCTION IF EXISTS public.get_user_email(uuid);
 
 -- ============================================================
 -- STEP 11: Drop v9.0 helper functions
--- (NOTE: do NOT drop is_admin() — it existed before v9.0)
+-- NOTE: is_admin() was created during v9.0 deploy on Production
+--       (it did NOT exist before on Production, unlike SIT)
 -- ============================================================
 DROP FUNCTION IF EXISTS public.get_user_branch_id();
 DROP FUNCTION IF EXISTS public.is_super_admin();
 DROP FUNCTION IF EXISTS public.is_branch_head();
+DROP FUNCTION IF EXISTS public.is_admin();
 DROP FUNCTION IF EXISTS public.update_branches_updated_at();
 
 -- ============================================================

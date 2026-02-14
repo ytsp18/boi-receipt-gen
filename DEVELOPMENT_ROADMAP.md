@@ -365,8 +365,8 @@
 3. [x] สร้าง Rollback Script (`rollback-v9.0-to-v8.6.2.sql`)
 4. [x] **P0:** Supabase Transfer Project — FTS org (Free) → ytsp18 org (Pro) ✅ (14 ก.พ. 69)
 5. [x] **P1:** ทดสอบ Rollback Script บน SIT ✅ (15 ก.พ. 69 — แก้ bug dependency order + re-migrate สำเร็จ)
-6. [ ] **P2:** Backup Production DB + Run SQL migration
-7. [ ] **P2:** Verify: branches table + branch_id ≠ NULL + BKK-SC-M-001 active
+6. [x] **P2:** Backup Production DB + Run SQL migration ✅ (15 ก.พ. 69 — migration + fix old RLS policies)
+7. [x] **P2:** Verify: branches table + branch_id ≠ NULL + BKK-SC-M-001 active ✅ (12/12 checks passed)
 8. [ ] **P3:** Merge `sit` → `main` + Push → GitHub Pages auto-deploy
 9. [ ] **P3:** Smoke test (login, receipt CRUD, print, export, user mgmt, card print lock)
 10. [ ] **P4:** Set `admin@boireciptgen.go.th` เป็น super_admin
