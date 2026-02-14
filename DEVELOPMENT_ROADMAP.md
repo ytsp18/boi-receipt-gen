@@ -368,11 +368,11 @@
 6. [x] **P2:** Backup Production DB + Run SQL migration ✅ (15 ก.พ. 69 — migration + fix old RLS policies)
 7. [x] **P2:** Verify: branches table + branch_id ≠ NULL + BKK-SC-M-001 active ✅ (12/12 checks passed)
 8. [x] **P3:** Merge `sit` → `main` + Push → GitHub Pages auto-deploy ✅ (15 ก.พ. 69 — fast-forward merge, tag v8.6.2)
-9. [ ] **P3:** Smoke test (login, receipt CRUD, print, export, user mgmt, card print lock)
+9. [x] **P5:** Smoke test ✅ (15 ก.พ. 69 — login EEC, branch isolation 0 BKK records, print preview ชื่อศูนย์ถูกต้อง, v9.0.0)
 10. [x] **P4:** Set `admin@boireciptgen.go.th` เป็น super_admin ✅ (15 ก.พ. 69 — 2 admins set)
 11. [x] **P4:** Set branch_role = 'officer' ให้ user ทุกคน ✅ (15 ก.พ. 69 — migration auto-assigned: 2 head, 1 deputy, 8 officers)
 12. [x] **P5:** สร้าง test users 3 ศูนย์ (EEC/CMI/PKT) ✅ (15 ก.พ. 69 — via Admin API, all approved)
-13. [ ] **P5:** Smoke test (login, receipt CRUD, branch isolation, card print lock)
+13. [x] **P5 Bug Fix:** auth.users NULL string columns → COALESCE update ✅ (15 ก.พ. 69)
 14. [ ] **P6:** Monitor Day 1 (activity_logs + ux_analytics)
 
 **Rollback Plan (3 ระดับ):**

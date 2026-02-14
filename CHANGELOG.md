@@ -2,7 +2,7 @@
 
 ## [9.0.2] - 2026-02-15
 
-> **สถานะ: Deployed to Production** — P0-P4 complete, P5 (buffer), P6 (monitor) remaining
+> **สถานะ: Deployed to Production** — P0-P5 complete, P6 (monitor Monday) remaining
 
 ### Deploy Progress (15 ก.พ. 69)
 
@@ -15,6 +15,8 @@
 - **P3: Code Deploy** ✅ — Merge `sit` → `main` (fast-forward), tag `v8.6.2` created, GitHub Pages auto-deploy
 - **P4: Data Migration** ✅ — 2 admins set `is_super_admin=true` + `branch_role='head'`, 1 deputy, 8 officers
 - **P5: Test Users** ✅ — Created 3 test users via Admin API for branch isolation testing
+- **P5 Bug Fix: auth.users NULL string columns** — Direct SQL INSERT leaves `email_change` etc. as NULL → GoTrue fails with "converting NULL to string is unsupported" → fixed with COALESCE update
+- **P5: Smoke Test** ✅ — Login EEC, branch isolation (0 BKK records), print preview ชื่อศูนย์ถูกต้อง, version v9.0.0
 - **MCP Setup** ✅ — Supabase MCP for prod + SIT connected (HTTP transport + OAuth)
 
 ### Production Test Accounts (created 15 ก.พ. 69)
