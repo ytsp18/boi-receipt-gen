@@ -2,7 +2,7 @@
 
 ## [9.0.2] - 2026-02-15
 
-> **สถานะ: Deploying to Production** — P0-P2 complete, P3-P6 in progress
+> **สถานะ: Deployed to Production** — P0-P4 complete, P5 (buffer), P6 (monitor) remaining
 
 ### Deploy Progress (15 ก.พ. 69)
 
@@ -12,6 +12,8 @@
 - **P2: Production SQL Migration** ✅ — v9.0 migration + v9.0.1 RPCs + `is_admin()` function
 - **P2 Fix: Old RLS policies not dropped** — Production had different policy names than SIT; 12 old policies manually dropped (8 on receipts, 4 on activity_logs)
 - **P2 Verify** ✅ — 12/12 checks passed: 60 branches, 747 receipts, 308 locks, 2549 logs, 22 RLS policies
+- **P3: Code Deploy** ✅ — Merge `sit` → `main` (fast-forward), tag `v8.6.2` created, GitHub Pages auto-deploy
+- **P4: Data Migration** ✅ — 2 admins set `is_super_admin=true` + `branch_role='head'`, 1 deputy, 8 officers
 - **MCP Setup** ✅ — Supabase MCP for prod + SIT connected (HTTP transport + OAuth)
 
 ### Files Changed (v9.0.2)

@@ -18,8 +18,8 @@
 | **P0** | Supabase Transfer: FTS org → ytsp18 org | 14 ก.พ. 69 | [x] ✅ เสร็จ |
 | **P1** | ทดสอบ Rollback Script บน SIT | 15 ก.พ. 69 | [x] ✅ เสร็จ (แก้ bug dependency order + re-migrate สำเร็จ) |
 | **P2** | Run SQL Migration บน Production + Verify | 15 ก.พ. 69 | [x] ✅ เสร็จ (migration + fix old RLS policies + verify 12/12 passed) |
-| **P3** | Deploy Code (merge sit→main) + Smoke Test | เสาร์บ่าย | [ ] รอ |
-| **P4** | Data Migration — Set super_admin + branch_roles | เสาร์บ่าย | [ ] รอ |
+| **P3** | Deploy Code (merge sit→main) + Smoke Test | 15 ก.พ. 69 | [x] ✅ เสร็จ (fast-forward merge, tag v8.6.2, GitHub Pages auto-deploy) |
+| **P4** | Data Migration — Set super_admin + branch_roles | 15 ก.พ. 69 | [x] ✅ เสร็จ (2 admins = super_admin+head, 1 deputy, 8 officers) |
 | **P5** | Buffer — แก้ปัญหา / ทดสอบเพิ่ม | อาทิตย์ | [ ] รอ |
 | **P6** | Go Live + Monitor | จันทร์ | [ ] รอ |
 
