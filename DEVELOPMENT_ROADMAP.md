@@ -280,12 +280,12 @@
 
 | # | Step | ใครทำ | สถานะ | หมายเหตุ |
 |---|------|-------|--------|----------|
-| 1 | เข้า Supabase Dashboard → project production | 👤 Admin | [ ] รอ | project `pyyltrcqeyfhidpcdtvc` |
-| 2 | Settings → General → Transfer Project | 👤 Admin | [ ] รอ | |
-| 3 | เลือก target org: `ytsp18` | 👤 Admin | [ ] รอ | |
-| 4 | ยืนยัน transfer | 👤 Admin | [ ] รอ | |
-| 5 | ตรวจว่า project อยู่ใน ytsp18 (ข้างๆ BIO Dashboard) | 👤 Admin | [ ] รอ | |
-| 6 | ตรวจว่า daily backup เริ่มทำงาน (Pro feature) | 👤 Admin | [ ] รอ | |
+| 1 | เข้า Supabase Dashboard → project production | 👤 Admin | [x] ✅ | project `pyyltrcqeyfhidpcdtvc` |
+| 2 | Settings → General → Transfer Project | 👤 Admin | [x] ✅ | |
+| 3 | เลือก target org: `ytsp18` | 👤 Admin | [x] ✅ | |
+| 4 | ยืนยัน transfer | 👤 Admin | [x] ✅ | 14 ก.พ. 69 |
+| 5 | ตรวจว่า project อยู่ใน ytsp18 (ข้างๆ BIO Dashboard) | 👤 Admin | [x] ✅ | header แสดง ytsp18's PRO |
+| 6 | ตรวจว่า daily backup เริ่มทำงาน (Pro feature) | 👤 Admin | [x] ✅ | backup ย้อนหลัง 7 วัน + PITR |
 
 **สำคัญ:**
 - URL/keys ไม่เปลี่ยน → ไม่ต้องแก้ `supabase-config.js`
@@ -363,8 +363,8 @@
 1. [x] ผ่าน SIT Testing ครบทุกข้อด้านบน (15/15 tests passed)
 2. [x] Bug fixes ทั้งหมดแก้เสร็จ (10 bugs fixed)
 3. [x] สร้าง Rollback Script (`rollback-v9.0-to-v8.6.2.sql`)
-4. [ ] **P0:** Supabase Transfer Project — FTS org (Free) → ytsp18 org (Pro)
-5. [ ] **P1:** ทดสอบ Rollback Script บน SIT (เสาร์เช้า)
+4. [x] **P0:** Supabase Transfer Project — FTS org (Free) → ytsp18 org (Pro) ✅ (14 ก.พ. 69)
+5. [x] **P1:** ทดสอบ Rollback Script บน SIT ✅ (15 ก.พ. 69 — แก้ bug dependency order + re-migrate สำเร็จ)
 6. [ ] **P2:** Backup Production DB + Run SQL migration
 7. [ ] **P2:** Verify: branches table + branch_id ≠ NULL + BKK-SC-M-001 active
 8. [ ] **P3:** Merge `sit` → `main` + Push → GitHub Pages auto-deploy

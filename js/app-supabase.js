@@ -23,6 +23,19 @@ function sanitizeHTML(str) {
         .replace(/'/g, '&#039;');
 }
 
+// Escape for use inside HTML attribute values (onclick, onblur, etc.)
+// Covers all chars that can break out of single/double/backtick quoted attributes
+function escapeHtmlAttribute(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/`/g, '&#96;');
+}
+
 /**
  * Validate input data
  * @param {string} input - Input to validate
@@ -2758,8 +2771,9 @@ function renderRegistryTable() {
         const receivedStatusText = received ? '🎫 รับแล้ว' : '📦 รอรับ';
         const receivedStatusClass = received ? 'status-received' : 'status-waiting';
 
+        const safeReceiptNoAttr = escapeHtmlAttribute(row.receiptNo);
         const imageCell = row.cardImage
-            ? `<img src="${row.cardImage}" class="image-indicator" loading="lazy" onclick="viewImage('${row.receiptNo}')" title="คลิกเพื่อดูรูป">`
+            ? `<img src="${row.cardImage}" class="image-indicator" loading="lazy" onclick="viewImage('${safeReceiptNoAttr}')" title="คลิกเพื่อดูรูป">`
             : '<span class="no-image">ไม่มีรูป</span>';
 
         let rowClass = '';

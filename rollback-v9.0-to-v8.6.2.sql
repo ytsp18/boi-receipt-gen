@@ -7,6 +7,7 @@
 -- WARNING: Run code rollback (git revert) FIRST, then this SQL
 --
 -- Created: 2026-02-13
+-- Fixed: 2026-02-15 — Moved trigger drop before function drop (dependency order)
 -- Reference: supabase-update-v9.0-multi-branch.sql lines 670-787
 -- ============================================================
 
@@ -124,14 +125,19 @@ CREATE POLICY "Admin can read ux_analytics" ON public.ux_analytics
     );
 
 -- ============================================================
--- STEP 9: Drop v9.0.1 RPC functions
+-- STEP 9: Drop trigger FIRST (depends on update_branches_updated_at function)
+-- ============================================================
+DROP TRIGGER IF EXISTS trg_branches_updated_at ON public.branches;
+
+-- ============================================================
+-- STEP 10: Drop v9.0.1 RPC functions
 -- (check_sn_duplicate and get_user_email added in v9.0.1)
 -- ============================================================
 DROP FUNCTION IF EXISTS public.check_sn_duplicate(text, text);
 DROP FUNCTION IF EXISTS public.get_user_email(uuid);
 
 -- ============================================================
--- STEP 10: Drop v9.0 helper functions
+-- STEP 11: Drop v9.0 helper functions
 -- (NOTE: do NOT drop is_admin() — it existed before v9.0)
 -- ============================================================
 DROP FUNCTION IF EXISTS public.get_user_branch_id();
@@ -140,7 +146,7 @@ DROP FUNCTION IF EXISTS public.is_branch_head();
 DROP FUNCTION IF EXISTS public.update_branches_updated_at();
 
 -- ============================================================
--- STEP 11: Drop new columns from tables
+-- STEP 12: Drop new columns from tables
 -- (branch_id, branch_role, is_super_admin)
 -- ============================================================
 ALTER TABLE public.profiles DROP COLUMN IF EXISTS branch_id;
@@ -153,7 +159,7 @@ ALTER TABLE public.activity_logs DROP COLUMN IF EXISTS branch_id;
 ALTER TABLE public.ux_analytics DROP COLUMN IF EXISTS branch_id;
 
 -- ============================================================
--- STEP 12: Drop indexes
+-- STEP 13: Drop indexes
 -- ============================================================
 DROP INDEX IF EXISTS idx_branches_code;
 DROP INDEX IF EXISTS idx_profiles_branch_id;
@@ -161,11 +167,6 @@ DROP INDEX IF EXISTS idx_receipts_branch_id;
 DROP INDEX IF EXISTS idx_receipts_branch_date;
 DROP INDEX IF EXISTS idx_card_print_locks_branch_id;
 DROP INDEX IF EXISTS idx_activity_logs_branch_id;
-
--- ============================================================
--- STEP 13: Drop trigger
--- ============================================================
-DROP TRIGGER IF EXISTS trg_branches_updated_at ON public.branches;
 
 -- ============================================================
 -- STEP 14: Drop branches table (CASCADE removes FK references)

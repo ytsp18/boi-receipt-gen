@@ -1,9 +1,9 @@
 # Sprint Plan — BOI Work Permit Receipt System
 
-> อัพเดต: 13 กุมภาพันธ์ 2569 (v9.0.1)
+> อัพเดต: 15 กุมภาพันธ์ 2569 (v9.0.2 — deploying)
 > Branch: `sit` → Cloudflare Pages auto-deploy
 > SIT URL: `boi-receipt-gen-sit.pages.dev`
-> Version: v9.0.1 (SIT) / v8.6.2 (Production)
+> Version: v9.0.2 (SIT) / v8.6.2 (Production — กำลัง deploy v9.0)
 
 ---
 
@@ -15,8 +15,8 @@
 
 | Priority | งาน | เมื่อไหร่ | สถานะ |
 |----------|------|-----------|-------|
-| **P0** | Supabase Transfer: FTS org → ytsp18 org | ก่อนเสาร์ | [ ] รอ |
-| **P1** | ทดสอบ Rollback Script บน SIT | เสาร์เช้า | [ ] รอ |
+| **P0** | Supabase Transfer: FTS org → ytsp18 org | 14 ก.พ. 69 | [x] ✅ เสร็จ |
+| **P1** | ทดสอบ Rollback Script บน SIT | 15 ก.พ. 69 | [x] ✅ เสร็จ (แก้ bug dependency order + re-migrate สำเร็จ) |
 | **P2** | Run SQL Migration บน Production + Verify | เสาร์บ่าย | [ ] รอ |
 | **P3** | Deploy Code (merge sit→main) + Smoke Test | เสาร์บ่าย | [ ] รอ |
 | **P4** | Data Migration — Set super_admin + branch_roles | เสาร์บ่าย | [ ] รอ |

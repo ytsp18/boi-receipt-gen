@@ -1,5 +1,24 @@
 # Change Log - Work Permit Receipt System
 
+## [9.0.2] - 2026-02-15
+
+> **สถานะ: Deploying to Production** — P0-P1 complete, P2-P6 in progress
+
+### Deploy Progress (15 ก.พ. 69)
+
+- **P0: Supabase Transfer** ✅ — FTS org (Free) → ytsp18 org (Pro), zero downtime
+- **P1: Rollback Script Test** ✅ — Tested on SIT: rollback → verify v8.6.2 → re-migrate → verify v9.0.1
+- **P1 Bug Fix: Rollback dependency order** — trigger `trg_branches_updated_at` must be dropped before function `update_branches_updated_at()` (PostgreSQL 2BP01 error)
+- **MCP Setup** ✅ — Supabase MCP for prod + SIT connected (HTTP transport + OAuth)
+
+### Files Changed (v9.0.2)
+| File | Change |
+|------|--------|
+| `rollback-v9.0-to-v8.6.2.sql` | Fix: moved STEP 13 (drop trigger) before STEP 10 (drop functions) to resolve dependency order |
+| `.mcp.json` | **NEW** — Supabase MCP config (prod + SIT) |
+
+---
+
 ## [9.0.1] - 2026-02-13
 
 > **สถานะ: SIT Testing 🧪** — Bug fixes + cache bust + Pre-MD improvements
