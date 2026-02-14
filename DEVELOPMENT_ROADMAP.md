@@ -371,7 +371,9 @@
 9. [ ] **P3:** Smoke test (login, receipt CRUD, print, export, user mgmt, card print lock)
 10. [x] **P4:** Set `admin@boireciptgen.go.th` เป็น super_admin ✅ (15 ก.พ. 69 — 2 admins set)
 11. [x] **P4:** Set branch_role = 'officer' ให้ user ทุกคน ✅ (15 ก.พ. 69 — migration auto-assigned: 2 head, 1 deputy, 8 officers)
-12. [ ] **P6:** Monitor Day 1 (activity_logs + ux_analytics)
+12. [x] **P5:** สร้าง test users 3 ศูนย์ (EEC/CMI/PKT) ✅ (15 ก.พ. 69 — via Admin API, all approved)
+13. [ ] **P5:** Smoke test (login, receipt CRUD, branch isolation, card print lock)
+14. [ ] **P6:** Monitor Day 1 (activity_logs + ux_analytics)
 
 **Rollback Plan (3 ระดับ):**
 - **ระดับ 1:** Code Rollback — `git revert HEAD` (~5 นาที)

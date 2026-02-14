@@ -14,7 +14,16 @@
 - **P2 Verify** ✅ — 12/12 checks passed: 60 branches, 747 receipts, 308 locks, 2549 logs, 22 RLS policies
 - **P3: Code Deploy** ✅ — Merge `sit` → `main` (fast-forward), tag `v8.6.2` created, GitHub Pages auto-deploy
 - **P4: Data Migration** ✅ — 2 admins set `is_super_admin=true` + `branch_role='head'`, 1 deputy, 8 officers
+- **P5: Test Users** ✅ — Created 3 test users via Admin API for branch isolation testing
 - **MCP Setup** ✅ — Supabase MCP for prod + SIT connected (HTTP transport + OAuth)
+
+### Production Test Accounts (created 15 ก.พ. 69)
+| Email | Name | Branch | Role |
+|-------|------|--------|------|
+| `test.eec@boireciptgen.go.th` | Test EEC | CBI-SC-S-001 (EEC ชลบุรี) | officer |
+| `test.cmi@boireciptgen.go.th` | Test CMI | CMI-SC-M-001 (เชียงใหม่) | officer |
+| `test.pkt@boireciptgen.go.th` | Test PKT | PKT-SC-S-001 (ภูเก็ต) | officer |
+> Password: `Test@1234!` — all approved, receipt_module + card_print_lock enabled
 
 ### Files Changed (v9.0.2)
 | File | Change |
