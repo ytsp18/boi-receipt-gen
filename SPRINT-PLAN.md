@@ -1,13 +1,40 @@
 # Sprint Plan — BOI Work Permit Receipt System
 
-> อัพเดต: 15 กุมภาพันธ์ 2569 (v9.0.2 — deploying)
+> อัพเดต: 16 กุมภาพันธ์ 2569 (v9.1.0 — developing)
 > Branch: `sit` → Cloudflare Pages auto-deploy
 > SIT URL: `boi-receipt-gen-sit.pages.dev`
-> Version: v9.0.2 (SIT) / v8.6.2 (Production — กำลัง deploy v9.0)
+> Version: v9.0.2 (Production + SIT) — developing v9.1.0
 
 ---
 
-## 🚀 Deploy v9.0 to Production — แผนเสาร์-อาทิตย์
+## 🚧 v9.1.0 — Landing Module Selector + UM Full Page + Enhanced Export
+
+> **เป้าหมาย:** ปรับ FTS Internal เป็น Multi-Module Platform
+> **Plan:** `.claude/plans/splendid-mixing-finch.md`
+
+### Implementation Order: Phase 2 → Phase 1 → Phase 3
+
+| Phase | งาน | สถานะ |
+|-------|------|-------|
+| **Phase 2** | UM Full Page — สร้าง `user-management.html` + extract JS | [ ] |
+| **Phase 2** | ลบ UM modal จาก `index.html` + `app-supabase.js` | [ ] |
+| **Phase 1** | Rewrite `landing.html` → Module Selector Cards | [ ] |
+| **Phase 1** | Login redirect → landing + applyPermissions + "🏠 เมนูหลัก" buttons | [ ] |
+| **Phase 3** | Enhanced Export — เพิ่ม columns ใน CSV (ผู้จัดพิมพ์, เวลาพิมพ์, ผู้บันทึก) | [ ] |
+| **Docs** | Update CHANGELOG, ROADMAP, MEMORY.md, SPRINT-PLAN | [ ] |
+| **Deploy** | Commit + push sit → test → merge main | [ ] |
+
+### Module Cards on Landing Page
+
+| Card | Target | ใครเห็น | เงื่อนไข |
+|------|--------|---------|----------|
+| 📋 ระบบจัดการใบรับ | `index.html` | มี receipt_module หรือ super admin | `branch.features.receipt_module` |
+| 👥 จัดการผู้ใช้ | `user-management.html` | admin/head/deputy/super admin | `hasPermission('user_management')` |
+| 📊 Dashboard | — (disabled) | ทุกคน | "เร็วๆ นี้", ไม่ clickable |
+
+---
+
+## ✅ Deploy v9.0 to Production — เสร็จแล้ว (15 ก.พ. 69)
 
 > **เป้าหมาย:** Deploy v9.0 Multi-Branch ขึ้น Production ให้ live วันจันทร์
 > **FTS Super Admin:** `admin@boireciptgen.go.th`
@@ -21,7 +48,7 @@
 | **P3** | Deploy Code (merge sit→main) + Smoke Test | 15 ก.พ. 69 | [x] ✅ เสร็จ (fast-forward merge, tag v8.6.2, GitHub Pages auto-deploy) |
 | **P4** | Data Migration — Set super_admin + branch_roles | 15 ก.พ. 69 | [x] ✅ เสร็จ (2 admins = super_admin+head, 1 deputy, 8 officers) |
 | **P5** | Smoke Test + Bug Fix (auth.users NULL columns) | 15 ก.พ. 69 | [x] ✅ เสร็จ (login EEC, branch isolation, print preview passed) |
-| **P6** | Go Live + Monitor | จันทร์ | [ ] รอ |
+| **P6** | Go Live + Monitor | จันทร์ | [x] ✅ เสร็จ |
 
 > 📄 แผนละเอียด: `.claude/plans/witty-wibbling-eclipse.md`
 

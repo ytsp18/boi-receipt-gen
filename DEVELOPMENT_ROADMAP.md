@@ -1,10 +1,10 @@
 # แผนพัฒนา — BOI Work Permit Receipt System
 
-> อัพเดต: 12 กุมภาพันธ์ 2569 (rev.6)
-> Current Production: **v8.6.2** (deployed on main → GitHub Pages)
-> SIT Testing: **v9.0.0** Multi-Branch (deployed on sit → Cloudflare Pages)
+> อัพเดต: 16 กุมภาพันธ์ 2569 (rev.7)
+> Current Production: **v9.0.2** (deployed on main → GitHub Pages, 15 ก.พ. 69)
+> In Development: **v9.1.0** — Landing Module Selector + UM Full Page + Enhanced Export
 > Pending: v7.0 E-Sign (รอ hardware testing)
-> 🔜 Next: v9.0 SIT Testing → Production Deploy (หลัง Supabase Migration Free → Pro)
+> 🔜 Next: v9.1.0 develop → push sit → test → merge main
 
 ---
 
@@ -27,8 +27,10 @@
 | **v8.6.0** | **12 ก.พ. 69** | **✅ Deployed** | **UX Improvements จาก Analytics (P1–P3: parallel ops, export dropdowns, summary colors)** |
 | v8.6.1 | 12 ก.พ. 69 | ✅ Deployed | Fix admin แก้ไขรายการจองของเจ้าหน้าที่คนอื่นไม่ได้ |
 | **v8.6.2** | **12 ก.พ. 69** | **✅ Deployed** | **Fix table overflow ซ่อนปุ่ม + S/N และ ลบ** |
-| **v9.0.0** | **12 ก.พ. 69** | **🧪 SIT Testing** | **Multi-Branch & User Management — Cloudflare Pages SIT** |
-| **v9.0.1** | **13 ก.พ. 69** | **🧪 SIT Testing** | **Bug fixes + cache bust + Pre-MD improvements + Rollback script + Documentation** |
+| **v9.0.0** | **12 ก.พ. 69** | **✅ Deployed** | **Multi-Branch & User Management** |
+| **v9.0.1** | **13 ก.พ. 69** | **✅ Deployed** | **Bug fixes + cache bust + Pre-MD improvements + Rollback script** |
+| **v9.0.2** | **15 ก.พ. 69** | **✅ Deployed** | **Production deploy — P0-P6 complete** |
+| **v9.1.0** | **16 ก.พ. 69** | **🚧 In Dev** | **Landing Module Selector + UM Full Page + Enhanced Export** |
 | v7.0.0-dev | 10 ก.พ. 69 | ⏸️ On Hold | E-Sign Workflow (ซ่อน UI, รอ hardware testing) |
 
 ---
@@ -239,7 +241,7 @@
 | 5 | `supabase-update-v8.0-card-print-lock.sql` | ✅ Done | ✅ Done (11 ก.พ.) | Card Print Lock — table + archive + RLS + Realtime |
 | 6 | `supabase-update-v8.1-fuzzy-search.sql` | ✅ Done | ✅ Done (11 ก.พ.) | pg_trgm + GIN indexes + fuzzy search function |
 | 7 | pg_cron extension + cleanup schedule | ✅ Done (11 ก.พ.) | ✅ Done (11 ก.พ.) | `cleanup-card-locks` daily midnight |
-| 8 | `supabase-update-v9.0-multi-branch.sql` | ✅ Done (12 ก.พ.) | ❌ รอ (หลัง Supabase Migration) | branches + branch_id + RLS + helper functions |
+| 8 | `supabase-update-v9.0-multi-branch.sql` | ✅ Done (12 ก.พ.) | ✅ Done (15 ก.พ.) | branches + branch_id + RLS + helper functions |
 
 ---
 
