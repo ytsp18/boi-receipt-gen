@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จัดการผู้ใช้งาน - FTS Internal</title>
+    <link rel="stylesheet" href="css/style.css?v=9.1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* User Management Page Styles */
+        .um-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .um-section {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        .um-section h2 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            color: #1e3a5f;
+        }
+
+        /* Tab buttons */
+        .um-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+        }
+
+        .um-tabs .btn {
+            flex: 1;
+            position: relative;
+        }
+
+        .um-tabs .pending-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #dc2626;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+        }
+
+        /* Toolbar row */
+        .um-toolbar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* Branch filter */
+        .um-branch-filter {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .um-branch-filter label {
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .um-branch-filter select {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            flex: 1;
+            max-width: 400px;
+            font-family: 'Sarabun', sans-serif;
+        }
+
+        /* User table full-width */
+        .um-table-wrapper {
+            overflow-x: auto;
+        }
+
+        /* Branch role badges (v9.0) */
+        .role-badge.head {
+            background: #f3e8ff;
+            color: #7c3aed;
+        }
+
+        .role-badge.deputy {
+            background: #cffafe;
+            color: #0e7490;
+        }
+
+        .role-badge.officer {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .role-badge.temp_officer {
+            background: #fef9c3;
+            color: #a16207;
+        }
+
+        .role-badge.other {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        /* Feature tags */
+        .feature-tag {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-size: 10px;
+            display: inline-block;
+            margin: 1px;
+        }
+
+        /* Edit/Add form area */
+        .um-form-area {
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Info box */
+        .um-info-box {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .um-info-box h4 {
+            margin: 0 0 8px 0;
+            color: #0369a1;
+        }
+
+        .um-info-box ol {
+            margin: 0;
+            padding-left: 20px;
+            line-height: 1.8;
+            color: #334155;
+        }
+
+        .um-warning-box {
+            background: #fefce8;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+
+        .um-warning-box p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: #92400e;
+        }
+
+        /* Toast animation */
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .um-container {
+                padding: 8px;
+            }
+
+            .um-section {
+                padding: 12px;
+            }
+
+            .user-table th,
+            .user-table td {
+                padding: 8px 6px;
+                font-size: 0.8rem;
+            }
+
+            .um-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .user-form .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .header-right {
+                gap: 4px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>👥 จัดการผู้ใช้งาน</h1>
+                <p class="subtitle" id="centerName">FTS Internal</p>
+            </div>
+            <div class="header-right">
+                <div class="user-info" id="userInfo">
+                    <span class="user-name" id="currentUserName">-</span>
+                    <span class="user-role" id="currentUserRole">-</span>
+                </div>
+                <a id="backToLandingBtn" class="btn btn-outline btn-sm" href="landing.html">🏠 เมนูหลัก</a>
+                <button class="btn btn-outline-danger btn-sm" id="logoutBtn">ออกจากระบบ</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="um-container">
+            <div id="umContent">
+                <div class="um-section">
+                    <p style="text-align:center; color:#6b7280; padding:40px 0;">
+                        กำลังโหลด...
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Version Badge -->
+    <div class="version-badge">v9.1.0</div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3" integrity="sha384-aRAaCbKYByQpx0fjPuC0PQ9P9moWMEsHXP9tyzP7tbyD5fPK6oTp+THsxdWiq02L" crossorigin="anonymous"></script>
+    <script src="js/supabase-config.js?v=9.1.0"></script>
+    <script>
+        // Ensure Supabase is initialized (retry if CDN loaded late)
+        if (!window.supabaseClient && window.supabase) {
+            window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+        if (!window.supabaseClient) {
+            setTimeout(() => {
+                if (!window.supabaseClient && window.supabase) {
+                    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                }
+            }, 100);
+        }
+    </script>
+    <script src="js/auth.js?v=9.1.0"></script>
+    <script src="js/user-management-app.js?v=9.1.0"></script>
+
+    <script>
+        // Show environment badge if not production
+        if (window.SUPABASE_ENV && window.SUPABASE_ENV.isSIT) {
+            const envBadge = document.createElement('div');
+            envBadge.className = 'version-badge';
+            envBadge.style.cssText = 'bottom: 28px; background: #f97316; color: #fff;';
+            envBadge.textContent = 'SIT ENV';
+            document.body.appendChild(envBadge);
+            document.title = '[SIT] ' + document.title;
+        }
+    </script>
+</body>
+</html>

@@ -63,10 +63,14 @@ function cacheDOMElements() {
 document.addEventListener('DOMContentLoaded', async () => {
     cacheDOMElements();
 
-    // Preserve env param in back link
+    // Preserve env param in back links
     const envParam = typeof getEnvParam === 'function' ? getEnvParam() : '';
     if (envParam && DOM.backToMainBtn) {
         DOM.backToMainBtn.href = 'index.html' + envParam;
+    }
+    const backToLandingBtn = document.getElementById('backToLandingBtn');
+    if (envParam && backToLandingBtn) {
+        backToLandingBtn.href = 'landing.html' + envParam;
     }
 
     // Auth check

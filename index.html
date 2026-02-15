@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบสร้างแบบฟอร์มรับบัตร - EWP Service Center</title>
-    <link rel="stylesheet" href="css/style.css?v=9.0.1">
+    <link rel="stylesheet" href="css/style.css?v=9.1.0">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -20,7 +20,8 @@
                     <span class="user-name" id="currentUserName">-</span>
                     <span class="user-role" id="currentUserRole">-</span>
                 </div>
-                <button class="btn btn-outline btn-sm" id="userManagementBtn" style="display: none;">👥 จัดการผู้ใช้</button>
+                <a class="btn btn-outline btn-sm" id="userManagementBtn" href="user-management.html" style="display: none;">👥 จัดการผู้ใช้</a>
+                <a class="btn btn-outline btn-sm" id="landingBtn" href="landing.html">🏠 เมนูหลัก</a>
                 <a class="btn btn-outline btn-sm" id="cardPrintBtn" href="card-print.html">จองการพิมพ์บัตร</a>
                 <a class="btn btn-warning btn-sm" id="quickPrintBtn" href="index.html?mode=quick-print" title="โหมดพิมพ์ด่วน — ค้นหาแล้วพิมพ์ทันที ไม่ต้องกรอกฟอร์ม">⚡ พิมพ์ด่วน</a>
                 <button class="btn btn-outline btn-sm" id="officerSignatureBtn" style="display:none;">✍️ ลายเซ็น</button>
@@ -456,19 +457,6 @@
         <!-- Will be populated by JavaScript -->
     </div>
 
-    <!-- User Management Modal -->
-    <div class="modal-overlay" id="userModalOverlay" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="userModalTitle">จัดการผู้ใช้</h3>
-                <button class="modal-close" id="closeUserModal">&times;</button>
-            </div>
-            <div class="modal-body" id="userModalBody">
-                <!-- Content will be loaded dynamically -->
-            </div>
-        </div>
-    </div>
-
     <!-- Pending Receipts from VP Modal -->
     <div class="modal-overlay" id="pendingModalOverlay" style="display: none;">
         <div class="modal-content modal-large">
@@ -545,7 +533,7 @@
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js" integrity="sha384-vhxlvgHDsZyM5pkkE2Mx3bO5MpatBRz+YNdhWekhSLp0pupx0PoA4MgT+IZODSgi" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3" integrity="sha384-aRAaCbKYByQpx0fjPuC0PQ9P9moWMEsHXP9tyzP7tbyD5fPK6oTp+THsxdWiq02L" crossorigin="anonymous"></script>
     <!-- Supabase config handles initialization + environment switching -->
-    <script src="js/supabase-config.js?v=9.0.1"></script>
+    <script src="js/supabase-config.js?v=9.1.0"></script>
     <script>
         // Ensure Supabase is initialized (retry if CDN loaded late)
         if (!window.supabaseClient && window.supabase) {
@@ -559,9 +547,9 @@
             }, 100);
         }
     </script>
-    <script src="js/supabase-adapter.js?v=9.0.1"></script>
-    <script src="js/auth.js?v=9.0.1"></script>
-    <script src="js/app-supabase.js?v=9.0.1"></script>
+    <script src="js/supabase-adapter.js?v=9.1.0"></script>
+    <script src="js/auth.js?v=9.1.0"></script>
+    <script src="js/app-supabase.js?v=9.1.0"></script>
 
     <!-- Version Badge + Environment Indicator -->
     <div class="version-badge">v9.0.0</div>

@@ -665,7 +665,7 @@ if (document.getElementById('loginForm')) {
         const result = await login(email, password);
 
         if (result.success) {
-            window.location.href = 'index.html' + getEnvParam();
+            window.location.href = 'landing.html' + getEnvParam();
         } else {
             errorEl.textContent = result.error;
             errorEl.classList.add('show');

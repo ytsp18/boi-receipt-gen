@@ -89,7 +89,9 @@ async function loadRegistryFromSupabase(date = null, branchId = null) {
             recipientSignatureUrl: row.recipient_signature_url || null,
             officerSignatureUrl: row.officer_signature_url || null,
             // v8.5 - Card printer name
-            cardPrinterName: row.card_printer_name || null
+            cardPrinterName: row.card_printer_name || null,
+            // v9.1 - Enhanced export
+            createdBy: row.created_by || null
         }));
     } catch (e) {
         console.error('Error loading from Supabase:', e);
@@ -117,10 +119,10 @@ async function loadMonthlyDataFromSupabase(month, year, branchId = null) {
         // v9.0: Apply branch filter
         const effectiveBranchId = branchId || getCurrentBranchId();
 
-        // Select only columns needed for monthly report (skip images/signatures)
+        // Select columns needed for monthly report (v9.1: +card_printer_name, printed_at, received_at, created_by)
         let query = window.supabaseClient
             .from('receipts')
-            .select('receipt_no, receipt_date, foreigner_name, sn_number, request_no, appointment_no, is_printed, is_received')
+            .select('receipt_no, receipt_date, foreigner_name, sn_number, request_no, appointment_no, is_printed, is_received, card_printer_name, printed_at, received_at, created_by')
             .gte('receipt_date', startDate)
             .lte('receipt_date', endDate)
             .order('receipt_date', { ascending: true })
@@ -144,7 +146,12 @@ async function loadMonthlyDataFromSupabase(month, year, branchId = null) {
             requestNo: row.request_no,
             appointmentNo: row.appointment_no,
             isPrinted: row.is_printed || false,
-            isReceived: row.is_received || false
+            isReceived: row.is_received || false,
+            // v9.1: Enhanced export columns
+            cardPrinterName: row.card_printer_name || '',
+            printedAt: row.printed_at || '',
+            receivedAt: row.received_at || '',
+            createdBy: row.created_by || ''
         }));
     } catch (e) {
         console.error('❌ Failed to load monthly data:', e.message);
@@ -217,7 +224,9 @@ async function searchRegistryFromSupabase(query) {
             recipientSignatureUrl: row.recipient_signature_url || null,
             officerSignatureUrl: row.officer_signature_url || null,
             // v8.5 - Card printer name
-            cardPrinterName: row.card_printer_name || null
+            cardPrinterName: row.card_printer_name || null,
+            // v9.1 - Enhanced export
+            createdBy: row.created_by || null
         }));
     } catch (e) {
         console.error('Error searching Supabase:', e);
