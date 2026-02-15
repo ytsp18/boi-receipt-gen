@@ -167,7 +167,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.isSuperAdmin = session.isSuperAdmin || false;
 
         // Check permission
-        if (!state.isSuperAdmin && !window.AuthSystem?.hasPermission('user_management')) {
+        const hasUMPermission = await window.AuthSystem?.hasPermission('user_management');
+        if (!state.isSuperAdmin && !hasUMPermission) {
             alert('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
             window.location.href = 'landing.html' + (envParam || '');
             return;

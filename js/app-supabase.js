@@ -3414,13 +3414,14 @@ function setupTabNavigation() {
 // Header Navigation Setup
 // ==================== //
 
-function setupUserManagement() {
+async function setupUserManagement() {
     const userManagementBtn = document.getElementById('userManagementBtn');
     const logoutBtn = document.getElementById('logoutBtn');
     const envParam = typeof getEnvParam === 'function' ? getEnvParam() : '';
 
     // Show/hide user management link based on permission
-    if (window.AuthSystem && window.AuthSystem.hasPermission('user_management')) {
+    const hasUMPerm = await window.AuthSystem?.hasPermission('user_management');
+    if (window.AuthSystem && hasUMPerm) {
         if (userManagementBtn) {
             userManagementBtn.style.display = 'inline-block';
             if (envParam) userManagementBtn.href = 'user-management.html' + envParam;
@@ -4027,7 +4028,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function initializeApp() {
     setupEventListeners();
-    setupUserManagement();
+    await setupUserManagement();
     setupPendingImport();
 
     // Apply role-based permissions first (sets state.currentUserRole before rendering)
