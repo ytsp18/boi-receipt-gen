@@ -1,31 +1,43 @@
 # Sprint Plan — BOI Work Permit Receipt System
 
-> อัพเดต: 16 กุมภาพันธ์ 2569 (v9.1.0 — developing)
+> อัพเดต: 16 กุมภาพันธ์ 2569 (v9.2.0 — developing)
 > Branch: `sit` → Cloudflare Pages auto-deploy
 > SIT URL: `boi-receipt-gen-sit.pages.dev`
-> Version: v9.0.2 (Production + SIT) — developing v9.1.0
+> Version: v9.0.2 (Production) / v9.2.0 (SIT)
 
 ---
 
-## 🧪 v9.1.0 — Landing Module Selector + UM Full Page + Enhanced Export
+## 🧪 v9.2.0 — UM Enhancement: Search, Bulk Ops, Audit
 
-> **เป้าหมาย:** ปรับ FTS Internal เป็น Multi-Module Platform
+> **เป้าหมาย:** UM page รองรับจัดการ user เยอะ หลายสาขา
 > **Plan:** `.claude/plans/splendid-mixing-finch.md`
-> **Commit:** `2bb7581` | Pushed to SIT 16 ก.พ. 69
+> **Commit:** `c87be36` | Pushed to SIT 16 ก.พ. 69
 
-### Implementation Order: Phase 2 → Phase 1 → Phase 3
+### 3 Sprints — ทั้งหมดเสร็จ ✅
 
-| Phase | งาน | สถานะ |
-|-------|------|-------|
-| **Phase 2** | UM Full Page — สร้าง `user-management.html` + extract JS | [x] ✅ |
-| **Phase 2** | ลบ UM modal จาก `index.html` + `app-supabase.js` | [x] ✅ |
-| **Phase 1** | Rewrite `landing.html` → Module Selector Cards | [x] ✅ |
-| **Phase 1** | Login redirect → landing + applyPermissions + "🏠 เมนูหลัก" buttons | [x] ✅ |
-| **Phase 3** | Enhanced Export — เพิ่ม columns ใน CSV (ผู้จัดพิมพ์, เวลาพิมพ์, ผู้บันทึก) | [x] ✅ |
-| **Docs** | Update CHANGELOG, ROADMAP, MEMORY.md, SPRINT-PLAN | [x] ✅ |
+| Sprint | งาน | สถานะ |
+|--------|------|-------|
+| **A** | Search + Sort + Pagination (Table UX Foundation) | [x] ✅ |
+| **A** | Refactor getUsers() → options + count + range | [x] ✅ |
+| **A** | Shell + data loader pattern (renderShell + loadUsers) | [x] ✅ |
+| **B** | SQL migration: is_active on profiles, max_users on branches | [x] ✅ |
+| **B** | Bulk ops (approve, role change, deactivate) + checkboxes | [x] ✅ |
+| **B** | Deactivate/Reactivate + requireAuth block | [x] ✅ |
+| **B** | Export user list CSV + role filter | [x] ✅ |
+| **C** | Instrument audit logging (14 action points) | [x] ✅ |
+| **C** | Audit log viewer tab + getFiltered() | [x] ✅ |
+| **C** | Branch capacity indicator (progress bar) | [x] ✅ |
 | **Deploy** | Commit + push sit | [x] ✅ |
 | **Test** | SIT smoke test on Cloudflare Pages | [ ] 🔜 |
 | **Deploy** | merge sit → main (production) | [ ] รอ test ผ่าน |
+
+---
+
+## ✅ v9.1.0 — Landing Module Selector + UM Full Page + Enhanced Export
+
+> **เป้าหมาย:** ปรับ FTS Internal เป็น Multi-Module Platform
+> **Commit:** `2bb7581` | Pushed to SIT 16 ก.พ. 69
+> **สถานะ:** ✅ เสร็จ → merged into v9.2.0
 
 ### Module Cards on Landing Page
 

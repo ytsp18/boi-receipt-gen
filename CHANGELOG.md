@@ -1,5 +1,54 @@
 # Change Log - Work Permit Receipt System
 
+## [9.2.0] - 2026-02-16 (SIT Testing)
+
+> **สถานะ: 🧪 Pushed to SIT** — UM Enhancement: Search, Bulk Ops, Audit
+> **Commit:** `c87be36` | **Branch:** `sit`
+
+### Overview
+UM page จากหน้าเต็มที่ v9.1.0 สร้างไว้ → เพิ่ม professional admin features:
+- **Search + Sort + Pagination** — server-side via Supabase PostgREST
+- **Bulk Operations** — approve/role change/deactivate หลายคนพร้อมกัน
+- **Deactivate/Reactivate** — soft delete แทน hard delete
+- **Audit Logging** — instrument 14 action points + viewer tab
+- **Branch Capacity** — progress bar indicator + max_users
+
+### Sprint A — Table UX Foundation ✅
+- [x] Refactor `getUsers()` → options object + count + search + sort + pagination
+- [x] Shell + data loader pattern (renderShell once + loadUsers on change)
+- [x] Search input with 300ms debounce (name/email via ilike)
+- [x] Sortable column headers with ▲/▼ indicators
+- [x] Pagination controls with ellipsis + page size selector (10/25/50)
+- [x] Sticky table header CSS
+
+### Sprint B — Filters + Bulk Ops + Deactivate + Export ✅
+- [x] SQL: `ALTER TABLE profiles ADD COLUMN is_active BOOLEAN DEFAULT true`
+- [x] SQL: `ALTER TABLE branches ADD COLUMN max_users INT DEFAULT 20`
+- [x] Deactivate/Reactivate single user (⏸️/▶️ buttons)
+- [x] `requireAuth()` blocks deactivated users on login
+- [x] Bulk approve, bulk role change, bulk deactivate with progress
+- [x] Checkbox selection with select-all toggle + bulk action bar
+- [x] Export user list CSV (BOM + UTF-8, 8 columns)
+- [x] Role filter dropdown
+
+### Sprint C — Audit Log + Branch Capacity ✅
+- [x] Instrument `SupabaseActivityLog.add()` in 14 action points
+- [x] Add `getFiltered()` to SupabaseActivityLog with pagination
+- [x] Audit log viewer tab (📋 บันทึกกิจกรรม) with action/date filters
+- [x] Branch capacity indicator (progress bar: green<70%/yellow<90%/red>90%)
+- [x] `max_users` field in branch edit form
+
+### Files Changed (v9.2.0)
+| File | Change |
+|------|--------|
+| `js/auth.js` | Refactor `getUsers()` options, add `is_active` to updateUser, requireAuth deactivated check |
+| `js/user-management-app.js` | Major rewrite: +900 lines — search, sort, pagination, bulk ops, audit viewer, capacity |
+| `user-management.html` | CSS: sticky header, search input, sort arrows, bulk bar, capacity bar, audit styles |
+| `js/supabase-config.js` | Add `getFiltered()` to SupabaseActivityLog |
+| `js/app-supabase.js` | Backward compat for getUsers() return type change |
+
+---
+
 ## [9.1.0] - 2026-02-16 (SIT Testing)
 
 > **สถานะ: 🧪 Pushed to SIT** — Landing Module Selector + UM Full Page + Enhanced Export
