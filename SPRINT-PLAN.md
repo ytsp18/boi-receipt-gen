@@ -1,6 +1,6 @@
 # Sprint Plan — BOI Work Permit Receipt System
 
-> อัพเดต: 16 กุมภาพันธ์ 2569 (v9.2.0 — developing)
+> อัพเดต: 16 กุมภาพันธ์ 2569 (v9.2.0 — SIT Passed ✅)
 > Branch: `sit` → Cloudflare Pages auto-deploy
 > SIT URL: `boi-receipt-gen-sit.pages.dev`
 > Version: v9.0.2 (Production) / v9.2.0 (SIT)
@@ -11,7 +11,7 @@
 
 > **เป้าหมาย:** UM page รองรับจัดการ user เยอะ หลายสาขา
 > **Plan:** `.claude/plans/splendid-mixing-finch.md`
-> **Commit:** `c87be36` | Pushed to SIT 16 ก.พ. 69
+> **Commit:** `c87be36` → `14ac1b5` (4 bug fixes) | Pushed to SIT 16 ก.พ. 69 | **SIT Passed ✅**
 
 ### 3 Sprints — ทั้งหมดเสร็จ ✅
 
@@ -28,8 +28,17 @@
 | **C** | Audit log viewer tab + getFiltered() | [x] ✅ |
 | **C** | Branch capacity indicator (progress bar) | [x] ✅ |
 | **Deploy** | Commit + push sit | [x] ✅ |
-| **Test** | SIT smoke test on Cloudflare Pages | [ ] 🔜 |
-| **Deploy** | merge sit → main (production) | [ ] รอ test ผ่าน |
+| **Test** | SIT smoke test on Cloudflare Pages | [x] ✅ (10/10 passed, 4 bug fixes) |
+| **Deploy** | merge sit → main (production) | [ ] พร้อม merge |
+
+### Bug Fixes (พบระหว่าง v9.2.0 SIT Testing)
+
+| # | Bug | Fix | Commit |
+|---|-----|-----|--------|
+| BF1 | Search ใช้ column `username` ที่ไม่มี | เปลี่ยนเป็น `email` | `b7d72d0` |
+| BF2 | Deactivated user ยังเข้าระบบได้ (landing ไม่เรียก requireAuth) | เพิ่ม requireAuth() ใน landing, app-supabase, UM, card-print | `50bef18` |
+| BF3 | getSession() ไม่มี is_active field → ตรวจสอบ deactivated ไม่ได้ | เพิ่ม `is_active` ใน return object | `80f980d` |
+| BF4 | Browser cache ไม่ clear หลัง deploy → ใช้ JS เก่า | Bump `?v=9.1.0` → `?v=9.2.1` ทุก HTML | `14ac1b5` |
 
 ---
 

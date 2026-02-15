@@ -1,10 +1,10 @@
 # แผนพัฒนา — BOI Work Permit Receipt System
 
-> อัพเดต: 16 กุมภาพันธ์ 2569 (rev.8)
+> อัพเดต: 16 กุมภาพันธ์ 2569 (rev.9)
 > Current Production: **v9.0.2** (deployed on main → GitHub Pages, 15 ก.พ. 69)
-> SIT Testing: **v9.2.0** — UM Enhancement: Search, Bulk Ops, Audit (commit `c87be36`)
+> SIT Testing: **v9.2.0** — UM Enhancement: Search, Bulk Ops, Audit ✅ SIT Passed (commit `14ac1b5`)
 > Pending: v7.0 E-Sign (รอ hardware testing)
-> 🔜 Next: v9.2.0 SIT smoke test → fix bugs → merge main
+> 🔜 Next: merge sit → main (production deploy v9.2.0)
 
 ---
 
@@ -31,7 +31,7 @@
 | **v9.0.1** | **13 ก.พ. 69** | **✅ Deployed** | **Bug fixes + cache bust + Pre-MD improvements + Rollback script** |
 | **v9.0.2** | **15 ก.พ. 69** | **✅ Deployed** | **Production deploy — P0-P6 complete** |
 | **v9.1.0** | **16 ก.พ. 69** | **✅ SIT** | **Landing Module Selector + UM Full Page + Enhanced Export** |
-| **v9.2.0** | **16 ก.พ. 69** | **🧪 SIT** | **UM Enhancement: Search, Bulk Ops, Audit Log, Branch Capacity** |
+| **v9.2.0** | **16 ก.พ. 69** | **✅ SIT Passed** | **UM Enhancement: Search, Bulk Ops, Audit Log, Branch Capacity** |
 | v7.0.0-dev | 10 ก.พ. 69 | ⏸️ On Hold | E-Sign Workflow (ซ่อน UI, รอ hardware testing) |
 
 ---
