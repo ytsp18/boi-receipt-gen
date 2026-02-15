@@ -1,5 +1,52 @@
 # Change Log - Work Permit Receipt System
 
+## [9.3.0] - 2026-02-16 (SIT only)
+
+> **สถานะ: SIT Deployed** — Extract Inline Scripts to External JS
+
+### Inline Script Extraction
+- **12 inline `<script>` blocks removed** from 6 HTML files (~529 lines)
+- **4 new external JS files created:**
+  - `js/supabase-init-retry.js` — shared init retry + SIT badge (3 pages)
+  - `js/login-register.js` — registration modal (login.html)
+  - `js/landing-app.js` — landing page init + logout
+  - `js/reset-password-app.js` — password reset form handler
+- **login.html + reset-password.html** now use `supabase-config.js` (eliminated duplicated env config)
+- **Code deduplication:** 3 copies of env detection → 1 (supabase-config.js)
+- **`window.SUPABASE_LOGIN_ENV` removed** (was unused)
+- Cache bumped to `?v=9.3.0`
+
+### Smoke Test
+- All 4 new JS files: HTTP 200
+- All 6 HTML pages: HTTP 200, zero inline `<script>` tags
+- SIT database: verified accessible
+
+### Not Changed
+- CSP `'unsafe-inline'` still present — requires Phase 2 (inline event handler removal, ~76 onclick= in JS)
+
+---
+
+## [9.2.4] - 2026-02-16 (Production)
+
+> **สถานะ: ✅ Production Deployed** — Fuzzy Search Fix + Smoke Test
+
+### Fuzzy Search — Prefix Stripping
+- **RPC `search_receipts_fuzzy`:** Strip Mr./Mrs./Miss/Ms. prefix before trigram comparison
+- 99.9% of receipts (746/747) have prefix — diluted similarity score causing missed results
+- Search query also stripped (case: user types "mr. john")
+- ORDER BY uses `GREATEST()` of both stripped + original similarity
+- **Migration applied:** SIT + Production via Supabase MCP
+- **`search_path` changed:** `''` → `'public'` to fix pg_trgm operator resolution
+
+### Smoke Test v9.2.3
+- **SIT:** All 5 pages passed — login, landing, receipt, card-print, user-management
+- **Production:** All 4 pages passed — login, receipt, card-print, user-management
+- **CSP violations:** Zero on both environments
+- **Cloudflare `_headers`:** All 5 security headers verified
+- **XSS onclick fix:** Confirmed functional (checkbox, print, delete buttons working)
+
+---
+
 ## [9.2.3] - 2026-02-16 (Production)
 
 > **สถานะ: ✅ Production Deployed** — Security Hardening
