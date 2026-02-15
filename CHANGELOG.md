@@ -1,5 +1,26 @@
 # Change Log - Work Permit Receipt System
 
+## [9.2.3] - 2026-02-16 (Production)
+
+> **สถานะ: ✅ Production Deployed** — Security Hardening
+
+### XSS Prevention
+- **app-supabase.js:** Use `escapeHtmlAttribute()` for all onclick/onchange — `row.receiptNo` (5 locations)
+- **card-print-app.js:** Add `escapeHtmlAttribute()` function + fix 10+ onclick/onblur for `lock.id`, `lock.appointment_id`, `lock.card_image_url`
+- **user-management-app.js:** Add `escapeHtmlAttribute()` + use for all `safeId` in onclick attributes + branch management buttons
+- **login.html:** Add `escAttr()` for branch dropdown values
+
+### Security Headers
+- **New file: `_headers`** — Cloudflare Pages security headers (CSP, X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Referrer-Policy, Permissions-Policy)
+- **CSP meta tag** added to all 6 HTML files for GitHub Pages compatibility
+- CSP policy: `default-src 'self'`, script/style from jsdelivr + Google Fonts, connect to *.supabase.co, `frame-ancestors 'none'`
+
+### Verified
+- JWT expiry = 3600s (1 hour) on both SIT + Production — no change needed
+- Anon key long expiry is by design (public key, RLS protects data)
+
+---
+
 ## [9.2.0] - 2026-02-16 (Production)
 
 > **สถานะ: ✅ Production Deployed** — UM Enhancement + Security Hardening

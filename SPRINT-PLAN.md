@@ -1,9 +1,34 @@
 # Sprint Plan — BOI Work Permit Receipt System
 
-> อัพเดต: 16 กุมภาพันธ์ 2569 (v9.2.0 — Production Deployed ✅)
+> อัพเดต: 16 กุมภาพันธ์ 2569 (v9.2.3 — Security Hardening ✅)
 > Branch: `main` → GitHub Pages auto-deploy
 > Production URL: `receipt.fts-internal.com`
-> Version: v9.2.0 (Production + SIT)
+> Version: v9.2.3 (Production + SIT)
+
+---
+
+## 🔒 v9.2.3 — Security Hardening (XSS + CSP + Headers)
+
+> **เป้าหมาย:** แก้ security findings จาก audit — XSS prevention, HTTP headers
+> **สถานะ:** ✅ Production Deployed 16 ก.พ. 69
+
+### Completed
+| # | งาน | สถานะ |
+|---|------|-------|
+| S1 | XSS: escapeHtmlAttribute() ทุก onclick/onchange (8+ จุด) | ✅ |
+| S2 | CSP meta tag + _headers file (Cloudflare Pages) | ✅ |
+| S3 | Security headers: X-Frame-Options, X-Content-Type, Referrer-Policy | ✅ |
+| S4 | JWT expiry verified = 3600s (default, ไม่ต้องแก้) | ✅ |
+| S5 | login.html branch dropdown — escape values | ✅ |
+
+### Security Roadmap (Future)
+| Priority | งาน | ระดับ | สถานะ |
+|----------|------|-------|-------|
+| HIGH | ลบ inline scripts → external JS (CSP ไม่ต้อง unsafe-inline) | Refactor | [ ] Future |
+| MEDIUM | Client-side login rate limiting (5 attempts/min) | Code | [ ] Future |
+| MEDIUM | Generic auth error messages | Code | [ ] Future |
+| LOW | Migrate production to Cloudflare Pages (full headers) | Infra | [ ] Future |
+| LOW | Add CAPTCHA on registration form | Integration | [ ] Future |
 
 ---
 
@@ -87,10 +112,10 @@
 | **MD-2** | อัพเดท `MEMORY.md` — deploy results | [ ] รอ deploy |
 | **MD-3** | สร้าง `PATTERNS.md` — coding patterns | ✅ เสร็จ |
 | **MD-4** | สร้าง `DECISION-LOG.md` — decisions | ✅ เสร็จ |
-| **MD-5** | Security Quick Scan | [ ] อาทิตย์ |
+| **MD-5** | Security Quick Scan | ✅ เสร็จ (v9.2.0 hasPermission fix + v9.2.3 XSS/CSP) |
 | **MD-6** | อัพเดท SPRINT-PLAN + ROADMAP | ✅ เสร็จ |
-| **MD-7** | Secret Scan | [ ] สัปดาห์ถัดไป |
-| **MD-8** | Auth/RLS Security Review | [ ] สัปดาห์ถัดไป |
+| **MD-7** | Secret Scan | ✅ เสร็จ (function_search_path_mutable fixed, JWT verified) |
+| **MD-8** | Auth/RLS Security Review | ✅ เสร็จ (is_user_active() RLS + XSS escaping + CSP headers) |
 
 ---
 

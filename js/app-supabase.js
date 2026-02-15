@@ -2802,15 +2802,15 @@ function renderRegistryTable() {
         const printStatusClass = printed ? 'status-printed' : 'status-pending';
         const printStatusText = printed ? `✅ พิมพ์แล้ว (${printInfo.printCount})` : '⏳ รอพิมพ์';
 
+        const safeReceiptNoAttr = escapeHtmlAttribute(row.receiptNo);
+
         const receivedCheckbox = `<input type="checkbox" class="received-checkbox"
             ${received ? 'checked' : ''}
-            onchange="toggleCardReceived('${row.receiptNo}')"
+            onchange="toggleCardReceived('${safeReceiptNoAttr}')"
             title="${received ? 'คลิกเพื่อยกเลิก' : 'คลิกเพื่อยืนยันรับบัตร'}">`;
         const receivedTime = received && receivedInfo ? `<span class="received-time">${formatTime(receivedInfo.receivedAt)}</span>` : '';
         const receivedStatusText = received ? '🎫 รับแล้ว' : '📦 รอรับ';
         const receivedStatusClass = received ? 'status-received' : 'status-waiting';
-
-        const safeReceiptNoAttr = escapeHtmlAttribute(row.receiptNo);
         const imageCell = row.cardImage
             ? `<img src="${row.cardImage}" class="image-indicator" loading="lazy" onclick="viewImage('${safeReceiptNoAttr}')" title="คลิกเพื่อดูรูป">`
             : '<span class="no-image">ไม่มีรูป</span>';
@@ -2824,7 +2824,7 @@ function renderRegistryTable() {
 
         const batchCheckbox = `<input type="checkbox" class="batch-checkbox"
             ${isSelected ? 'checked' : ''}
-            onchange="toggleSelectItem('${row.receiptNo}')"
+            onchange="toggleSelectItem('${safeReceiptNoAttr}')"
             title="เลือกเพื่อพิมพ์หลายใบ">`;
 
         // Sanitize all user data before rendering
@@ -2854,13 +2854,13 @@ function renderRegistryTable() {
                     </div>
                 </td>
                 <td class="action-buttons">
-                    <button class="btn btn-success btn-sm" onclick="printFromTable('${safeReceiptNo}')" title="พิมพ์ใบรับ">
+                    <button class="btn btn-success btn-sm" onclick="printFromTable('${safeReceiptNoAttr}')" title="พิมพ์ใบรับ">
                         🖨️
                     </button>
-                    <button class="btn btn-primary btn-sm" onclick="selectRow('${safeReceiptNo}')" title="แก้ไข">
+                    <button class="btn btn-primary btn-sm" onclick="selectRow('${safeReceiptNoAttr}')" title="แก้ไข">
                         ✏️
                     </button>
-                    ${state.currentUserRole === 'admin' ? `<button class="btn btn-outline-danger btn-sm" onclick="deleteRecord('${safeReceiptNo}')" title="ลบ">
+                    ${state.currentUserRole === 'admin' ? `<button class="btn btn-outline-danger btn-sm" onclick="deleteRecord('${safeReceiptNoAttr}')" title="ลบ">
                         🗑️
                     </button>` : ''}
                 </td>

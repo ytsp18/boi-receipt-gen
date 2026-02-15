@@ -24,6 +24,17 @@ function sanitizeHTML(str) {
         .replace(/'/g, '&#039;');
 }
 
+function escapeHtmlAttribute(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/`/g, '&#96;');
+}
+
 function showToast(message, type = 'success', duration = 2000) {
     const colors = {
         success: '#22c55e',
@@ -484,7 +495,7 @@ function renderUserTable() {
 
     if (state.currentTab === 'approved') {
         tbody.innerHTML = users.map(user => {
-            const safeId = sanitizeHTML(user.id);
+            const safeId = escapeHtmlAttribute(user.id);
             const safeName = sanitizeHTML(user.name || '-');
             const safeEmail = sanitizeHTML(user.email || '-');
             const branchName = user.branches?.name_th || '-';
@@ -516,7 +527,7 @@ function renderUserTable() {
         }).join('');
     } else if (state.currentTab === 'pending') {
         tbody.innerHTML = users.map(user => {
-            const safeId = sanitizeHTML(user.id);
+            const safeId = escapeHtmlAttribute(user.id);
             const safeName = sanitizeHTML(user.name || '-');
             const safeEmail = sanitizeHTML(user.email || '-');
             const branchName = user.branches?.name_th || '-';
@@ -1380,10 +1391,10 @@ async function showBranchManagement() {
                                 <td>${featureTags}</td>
                                 <td>${b.is_active ? '<span style="color:green;">เปิดใช้</span>' : '<span style="color:red;">ปิด</span>'}</td>
                                 <td>
-                                    <button class="btn btn-primary btn-sm" onclick="showEditBranchForm('${b.id}')" title="แก้ไข">✏️</button>
+                                    <button class="btn btn-primary btn-sm" onclick="showEditBranchForm('${escapeHtmlAttribute(b.id)}')" title="แก้ไข">✏️</button>
                                     ${b.is_active ?
-                                        `<button class="btn btn-outline-danger btn-sm" onclick="toggleBranchStatus('${b.id}', false)" title="ปิดใช้งาน">⏸️</button>` :
-                                        `<button class="btn btn-success btn-sm" onclick="toggleBranchStatus('${b.id}', true)" title="เปิดใช้งาน">▶️</button>`
+                                        `<button class="btn btn-outline-danger btn-sm" onclick="toggleBranchStatus('${escapeHtmlAttribute(b.id)}', false)" title="ปิดใช้งาน">⏸️</button>` :
+                                        `<button class="btn btn-success btn-sm" onclick="toggleBranchStatus('${escapeHtmlAttribute(b.id)}', true)" title="เปิดใช้งาน">▶️</button>`
                                     }
                                 </td>
                             </tr>`;

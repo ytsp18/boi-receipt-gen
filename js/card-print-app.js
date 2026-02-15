@@ -327,13 +327,15 @@ function renderLocksTable() {
         const canEdit = isOwn || isAdmin;
         const colorClass = getOfficerColor(lock.officer_name);
         const statusBadge = getStatusBadge(lock.status);
+        const safeLockId = escapeHtmlAttribute(lock.id);
+        const safeAppointmentId = escapeHtmlAttribute(lock.appointment_id);
 
         // Card image column
         let imageCell;
         if (lock.card_image_url) {
-            imageCell = `<td><img class="card-thumb" src="${escapeHtml(lock.card_image_url)}" onclick="showImagePreview('${escapeHtml(lock.card_image_url)}')" title="คลิกเพื่อดูขนาดเต็ม"></td>`;
+            imageCell = `<td><img class="card-thumb" src="${escapeHtmlAttribute(lock.card_image_url)}" onclick="showImagePreview('${escapeHtmlAttribute(lock.card_image_url)}')" title="คลิกเพื่อดูขนาดเต็ม"></td>`;
         } else if (canEdit) {
-            imageCell = `<td><button class="btn-upload-img" onclick="triggerImageUpload('${lock.id}')">📷 แนบรูป</button></td>`;
+            imageCell = `<td><button class="btn-upload-img" onclick="triggerImageUpload('${safeLockId}')">📷 แนบรูป</button></td>`;
         } else {
             imageCell = `<td><span style="color:#9ca3af;font-size:0.72rem;">-</span></td>`;
         }
@@ -343,11 +345,11 @@ function renderLocksTable() {
 
         if (state.editingSNId === lock.id) {
             // Editing mode
-            snGoodCell = `<td><input type="text" class="sn-edit-input" id="snGoodEdit_${lock.id}" value="${escapeHtml(lock.sn_good || '')}" placeholder="S/N ดี" style="width:90px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:0.8rem;"></td>`;
+            snGoodCell = `<td><input type="text" class="sn-edit-input" id="snGoodEdit_${safeLockId}" value="${escapeHtmlAttribute(lock.sn_good || '')}" placeholder="S/N ดี" style="width:90px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:0.8rem;"></td>`;
             snSpoiledCell = `<td>
                 <div class="sn-form-inline">
-                    <input type="text" id="snSpoiledEdit_${lock.id}" value="${escapeHtml(lock.sn_spoiled || '')}" placeholder="S/N เสีย" style="width:80px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:0.8rem;">
-                    <button class="btn-sn-save" onclick="saveSN('${lock.id}')">บันทึก</button>
+                    <input type="text" id="snSpoiledEdit_${safeLockId}" value="${escapeHtmlAttribute(lock.sn_spoiled || '')}" placeholder="S/N เสีย" style="width:80px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:0.8rem;">
+                    <button class="btn-sn-save" onclick="saveSN('${safeLockId}')">บันทึก</button>
                     <button class="btn-sn-add" onclick="cancelSNEdit()">ยกเลิก</button>
                 </div>
             </td>`;
@@ -358,14 +360,14 @@ function renderLocksTable() {
 
             const actions = [];
             if (canEdit && lock.status === 'locked') {
-                actions.push(`<button class="btn-sn-add" onclick="startSNEdit('${lock.id}')">+ S/N</button>`);
+                actions.push(`<button class="btn-sn-add" onclick="startSNEdit('${safeLockId}')">+ S/N</button>`);
             }
             if (canEdit && lock.status === 'printed') {
-                actions.push(`<button class="btn-sn-add" onclick="startSNEdit('${lock.id}')">แก้ S/N</button>`);
+                actions.push(`<button class="btn-sn-add" onclick="startSNEdit('${safeLockId}')">แก้ S/N</button>`);
             }
             // Admin can delete (unlock)
             if (state.currentUser?.role === 'admin') {
-                actions.push(`<button class="btn-delete" onclick="deleteLock('${lock.id}', '${escapeHtml(lock.appointment_id)}')">ลบ</button>`);
+                actions.push(`<button class="btn-delete" onclick="deleteLock('${safeLockId}', '${safeAppointmentId}')">ลบ</button>`);
             }
             actionCell = `<td>${actions.join(' ')}</td>`;
         }
@@ -375,7 +377,7 @@ function renderLocksTable() {
         if (lock.status === 'completed') {
             receiptCell = `<td><span class="receipt-badge">✅ สร้างแล้ว</span></td>`;
         } else if (lock.sn_good && lock.card_image_url && canEdit) {
-            receiptCell = `<td><button class="btn-create-receipt" onclick="createReceiptFromLock('${lock.id}')">📄 สร้างใบรับ</button></td>`;
+            receiptCell = `<td><button class="btn-create-receipt" onclick="createReceiptFromLock('${safeLockId}')">📄 สร้างใบรับ</button></td>`;
         } else if (canEdit) {
             const hints = [];
             if (!lock.sn_good) hints.push('รอ SN');
@@ -389,7 +391,7 @@ function renderLocksTable() {
         const editableCell = (field, value) => {
             const display = escapeHtml(value || '-');
             if (canEdit && lock.status !== 'completed') {
-                return `<td><span class="inline-editable" onclick="startInlineEdit('${lock.id}','${field}', this)" title="คลิกเพื่อแก้ไข">${display}<span class="edit-hint"> ✏️</span></span></td>`;
+                return `<td><span class="inline-editable" onclick="startInlineEdit('${safeLockId}','${field}', this)" title="คลิกเพื่อแก้ไข">${display}<span class="edit-hint"> ✏️</span></span></td>`;
             }
             return `<td>${display}</td>`;
         };
@@ -758,6 +760,17 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+function escapeHtmlAttribute(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/`/g, '&#96;');
+}
+
 // ==================== //
 // Image Upload (v8.4)
 // ==================== //
@@ -957,8 +970,8 @@ function startInlineEdit(lockId, field, spanEl) {
     const placeholder = placeholders[field] || '';
     const td = spanEl.closest('td');
 
-    td.innerHTML = `<input type="text" class="inline-edit-input" value="${escapeHtml(currentValue)}" placeholder="${placeholder}"
-        onblur="saveInlineEdit('${lockId}','${field}', this.value)"
+    td.innerHTML = `<input type="text" class="inline-edit-input" value="${escapeHtmlAttribute(currentValue)}" placeholder="${escapeHtmlAttribute(placeholder)}"
+        onblur="saveInlineEdit('${escapeHtmlAttribute(lockId)}','${escapeHtmlAttribute(field)}', this.value)"
         onkeydown="if(event.key==='Enter'){this.blur();}if(event.key==='Escape'){cancelInlineEdit();}"
         >`;
     const input = td.querySelector('input');

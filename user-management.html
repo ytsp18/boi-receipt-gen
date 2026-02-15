@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co; img-src 'self' data: blob: https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
     <title>จัดการผู้ใช้งาน - FTS Internal</title>
-    <link rel="stylesheet" href="css/style.css?v=9.2.2">
+    <link rel="stylesheet" href="css/style.css?v=9.2.3">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         /* User Management Page Styles */
@@ -527,11 +528,11 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- Version Badge -->
-    <div class="version-badge">v9.2.0</div>
+    <div class="version-badge">v9.2.3</div>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3" integrity="sha384-aRAaCbKYByQpx0fjPuC0PQ9P9moWMEsHXP9tyzP7tbyD5fPK6oTp+THsxdWiq02L" crossorigin="anonymous"></script>
-    <script src="js/supabase-config.js?v=9.2.2"></script>
+    <script src="js/supabase-config.js?v=9.2.3"></script>
     <script>
         // Ensure Supabase is initialized (retry if CDN loaded late)
         if (!window.supabaseClient && window.supabase) {
@@ -545,8 +546,8 @@
             }, 100);
         }
     </script>
-    <script src="js/auth.js?v=9.2.2"></script>
-    <script src="js/user-management-app.js?v=9.2.2"></script>
+    <script src="js/auth.js?v=9.2.3"></script>
+    <script src="js/user-management-app.js?v=9.2.3"></script>
 
     <script>
         // Show environment badge if not production
