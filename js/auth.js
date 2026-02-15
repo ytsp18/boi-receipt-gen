@@ -203,7 +203,8 @@ async function getSession() {
             branchName: cachedProfile?.branchName || null,
             branchNameEn: cachedProfile?.branchNameEn || null,
             branchFeatures: cachedProfile?.branchFeatures || {},
-            isSuperAdmin: isSuperAdmin
+            isSuperAdmin: isSuperAdmin,
+            is_active: cachedProfile?.is_active !== false // default true if undefined
         };
     } catch (e) {
         console.error('Error getting session:', e);
