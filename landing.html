@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co; img-src 'self' data: blob: https://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
     <title>FTS Internal — เมนูหลัก</title>
-    <link rel="stylesheet" href="css/style.css?v=9.2.3">
+    <link rel="stylesheet" href="css/style.css?v=9.3.0">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -209,135 +209,12 @@
     <div class="env-badge" id="envBadge" style="display:none;">SIT ENV</div>
 
     <!-- Version Badge -->
-    <div class="version-badge">v9.2.3</div>
+    <div class="version-badge">v9.3.0</div>
 
     <!-- Supabase Library + Auth Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.3" integrity="sha384-aRAaCbKYByQpx0fjPuC0PQ9P9moWMEsHXP9tyzP7tbyD5fPK6oTp+THsxdWiq02L" crossorigin="anonymous"></script>
-    <script src="js/supabase-config.js?v=9.2.3"></script>
-    <script src="js/auth.js?v=9.2.3"></script>
-    <script>
-        (async function initLanding() {
-            // Show SIT badge if applicable
-            if (window.SUPABASE_ENV && window.SUPABASE_ENV.isSIT) {
-                document.getElementById('envBadge').style.display = 'block';
-                document.title = '[SIT] ' + document.title;
-            }
-
-            // Wait for auth
-            if (!window.AuthSystem) {
-                console.error('AuthSystem not loaded');
-                return;
-            }
-
-            const envParam = typeof getEnvParam === 'function' ? getEnvParam() : '';
-
-            // Use requireAuth() to check is_active + redirect if deactivated
-            const authOk = await window.AuthSystem.requireAuth();
-            if (!authOk) return;
-
-            const session = await window.AuthSystem.getSession();
-
-            // Display user info
-            document.getElementById('userName').textContent = session.name || '-';
-            const roleLabel = session.branchRole || session.role || 'staff';
-            document.getElementById('userRole').textContent = roleLabel.toUpperCase();
-
-            // Load branch info
-            let branch = null;
-            if (session.branchId && window.SupabaseBranches) {
-                try {
-                    branch = await window.SupabaseBranches.getById(session.branchId);
-                    if (branch) {
-                        document.getElementById('branchNameHeader').textContent = branch.name_th;
-                    }
-                } catch (e) {
-                    console.warn('Could not load branch:', e);
-                }
-            }
-
-            if (!branch) {
-                document.getElementById('branchNameHeader').textContent = 'FTS Internal Platform';
-            }
-
-            // Determine permissions
-            const isSuperAdmin = session.isSuperAdmin || false;
-            const branchFeatures = branch?.features || {};
-            const hasReceiptModule = isSuperAdmin || branchFeatures.receipt_module === true;
-            const hasUserMgmt = isSuperAdmin || (window.AuthSystem.hasPermission && window.AuthSystem.hasPermission('user_management'));
-
-            // Build module cards
-            const cards = [];
-
-            // 1. Receipt System Card
-            if (hasReceiptModule) {
-                cards.push({
-                    icon: '📋',
-                    title: 'ระบบจัดการใบรับ',
-                    desc: 'ออกใบรับบัตร, จองพิมพ์, รายงาน',
-                    href: 'index.html' + envParam
-                });
-            }
-
-            // 2. User Management Card
-            if (hasUserMgmt) {
-                cards.push({
-                    icon: '👥',
-                    title: 'จัดการผู้ใช้',
-                    desc: 'ผู้ใช้, สิทธิ์, อนุมัติ, สาขา',
-                    href: 'user-management.html' + envParam
-                });
-            }
-
-            // 3. Dashboard Card (Coming Soon)
-            cards.push({
-                icon: '📊',
-                title: 'Dashboard',
-                desc: 'สถิติ, รายงานภาพรวม',
-                disabled: true,
-                badge: 'เร็วๆ นี้'
-            });
-
-            // Render cards
-            const grid = document.getElementById('moduleGrid');
-            if (cards.length === 0) {
-                grid.innerHTML = `
-                    <div style="grid-column: 1 / -1; text-align:center; padding:60px 20px;">
-                        <div style="font-size:48px; margin-bottom:16px;">🏢</div>
-                        <h2 style="color:#1e3a5f; margin:0 0 8px;">ยินดีต้อนรับ</h2>
-                        <p style="color:#666;">คุณยังไม่มีสิทธิ์เข้าถึงเมนูใดๆ กรุณาติดต่อผู้ดูแลระบบ</p>
-                    </div>
-                `;
-                return;
-            }
-
-            grid.innerHTML = cards.map(card => {
-                if (card.disabled) {
-                    return `
-                        <div class="module-card disabled">
-                            <span class="card-icon">${card.icon}</span>
-                            <div class="card-title">${card.title}</div>
-                            <p class="card-desc">${card.desc}</p>
-                            ${card.badge ? `<span class="card-badge coming-soon">${card.badge}</span>` : ''}
-                        </div>
-                    `;
-                }
-                return `
-                    <a class="module-card" href="${card.href}">
-                        <span class="card-icon">${card.icon}</span>
-                        <div class="card-title">${card.title}</div>
-                        <p class="card-desc">${card.desc}</p>
-                    </a>
-                `;
-            }).join('');
-        })();
-
-        async function handleLogout() {
-            if (window.AuthSystem) {
-                await window.AuthSystem.logout();
-            }
-            const envParam = typeof getEnvParam === 'function' ? getEnvParam() : '';
-            window.location.href = 'login.html' + envParam;
-        }
-    </script>
+    <script src="js/supabase-config.js?v=9.3.0"></script>
+    <script src="js/auth.js?v=9.3.0"></script>
+    <script src="js/landing-app.js?v=9.3.0"></script>
 </body>
 </html>
