@@ -7,22 +7,25 @@
 
 ---
 
-## 🚧 v9.1.0 — Landing Module Selector + UM Full Page + Enhanced Export
+## 🧪 v9.1.0 — Landing Module Selector + UM Full Page + Enhanced Export
 
 > **เป้าหมาย:** ปรับ FTS Internal เป็น Multi-Module Platform
 > **Plan:** `.claude/plans/splendid-mixing-finch.md`
+> **Commit:** `2bb7581` | Pushed to SIT 16 ก.พ. 69
 
 ### Implementation Order: Phase 2 → Phase 1 → Phase 3
 
 | Phase | งาน | สถานะ |
 |-------|------|-------|
-| **Phase 2** | UM Full Page — สร้าง `user-management.html` + extract JS | [ ] |
-| **Phase 2** | ลบ UM modal จาก `index.html` + `app-supabase.js` | [ ] |
-| **Phase 1** | Rewrite `landing.html` → Module Selector Cards | [ ] |
-| **Phase 1** | Login redirect → landing + applyPermissions + "🏠 เมนูหลัก" buttons | [ ] |
-| **Phase 3** | Enhanced Export — เพิ่ม columns ใน CSV (ผู้จัดพิมพ์, เวลาพิมพ์, ผู้บันทึก) | [ ] |
-| **Docs** | Update CHANGELOG, ROADMAP, MEMORY.md, SPRINT-PLAN | [ ] |
-| **Deploy** | Commit + push sit → test → merge main | [ ] |
+| **Phase 2** | UM Full Page — สร้าง `user-management.html` + extract JS | [x] ✅ |
+| **Phase 2** | ลบ UM modal จาก `index.html` + `app-supabase.js` | [x] ✅ |
+| **Phase 1** | Rewrite `landing.html` → Module Selector Cards | [x] ✅ |
+| **Phase 1** | Login redirect → landing + applyPermissions + "🏠 เมนูหลัก" buttons | [x] ✅ |
+| **Phase 3** | Enhanced Export — เพิ่ม columns ใน CSV (ผู้จัดพิมพ์, เวลาพิมพ์, ผู้บันทึก) | [x] ✅ |
+| **Docs** | Update CHANGELOG, ROADMAP, MEMORY.md, SPRINT-PLAN | [x] ✅ |
+| **Deploy** | Commit + push sit | [x] ✅ |
+| **Test** | SIT smoke test on Cloudflare Pages | [ ] 🔜 |
+| **Deploy** | merge sit → main (production) | [ ] รอ test ผ่าน |
 
 ### Module Cards on Landing Page
 

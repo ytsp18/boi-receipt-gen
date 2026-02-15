@@ -1,44 +1,48 @@
 # Change Log - Work Permit Receipt System
 
-## [9.1.0] - 2026-02-16 (In Development)
+## [9.1.0] - 2026-02-16 (SIT Testing)
 
-> **สถานะ: 🚧 In Development** — Landing Module Selector + UM Full Page + Enhanced Export
+> **สถานะ: 🧪 Pushed to SIT** — Landing Module Selector + UM Full Page + Enhanced Export
+> **Commit:** `2bb7581` | **Branch:** `sit`
 
 ### Overview
 ปรับจาก "ระบบออกใบรับเฉพาะทาง" เป็น **FTS Internal Platform** ที่รองรับหลาย module:
 - **Landing Page → Module Selector** — หน้าเลือกเมนูหลักแทน dead-end
 - **User Management → Full Page** — แยกจาก modal ใน index.html เป็นหน้าเต็ม
-- **Enhanced Export** — เพิ่ม columns: ผู้จัดพิมพ์บัตร, เวลาพิมพ์, ผู้บันทึก, สาขา
+- **Enhanced Export** — เพิ่ม columns: ผู้จัดพิมพ์บัตร, เวลาพิมพ์, ผู้บันทึก
 
-### Phase 1 — Landing Page Module Selector
-- [ ] Rewrite `landing.html` เป็น module selector with card tiles
-- [ ] เปลี่ยน login redirect → `landing.html` (แทน `index.html`)
-- [ ] ปรับ `applyPermissions()` redirect logic
-- [ ] เพิ่มปุ่ม "🏠 เมนูหลัก" ในทุกหน้า (index, card-print, UM)
+### Phase 1 — Landing Page Module Selector ✅
+- [x] Rewrite `landing.html` เป็น module selector with card tiles
+- [x] เปลี่ยน login redirect → `landing.html` (แทน `index.html`) — `auth.js`
+- [x] ปรับ `applyPermissions()` redirect logic — alert + redirect
+- [x] เพิ่มปุ่ม "🏠 เมนูหลัก" ในทุกหน้า (index, card-print, UM)
 
-### Phase 2 — User Management Full Page
-- [ ] สร้าง `user-management.html` (pattern: card-print.html)
-- [ ] สร้าง `js/user-management-app.js` (extract ~675 lines from app-supabase.js)
-- [ ] ลบ UM modal จาก `index.html`
-- [ ] ลบ UM functions จาก `app-supabase.js` (~737 lines)
+### Phase 2 — User Management Full Page ✅
+- [x] สร้าง `user-management.html` (pattern: card-print.html) — standalone page
+- [x] สร้าง `js/user-management-app.js` (~580 lines extracted from app-supabase.js)
+- [x] ลบ UM modal จาก `index.html` — removed userModalOverlay div
+- [x] ลบ UM functions จาก `app-supabase.js` (~671 lines removed, 5234→4563)
+- [x] เปลี่ยน UM button จาก modal trigger เป็น page link
 
-### Phase 3 — Enhanced Export
-- [ ] เพิ่ม columns ใน Monthly Data Query (card_printer_name, printed_at, received_at, created_by)
-- [ ] User Name Cache (UUID → ชื่อ)
-- [ ] เพิ่ม columns ใน Daily CSV (+4 columns)
-- [ ] เพิ่ม columns ใน Monthly CSV (+4 columns)
+### Phase 3 — Enhanced Export ✅
+- [x] เพิ่ม columns ใน Monthly Data Query (card_printer_name, printed_at, received_at, created_by)
+- [x] เพิ่ม `createdBy` ใน daily + search data mappings
+- [x] User Name Cache (UUID → ชื่อ) — `loadUserNameCache()`, `resolveUserName()`
+- [x] เพิ่ม 3 columns ใน Daily CSV: ผู้จัดพิมพ์บัตร, เวลาพิมพ์, ผู้บันทึก
+- [x] เพิ่ม 4 columns ใน Monthly CSV: ผู้จัดพิมพ์บัตร, เวลาพิมพ์, เวลารับบัตร, ผู้บันทึก
 
 ### Files Changed (v9.1.0)
 | File | Change |
 |------|--------|
 | `landing.html` | Rewrite เป็น module selector cards |
-| `login.html` | เปลี่ยน redirect → `landing.html` |
+| `js/auth.js` | เปลี่ยน login redirect → `landing.html` |
 | `user-management.html` | **NEW** — UM full page |
-| `js/user-management-app.js` | **NEW** — extract ~675 lines from app-supabase.js |
-| `index.html` | ลบ modal, UM button → link, เพิ่ม "🏠 เมนูหลัก" |
-| `card-print.html` | เพิ่ม "🏠 เมนูหลัก" |
-| `js/app-supabase.js` | ลบ UM ~737 lines, ปรับ applyPermissions, เพิ่ม export columns |
-| `js/supabase-adapter.js` | เพิ่ม columns ใน monthly query + mappings |
+| `js/user-management-app.js` | **NEW** — ~580 lines extracted from app-supabase.js |
+| `index.html` | ลบ modal, UM button → link, เพิ่ม "🏠 เมนูหลัก", bump v9.1.0 |
+| `card-print.html` | เพิ่ม "🏠 เมนูหลัก", bump v9.1.0 |
+| `js/card-print-app.js` | Handle env param for landing button |
+| `js/app-supabase.js` | ลบ UM ~671 lines, ปรับ applyPermissions, เพิ่ม user name cache + export columns |
+| `js/supabase-adapter.js` | เพิ่ม columns ใน monthly query + daily/search mappings |
 
 ---
 

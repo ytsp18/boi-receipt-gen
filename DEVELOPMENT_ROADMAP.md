@@ -2,9 +2,9 @@
 
 > อัพเดต: 16 กุมภาพันธ์ 2569 (rev.7)
 > Current Production: **v9.0.2** (deployed on main → GitHub Pages, 15 ก.พ. 69)
-> In Development: **v9.1.0** — Landing Module Selector + UM Full Page + Enhanced Export
+> SIT Testing: **v9.1.0** — Landing Module Selector + UM Full Page + Enhanced Export (commit `2bb7581`)
 > Pending: v7.0 E-Sign (รอ hardware testing)
-> 🔜 Next: v9.1.0 develop → push sit → test → merge main
+> 🔜 Next: v9.1.0 SIT test → fix bugs → merge main
 
 ---
 
@@ -30,7 +30,7 @@
 | **v9.0.0** | **12 ก.พ. 69** | **✅ Deployed** | **Multi-Branch & User Management** |
 | **v9.0.1** | **13 ก.พ. 69** | **✅ Deployed** | **Bug fixes + cache bust + Pre-MD improvements + Rollback script** |
 | **v9.0.2** | **15 ก.พ. 69** | **✅ Deployed** | **Production deploy — P0-P6 complete** |
-| **v9.1.0** | **16 ก.พ. 69** | **🚧 In Dev** | **Landing Module Selector + UM Full Page + Enhanced Export** |
+| **v9.1.0** | **16 ก.พ. 69** | **🧪 SIT** | **Landing Module Selector + UM Full Page + Enhanced Export** |
 | v7.0.0-dev | 10 ก.พ. 69 | ⏸️ On Hold | E-Sign Workflow (ซ่อน UI, รอ hardware testing) |
 
 ---
