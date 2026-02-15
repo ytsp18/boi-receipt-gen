@@ -484,7 +484,7 @@ function renderUserTable() {
         tbody.innerHTML = users.map(user => {
             const safeId = sanitizeHTML(user.id);
             const safeName = sanitizeHTML(user.name || '-');
-            const safeEmail = sanitizeHTML(user.username || '-');
+            const safeEmail = sanitizeHTML(user.email || '-');
             const branchName = user.branches?.name_th || '-';
             const branchCode = user.branches?.code || '';
             const bRole = user.branch_role || user.role || 'officer';
@@ -516,7 +516,7 @@ function renderUserTable() {
         tbody.innerHTML = users.map(user => {
             const safeId = sanitizeHTML(user.id);
             const safeName = sanitizeHTML(user.name || '-');
-            const safeEmail = sanitizeHTML(user.username || '-');
+            const safeEmail = sanitizeHTML(user.email || '-');
             const branchName = user.branches?.name_th || '-';
             const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('th-TH') : '-';
             const checked = state.selectedUserIds.has(user.id) ? 'checked' : '';
@@ -815,7 +815,7 @@ async function exportUsersCsv() {
     const headers = ['ชื่อ', 'อีเมล', 'สาขา', 'รหัสสาขา', 'ตำแหน่ง', 'สถานะ', 'Super Admin', 'วันที่สร้าง'];
     const rows = users.map(u => [
         u.name || '-',
-        u.username || '-',
+        u.email || '-',
         u.branches?.name_th || '-',
         u.branches?.code || '-',
         BRANCH_ROLE_LABELS[u.branch_role] || u.branch_role || '-',

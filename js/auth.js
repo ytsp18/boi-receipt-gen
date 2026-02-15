@@ -344,7 +344,7 @@ async function getUsers(options) {
         if (opts.search) {
             const s = opts.search.trim();
             if (s) {
-                query = query.or(`name.ilike.%${s}%,username.ilike.%${s}%`);
+                query = query.or(`name.ilike.%${s}%,email.ilike.%${s}%`);
             }
         }
         if (opts.roleFilter) {
