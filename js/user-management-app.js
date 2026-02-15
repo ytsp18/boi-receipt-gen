@@ -65,7 +65,35 @@ const state = {
     isSuperAdmin: false,
     branches: [],
     currentTab: 'approved',
-    filterBranchId: null
+    filterBranchId: null,
+
+    // v9.2: Search + Sort + Pagination
+    searchQuery: '',
+    searchDebounceTimer: null,
+    sortColumn: 'name',
+    sortDirection: 'asc',
+    currentPage: 1,
+    pageSize: 25,
+    totalCount: 0,
+    approvedCount: 0,
+    pendingCount: 0,
+    approvedUsers: [],
+    pendingUsers: [],
+    shellRendered: false,
+
+    // v9.2: Filters + Bulk
+    roleFilter: null,
+    statusFilter: 'active',
+    selectedUserIds: new Set(),
+
+    // v9.2: Audit Log
+    auditLogs: [],
+    auditPage: 1,
+    auditPageSize: 25,
+    auditTotalCount: 0,
+    auditFilterAction: null,
+    auditFilterDateFrom: null,
+    auditFilterDateTo: null
 };
 
 // ==================== //
@@ -197,41 +225,56 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ==================== //
-// Main View — User List
+// Main View — Shell + Data Loader (v9.2 refactored)
 // ==================== //
 
 async function showUserManagement() {
     state.currentTab = state.currentTab || 'approved';
+    state.shellRendered = false;
+    renderShell();
+    await loadUsers();
+}
 
-    // Load users with branch info, filter by branch for non-super-admin
-    const filterBranchId = state.isSuperAdmin ? state.filterBranchId : state.currentBranchId;
-    const allUsers = await window.AuthSystem.getUsers(filterBranchId);
-    const pendingUsers = allUsers.filter(u => u.is_approved === false);
-    const approvedUsers = allUsers.filter(u => u.is_approved !== false);
-
+function renderShell() {
     // Branch filter dropdown for super admin
     const branchFilterHtml = state.isSuperAdmin ? `
-        <div class="um-branch-filter">
-            <label>กรองสาขา:</label>
-            <select id="umBranchFilter">
-                <option value="">ทุกสาขา</option>
-                ${state.branches.map(b => `<option value="${b.id}" ${state.filterBranchId === b.id ? 'selected' : ''}>${sanitizeHTML(b.name_th)} (${sanitizeHTML(b.code)})</option>`).join('')}
-            </select>
-        </div>
+        <select id="umBranchFilter" class="um-filter-select">
+            <option value="">ทุกสาขา</option>
+            ${state.branches.filter(b => b.is_active).map(b => `<option value="${b.id}" ${state.filterBranchId === b.id ? 'selected' : ''}>${sanitizeHTML(b.code)} — ${sanitizeHTML(b.name_th)}</option>`).join('')}
+        </select>
     ` : '';
+
+    // Role filter
+    const roleFilterHtml = `
+        <select id="umRoleFilter" class="um-filter-select">
+            <option value="">ตำแหน่ง: ทั้งหมด</option>
+            ${BRANCH_ROLES.map(r => `<option value="${r.value}" ${state.roleFilter === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
+        </select>
+    `;
 
     DOM.umContent.innerHTML = `
         <div class="um-section">
-            ${branchFilterHtml}
+            <!-- Toolbar Row 1: Search + Branch Filter + Add User -->
+            <div class="um-toolbar-row">
+                <div class="um-search-group">
+                    <input type="text" id="umSearchInput" class="um-search-input" placeholder="🔍 ค้นหาชื่อ / อีเมล..." value="${sanitizeHTML(state.searchQuery)}" autocomplete="off">
+                </div>
+                ${branchFilterHtml}
+                ${roleFilterHtml}
+                <button class="btn btn-outline btn-sm um-toolbar-row" onclick="exportUsersCsv()">📥 ส่งออก CSV</button>
+                <button class="btn btn-success btn-sm" onclick="showAddUserForm()">➕ เพิ่มผู้ใช้</button>
+            </div>
 
             <!-- Tabs -->
             <div class="um-tabs">
                 <button class="btn ${state.currentTab === 'approved' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tabApproved" onclick="switchUserTab('approved')">
-                    ✅ ผู้ใช้งาน (${approvedUsers.length})
+                    ✅ ผู้ใช้งาน (<span id="approvedCount">-</span>)
                 </button>
                 <button class="btn ${state.currentTab === 'pending' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tabPending" onclick="switchUserTab('pending')">
-                    ⏳ รออนุมัติ (${pendingUsers.length})
-                    ${pendingUsers.length > 0 ? `<span class="pending-badge">${pendingUsers.length}</span>` : ''}
+                    ⏳ รออนุมัติ (<span id="pendingCount">-</span>)
+                </button>
+                <button class="btn ${state.currentTab === 'audit' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tabAudit" onclick="switchUserTab('audit')">
+                    📋 บันทึกกิจกรรม
                 </button>
                 ${state.isSuperAdmin ? `
                     <button class="btn ${state.currentTab === 'branches' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tabBranches" onclick="showBranchManagement()">
@@ -240,126 +283,745 @@ async function showUserManagement() {
                 ` : ''}
             </div>
 
-            <!-- Approved Users Tab -->
-            <div id="approvedUsersTab" style="${state.currentTab !== 'approved' ? 'display:none' : ''}">
-                <div class="um-toolbar">
-                    <button class="btn btn-success btn-sm" onclick="showAddUserForm()">➕ เพิ่มผู้ใช้ใหม่</button>
-                </div>
+            <!-- Bulk Action Bar (hidden by default) -->
+            <div class="um-bulk-bar" id="umBulkBar" style="display:none;">
+                <span>☑ เลือก <b id="umSelectedCount">0</b> รายการ</span>
+                <button class="btn btn-success btn-sm" id="bulkApproveBtn" onclick="bulkApprove()" style="display:none;">✅ อนุมัติทั้งหมด</button>
+                <button class="btn btn-primary btn-sm" id="bulkRoleBtn" onclick="bulkRoleChange()" style="display:none;">🏷️ เปลี่ยนตำแหน่ง</button>
+                <button class="btn btn-warning btn-sm" id="bulkDeactivateBtn" onclick="bulkDeactivate()" style="display:none;">⏸️ ระงับ</button>
+                <button class="btn btn-outline btn-sm" onclick="clearSelection()">✕ ยกเลิก</button>
+            </div>
+
+            <!-- Table Container -->
+            <div id="umTableContainer">
                 <div class="um-table-wrapper">
-                    <table class="user-table">
-                        <thead>
-                            <tr>
-                                <th>ชื่อผู้ใช้</th>
-                                <th>ชื่อ</th>
-                                <th>สาขา</th>
-                                <th>ตำแหน่ง</th>
-                                <th>การดำเนินการ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${approvedUsers.length === 0 ? '<tr><td colspan="5" style="text-align:center; color:#6b7280; padding:20px;">ไม่มีผู้ใช้งาน</td></tr>' : approvedUsers.map(user => {
-                                const safeUsername = sanitizeHTML(user.username || '-');
-                                const safeName = sanitizeHTML(user.name || '-');
-                                const safeId = sanitizeHTML(user.id);
-                                const branchName = user.branches?.name_th || '-';
-                                const branchCode = user.branches?.code || '';
-                                const bRole = user.branch_role || user.role || 'officer';
-                                const bRoleLabel = BRANCH_ROLE_LABELS[bRole] || ROLE_LABELS[bRole] || bRole;
-                                const superBadge = user.is_super_admin ? ' <span style="background:#dc2626;color:#fff;padding:1px 4px;border-radius:3px;font-size:10px;">SA</span>' : '';
-                                return `
-                                <tr>
-                                    <td>${safeUsername}</td>
-                                    <td>${safeName}${superBadge}</td>
-                                    <td style="font-size:0.85rem;">${sanitizeHTML(branchName)}<br><span style="color:#999; font-size:0.75rem;">${sanitizeHTML(branchCode)}</span></td>
-                                    <td><span class="role-badge ${bRole}">${bRoleLabel}</span></td>
-                                    <td>
-                                        <button class="btn btn-primary btn-sm" onclick="showEditUserForm('${safeId}')" title="แก้ไข">✏️</button>
-                                        <button class="btn btn-warning btn-sm" onclick="handleResetPassword('${safeId}')" title="Reset Password">🔑</button>
-                                        <button class="btn btn-outline-danger btn-sm" onclick="confirmDeleteUser('${safeId}')" title="ลบ">🗑️</button>
-                                    </td>
-                                </tr>`;
-                            }).join('')}
+                    <table class="user-table" id="umTable">
+                        <thead id="umTableHead"></thead>
+                        <tbody id="umTableBody">
+                            <tr><td colspan="6" style="text-align:center; color:#6b7280; padding:40px;">กำลังโหลด...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- Pending Users Tab -->
-            <div id="pendingUsersTab" style="${state.currentTab !== 'pending' ? 'display:none' : ''}">
-                ${pendingUsers.length === 0 ? '<p style="text-align: center; color: #6b7280; padding: 20px;">ไม่มีผู้ใช้รออนุมัติ</p>' : `
-                    <div class="um-table-wrapper">
-                        <table class="user-table">
-                            <thead>
-                                <tr>
-                                    <th>อีเมล</th>
-                                    <th>ชื่อ</th>
-                                    <th>สาขาที่เลือก</th>
-                                    <th>วันที่สมัคร</th>
-                                    <th>การดำเนินการ</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${pendingUsers.map(user => {
-                                    const safeUsername = sanitizeHTML(user.username || '-');
-                                    const safeName = sanitizeHTML(user.name || '-');
-                                    const safeId = sanitizeHTML(user.id);
-                                    const branchName = user.branches?.name_th || '-';
-                                    return `
-                                    <tr>
-                                        <td>${safeUsername}</td>
-                                        <td>${safeName}</td>
-                                        <td style="font-size:0.85rem;">${sanitizeHTML(branchName)}</td>
-                                        <td>${user.created_at ? new Date(user.created_at).toLocaleDateString('th-TH') : '-'}</td>
-                                        <td>
-                                            <button class="btn btn-success btn-sm" onclick="handleApproveUser('${safeId}')" title="อนุมัติ">✅ อนุมัติ</button>
-                                            <button class="btn btn-outline-danger btn-sm" onclick="handleRejectUser('${safeId}')" title="ปฏิเสธ">❌ ปฏิเสธ</button>
-                                        </td>
-                                    </tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                `}
+            <!-- Pagination -->
+            <div class="um-pagination-row" id="umPaginationRow">
+                <div class="um-page-size">
+                    แสดง <select id="umPageSize" class="um-filter-select um-filter-small">
+                        ${[10, 25, 50].map(n => `<option value="${n}" ${state.pageSize === n ? 'selected' : ''}>${n}</option>`).join('')}
+                    </select> รายการ
+                </div>
+                <div class="um-pagination" id="umPagination"></div>
+                <div class="um-total-count" id="umTotalCount"></div>
             </div>
+
+            <!-- Audit Log Container (hidden by default) -->
+            <div id="umAuditContainer" style="display:none;"></div>
         </div>
     `;
 
-    // Branch filter event for super admin
-    const umBranchFilter = document.getElementById('umBranchFilter');
-    if (umBranchFilter) {
-        umBranchFilter.addEventListener('change', async () => {
-            state.filterBranchId = umBranchFilter.value || null;
-            await showUserManagement();
+    state.shellRendered = true;
+    attachShellEvents();
+}
+
+function attachShellEvents() {
+    // Search input
+    const searchInput = document.getElementById('umSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(state.searchDebounceTimer);
+            state.searchDebounceTimer = setTimeout(() => {
+                state.searchQuery = e.target.value.trim();
+                state.currentPage = 1;
+                loadUsers();
+            }, 300);
+        });
+    }
+
+    // Branch filter
+    const branchFilter = document.getElementById('umBranchFilter');
+    if (branchFilter) {
+        branchFilter.addEventListener('change', () => {
+            state.filterBranchId = branchFilter.value || null;
+            state.currentPage = 1;
+            loadUsers();
+        });
+    }
+
+    // Role filter
+    const roleFilter = document.getElementById('umRoleFilter');
+    if (roleFilter) {
+        roleFilter.addEventListener('change', () => {
+            state.roleFilter = roleFilter.value || null;
+            state.currentPage = 1;
+            loadUsers();
+        });
+    }
+
+    // Page size
+    const pageSize = document.getElementById('umPageSize');
+    if (pageSize) {
+        pageSize.addEventListener('change', () => {
+            state.pageSize = parseInt(pageSize.value) || 25;
+            state.currentPage = 1;
+            loadUsers();
         });
     }
 }
 
+async function loadUsers() {
+    const branchId = state.isSuperAdmin ? state.filterBranchId : state.currentBranchId;
+    const isApproved = state.currentTab === 'approved' ? true : (state.currentTab === 'pending' ? false : undefined);
+
+    // Build query options
+    const opts = {
+        branchId: branchId || undefined,
+        search: state.searchQuery || undefined,
+        sortColumn: state.sortColumn,
+        sortDirection: state.sortDirection,
+        page: state.currentPage,
+        pageSize: state.pageSize,
+        isApproved,
+        roleFilter: (isApproved && state.roleFilter) ? state.roleFilter : undefined
+    };
+
+    const result = await window.AuthSystem.getUsers(opts);
+    const users = result.data || [];
+    const count = result.count || 0;
+
+    if (state.currentTab === 'approved') {
+        state.approvedUsers = users;
+        state.approvedCount = count;
+    } else if (state.currentTab === 'pending') {
+        state.pendingUsers = users;
+        state.pendingCount = count;
+    }
+    state.totalCount = count;
+
+    // Also fetch opposite tab count for badge (lightweight query)
+    await loadTabCounts(branchId);
+
+    renderTableHead();
+    renderUserTable();
+    renderUmPagination();
+
+    // Clear selection on data reload
+    state.selectedUserIds.clear();
+    updateBulkBar();
+}
+
+async function loadTabCounts(branchId) {
+    try {
+        // Get count for the tab we're NOT on (for badge)
+        const otherTab = state.currentTab === 'approved' ? false : true;
+        const countResult = await window.AuthSystem.getUsers({
+            branchId: branchId || undefined,
+            isApproved: otherTab,
+            page: 1,
+            pageSize: 1  // minimal fetch, we only need count
+        });
+        if (state.currentTab === 'approved') {
+            state.pendingCount = countResult.count || 0;
+        } else {
+            state.approvedCount = countResult.count || 0;
+        }
+    } catch (e) {
+        // non-critical
+    }
+
+    // Update tab badges
+    const approvedCountEl = document.getElementById('approvedCount');
+    const pendingCountEl = document.getElementById('pendingCount');
+    if (approvedCountEl) approvedCountEl.textContent = state.approvedCount;
+    if (pendingCountEl) pendingCountEl.textContent = state.pendingCount;
+}
+
+function renderTableHead() {
+    const thead = document.getElementById('umTableHead');
+    if (!thead) return;
+
+    const sortIcon = (col) => {
+        if (state.sortColumn !== col) return '';
+        return state.sortDirection === 'asc' ? ' ▲' : ' ▼';
+    };
+    const sortCls = (col) => state.sortColumn === col ? 'um-sorted' : '';
+
+    if (state.currentTab === 'approved') {
+        thead.innerHTML = `<tr>
+            <th class="um-th-check"><input type="checkbox" id="umSelectAll" onchange="toggleSelectAll(this.checked)"></th>
+            <th class="um-sortable-th ${sortCls('name')}" onclick="handleSort('name')">ชื่อ${sortIcon('name')}</th>
+            <th class="um-sortable-th ${sortCls('branch')}" onclick="handleSort('branch')">สาขา${sortIcon('branch')}</th>
+            <th class="um-sortable-th ${sortCls('role')}" onclick="handleSort('role')">ตำแหน่ง${sortIcon('role')}</th>
+            <th class="um-sortable-th ${sortCls('created_at')}" onclick="handleSort('created_at')">วันที่สร้าง${sortIcon('created_at')}</th>
+            <th>การดำเนินการ</th>
+        </tr>`;
+    } else if (state.currentTab === 'pending') {
+        thead.innerHTML = `<tr>
+            <th class="um-th-check"><input type="checkbox" id="umSelectAll" onchange="toggleSelectAll(this.checked)"></th>
+            <th>อีเมล</th>
+            <th>ชื่อ</th>
+            <th>สาขาที่เลือก</th>
+            <th class="um-sortable-th ${sortCls('created_at')}" onclick="handleSort('created_at')">วันที่สมัคร${sortIcon('created_at')}</th>
+            <th>การดำเนินการ</th>
+        </tr>`;
+    }
+}
+
+function renderUserTable() {
+    const tbody = document.getElementById('umTableBody');
+    if (!tbody) return;
+
+    const users = state.currentTab === 'approved' ? state.approvedUsers : state.pendingUsers;
+
+    if (users.length === 0) {
+        const cols = state.currentTab === 'approved' ? 6 : 6;
+        const msg = state.searchQuery ? 'ไม่พบผลลัพธ์' : (state.currentTab === 'approved' ? 'ไม่มีผู้ใช้งาน' : 'ไม่มีผู้ใช้รออนุมัติ');
+        tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center; color:#6b7280; padding:30px;">${msg}</td></tr>`;
+        return;
+    }
+
+    if (state.currentTab === 'approved') {
+        tbody.innerHTML = users.map(user => {
+            const safeId = sanitizeHTML(user.id);
+            const safeName = sanitizeHTML(user.name || '-');
+            const safeEmail = sanitizeHTML(user.username || '-');
+            const branchName = user.branches?.name_th || '-';
+            const branchCode = user.branches?.code || '';
+            const bRole = user.branch_role || user.role || 'officer';
+            const bRoleLabel = BRANCH_ROLE_LABELS[bRole] || ROLE_LABELS[bRole] || bRole;
+            const superBadge = user.is_super_admin ? ' <span class="sa-badge">SA</span>' : '';
+            const isInactive = user.is_active === false;
+            const rowClass = isInactive ? 'um-row-inactive' : '';
+            const inactiveBadge = isInactive ? ' <span class="inactive-badge">ระงับ</span>' : '';
+            const checked = state.selectedUserIds.has(user.id) ? 'checked' : '';
+            const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('th-TH') : '-';
+
+            return `<tr class="${rowClass}">
+                <td><input type="checkbox" class="um-user-check" data-user-id="${safeId}" ${checked} onchange="toggleUserSelection('${safeId}', this.checked)"></td>
+                <td><span class="um-user-name" onclick="showEditUserForm('${safeId}')">${safeName}</span>${superBadge}${inactiveBadge}<br><span class="um-user-email">${safeEmail}</span></td>
+                <td class="um-cell-branch">${sanitizeHTML(branchName)}<br><span class="um-branch-code">${sanitizeHTML(branchCode)}</span></td>
+                <td><span class="role-badge ${bRole}">${bRoleLabel}</span></td>
+                <td class="um-cell-date">${createdDate}</td>
+                <td class="um-cell-actions">
+                    <button class="btn btn-primary btn-sm" onclick="showEditUserForm('${safeId}')" title="แก้ไข">✏️</button>
+                    <button class="btn btn-warning btn-sm" onclick="handleResetPassword('${safeId}')" title="Reset Password">🔑</button>
+                    ${isInactive
+                        ? `<button class="btn btn-success btn-sm" onclick="toggleUserActive('${safeId}', true)" title="เปิดใช้งาน">▶️</button>`
+                        : `<button class="btn btn-outline-danger btn-sm" onclick="toggleUserActive('${safeId}', false)" title="ระงับ">⏸️</button>`
+                    }
+                </td>
+            </tr>`;
+        }).join('');
+    } else if (state.currentTab === 'pending') {
+        tbody.innerHTML = users.map(user => {
+            const safeId = sanitizeHTML(user.id);
+            const safeName = sanitizeHTML(user.name || '-');
+            const safeEmail = sanitizeHTML(user.username || '-');
+            const branchName = user.branches?.name_th || '-';
+            const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('th-TH') : '-';
+            const checked = state.selectedUserIds.has(user.id) ? 'checked' : '';
+
+            return `<tr>
+                <td><input type="checkbox" class="um-user-check" data-user-id="${safeId}" ${checked} onchange="toggleUserSelection('${safeId}', this.checked)"></td>
+                <td>${safeEmail}</td>
+                <td>${safeName}</td>
+                <td class="um-cell-branch">${sanitizeHTML(branchName)}</td>
+                <td class="um-cell-date">${createdDate}</td>
+                <td class="um-cell-actions">
+                    <button class="btn btn-success btn-sm" onclick="handleApproveUser('${safeId}')" title="อนุมัติ">✅ อนุมัติ</button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="handleRejectUser('${safeId}')" title="ปฏิเสธ">❌ ปฏิเสธ</button>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+}
+
+function renderUmPagination() {
+    const container = document.getElementById('umPagination');
+    const totalEl = document.getElementById('umTotalCount');
+    if (!container) return;
+
+    const totalPages = Math.ceil(state.totalCount / state.pageSize);
+    if (totalEl) totalEl.textContent = `รวม ${state.totalCount} รายการ`;
+
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+    // Prev button
+    html += `<button class="btn btn-outline btn-sm" ${state.currentPage <= 1 ? 'disabled' : ''} onclick="goToUmPage(${state.currentPage - 1})">◀</button>`;
+
+    // Page numbers with ellipsis
+    const maxShow = 5;
+    let startPage = Math.max(1, state.currentPage - Math.floor(maxShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxShow - 1);
+    if (endPage - startPage < maxShow - 1) startPage = Math.max(1, endPage - maxShow + 1);
+
+    if (startPage > 1) {
+        html += `<button class="btn btn-outline btn-sm" onclick="goToUmPage(1)">1</button>`;
+        if (startPage > 2) html += `<span class="um-pagination-ellipsis">...</span>`;
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        html += `<button class="btn ${i === state.currentPage ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="goToUmPage(${i})">${i}</button>`;
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) html += `<span class="um-pagination-ellipsis">...</span>`;
+        html += `<button class="btn btn-outline btn-sm" onclick="goToUmPage(${totalPages})">${totalPages}</button>`;
+    }
+
+    // Next button
+    html += `<button class="btn btn-outline btn-sm" ${state.currentPage >= totalPages ? 'disabled' : ''} onclick="goToUmPage(${state.currentPage + 1})">▶</button>`;
+
+    container.innerHTML = html;
+}
+
 // ==================== //
-// Tab Switching
+// Search + Sort + Pagination Handlers
+// ==================== //
+
+function handleSort(column) {
+    if (state.sortColumn === column) {
+        state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        state.sortColumn = column;
+        state.sortDirection = 'asc';
+    }
+    state.currentPage = 1;
+    loadUsers();
+}
+
+function goToUmPage(page) {
+    const totalPages = Math.ceil(state.totalCount / state.pageSize);
+    if (page < 1 || page > totalPages) return;
+    state.currentPage = page;
+    loadUsers();
+}
+
+// ==================== //
+// Tab Switching (v9.2 refactored)
 // ==================== //
 
 function switchUserTab(tab) {
+    if (state.currentTab === tab) return;
     state.currentTab = tab;
+    state.currentPage = 1;
+    state.selectedUserIds.clear();
 
-    const approvedTab = document.getElementById('approvedUsersTab');
-    const pendingTab = document.getElementById('pendingUsersTab');
-    const btnApproved = document.getElementById('tabApproved');
-    const btnPending = document.getElementById('tabPending');
-    const btnBranches = document.getElementById('tabBranches');
+    // Update tab button styles
+    ['tabApproved', 'tabPending', 'tabAudit', 'tabBranches'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) { btn.classList.remove('btn-primary'); btn.classList.add('btn-outline'); }
+    });
+    const tabMap = { approved: 'tabApproved', pending: 'tabPending', audit: 'tabAudit', branches: 'tabBranches' };
+    const activeBtn = document.getElementById(tabMap[tab] || 'tabApproved');
+    if (activeBtn) { activeBtn.classList.remove('btn-outline'); activeBtn.classList.add('btn-primary'); }
 
-    if (tab === 'approved') {
-        if (approvedTab) approvedTab.style.display = 'block';
-        if (pendingTab) pendingTab.style.display = 'none';
-        if (btnApproved) { btnApproved.classList.remove('btn-outline'); btnApproved.classList.add('btn-primary'); }
-        if (btnPending) { btnPending.classList.remove('btn-primary'); btnPending.classList.add('btn-outline'); }
-        if (btnBranches) { btnBranches.classList.remove('btn-primary'); btnBranches.classList.add('btn-outline'); }
-    } else if (tab === 'pending') {
-        if (approvedTab) approvedTab.style.display = 'none';
-        if (pendingTab) pendingTab.style.display = 'block';
-        if (btnPending) { btnPending.classList.remove('btn-outline'); btnPending.classList.add('btn-primary'); }
-        if (btnApproved) { btnApproved.classList.remove('btn-primary'); btnApproved.classList.add('btn-outline'); }
-        if (btnBranches) { btnBranches.classList.remove('btn-primary'); btnBranches.classList.add('btn-outline'); }
+    // Show/hide UI sections based on tab
+    const tableContainer = document.getElementById('umTableContainer');
+    const paginationRow = document.getElementById('umPaginationRow');
+    const bulkBar = document.getElementById('umBulkBar');
+    const auditContainer = document.getElementById('umAuditContainer');
+
+    if (tab === 'audit') {
+        if (tableContainer) tableContainer.style.display = 'none';
+        if (paginationRow) paginationRow.style.display = 'none';
+        if (bulkBar) bulkBar.style.display = 'none';
+        showAuditLog();
+    } else {
+        if (tableContainer) tableContainer.style.display = '';
+        if (paginationRow) paginationRow.style.display = '';
+        if (auditContainer) auditContainer.style.display = 'none';
+        loadUsers();
     }
+}
+
+// ==================== //
+// Bulk Selection
+// ==================== //
+
+function toggleSelectAll(checked) {
+    const users = state.currentTab === 'approved' ? state.approvedUsers : state.pendingUsers;
+    state.selectedUserIds.clear();
+    if (checked) {
+        users.forEach(u => state.selectedUserIds.add(u.id));
+    }
+    // Update all checkboxes
+    document.querySelectorAll('.um-user-check').forEach(cb => { cb.checked = checked; });
+    updateBulkBar();
+}
+
+function toggleUserSelection(userId, checked) {
+    if (checked) {
+        state.selectedUserIds.add(userId);
+    } else {
+        state.selectedUserIds.delete(userId);
+    }
+    // Update select-all checkbox
+    const selectAll = document.getElementById('umSelectAll');
+    const users = state.currentTab === 'approved' ? state.approvedUsers : state.pendingUsers;
+    if (selectAll) selectAll.checked = state.selectedUserIds.size === users.length && users.length > 0;
+    updateBulkBar();
+}
+
+function clearSelection() {
+    state.selectedUserIds.clear();
+    document.querySelectorAll('.um-user-check').forEach(cb => { cb.checked = false; });
+    const selectAll = document.getElementById('umSelectAll');
+    if (selectAll) selectAll.checked = false;
+    updateBulkBar();
+}
+
+function updateBulkBar() {
+    const bar = document.getElementById('umBulkBar');
+    const countEl = document.getElementById('umSelectedCount');
+    if (!bar) return;
+
+    const count = state.selectedUserIds.size;
+    if (count === 0) {
+        bar.style.display = 'none';
+        return;
+    }
+    bar.style.display = 'flex';
+    if (countEl) countEl.textContent = count;
+
+    // Show/hide buttons based on tab
+    const approveBtn = document.getElementById('bulkApproveBtn');
+    const roleBtn = document.getElementById('bulkRoleBtn');
+    const deactivateBtn = document.getElementById('bulkDeactivateBtn');
+    if (approveBtn) approveBtn.style.display = state.currentTab === 'pending' ? '' : 'none';
+    if (roleBtn) roleBtn.style.display = state.currentTab === 'approved' ? '' : 'none';
+    if (deactivateBtn) deactivateBtn.style.display = state.currentTab === 'approved' ? '' : 'none';
+}
+
+// ==================== //
+// Bulk Operations
+// ==================== //
+
+async function bulkApprove() {
+    const ids = Array.from(state.selectedUserIds);
+    if (ids.length === 0) return;
+    if (!confirm(`ต้องการอนุมัติ ${ids.length} ผู้ใช้ที่เลือกหรือไม่?`)) return;
+
+    let success = 0, fail = 0;
+    for (const id of ids) {
+        try {
+            const result = await window.AuthSystem.approveUser(id);
+            if (result.success) success++; else fail++;
+        } catch (e) { fail++; }
+    }
+    showToast(`✅ อนุมัติสำเร็จ ${success}/${ids.length}${fail > 0 ? ` (ล้มเหลว ${fail})` : ''}`, fail > 0 ? 'warning' : 'success', 3000);
+    try { await window.SupabaseActivityLog.add('user_bulk_approve', null, { user_ids: ids, count: success }); } catch (e) { console.warn('Audit log error:', e); }
+    state.selectedUserIds.clear();
+    await loadUsers();
+}
+
+async function bulkRoleChange() {
+    const ids = Array.from(state.selectedUserIds);
+    if (ids.length === 0) return;
+
+    const roleOptions = BRANCH_ROLES.map(r => `<option value="${r.value}">${r.label}</option>`).join('');
+    const role = prompt('เลือกตำแหน่งใหม่:\n' + BRANCH_ROLES.map(r => `${r.value} = ${r.label}`).join('\n'));
+    if (!role || !BRANCH_ROLES.find(r => r.value === role)) {
+        if (role !== null) alert('ตำแหน่งไม่ถูกต้อง กรุณาพิมพ์: head, deputy, officer, temp_officer, หรือ other');
+        return;
+    }
+    if (!confirm(`ต้องการเปลี่ยนตำแหน่ง ${ids.length} ผู้ใช้เป็น "${BRANCH_ROLE_LABELS[role]}" หรือไม่?`)) return;
+
+    let success = 0, fail = 0;
+    for (const id of ids) {
+        try {
+            const result = await window.AuthSystem.updateUser(id, { branch_role: role });
+            if (result.success) success++; else fail++;
+        } catch (e) { fail++; }
+    }
+    showToast(`🏷️ เปลี่ยนตำแหน่งสำเร็จ ${success}/${ids.length}${fail > 0 ? ` (ล้มเหลว ${fail})` : ''}`, fail > 0 ? 'warning' : 'success', 3000);
+    try { await window.SupabaseActivityLog.add('user_bulk_role_change', null, { user_ids: ids, new_role: role, count: success }); } catch (e) { console.warn('Audit log error:', e); }
+    state.selectedUserIds.clear();
+    await loadUsers();
+}
+
+async function bulkDeactivate() {
+    const ids = Array.from(state.selectedUserIds);
+    if (ids.length === 0) return;
+    if (!confirm(`ต้องการระงับ ${ids.length} ผู้ใช้ที่เลือกหรือไม่?`)) return;
+
+    let success = 0, fail = 0;
+    for (const id of ids) {
+        try {
+            const result = await window.AuthSystem.updateUser(id, { is_active: false });
+            if (result.success) success++; else fail++;
+        } catch (e) { fail++; }
+    }
+    showToast(`⏸️ ระงับสำเร็จ ${success}/${ids.length}${fail > 0 ? ` (ล้มเหลว ${fail})` : ''}`, fail > 0 ? 'warning' : 'success', 3000);
+    try { await window.SupabaseActivityLog.add('user_bulk_deactivate', null, { user_ids: ids, count: success }); } catch (e) { console.warn('Audit log error:', e); }
+    state.selectedUserIds.clear();
+    await loadUsers();
+}
+
+// ==================== //
+// Deactivate / Reactivate Single User
+// ==================== //
+
+async function toggleUserActive(userId, activate) {
+    const action = activate ? 'เปิดใช้งาน' : 'ระงับ';
+    if (!confirm(`ต้องการ${action}ผู้ใช้นี้หรือไม่?`)) return;
+
+    try {
+        const user = await window.AuthSystem.getUserById(userId);
+        const result = await window.AuthSystem.updateUser(userId, { is_active: activate });
+        if (result.success) {
+            showToast(`✅ ${action}ผู้ใช้สำเร็จ`, 'success');
+            const auditAction = activate ? 'user_reactivate' : 'user_deactivate';
+            try { await window.SupabaseActivityLog.add(auditAction, null, { target_user_id: userId, target_name: user?.name || '-' }); } catch (e) { console.warn('Audit log error:', e); }
+            await loadUsers();
+        } else {
+            alert('เกิดข้อผิดพลาด: ' + (result.error || 'Unknown'));
+        }
+    } catch (e) {
+        alert('เกิดข้อผิดพลาด: ' + e.message);
+    }
+}
+
+// ==================== //
+// Export User List CSV
+// ==================== //
+
+async function exportUsersCsv() {
+    showToast('📥 กำลังเตรียมไฟล์...', 'info', 2000);
+
+    // Fetch all matching users (no pagination) for export
+    const branchId = state.isSuperAdmin ? state.filterBranchId : state.currentBranchId;
+    const opts = {
+        branchId: branchId || undefined,
+        search: state.searchQuery || undefined,
+        isApproved: state.currentTab === 'approved' ? true : false,
+        roleFilter: state.roleFilter || undefined,
+        sortColumn: state.sortColumn,
+        sortDirection: state.sortDirection
+        // NO page/pageSize = fetch ALL
+    };
+    const result = await window.AuthSystem.getUsers(opts);
+    const users = result.data || [];
+
+    if (users.length === 0) {
+        alert('ไม่มีข้อมูลสำหรับ export');
+        return;
+    }
+
+    const headers = ['ชื่อ', 'อีเมล', 'สาขา', 'รหัสสาขา', 'ตำแหน่ง', 'สถานะ', 'Super Admin', 'วันที่สร้าง'];
+    const rows = users.map(u => [
+        u.name || '-',
+        u.username || '-',
+        u.branches?.name_th || '-',
+        u.branches?.code || '-',
+        BRANCH_ROLE_LABELS[u.branch_role] || u.branch_role || '-',
+        u.is_active === false ? 'ระงับ' : 'เปิดใช้งาน',
+        u.is_super_admin ? 'ใช่' : '-',
+        u.created_at ? new Date(u.created_at).toLocaleDateString('th-TH') : '-'
+    ]);
+
+    const BOM = '\uFEFF';
+    const csvContent = BOM + [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `รายชื่อผู้ใช้_${new Date().toLocaleDateString('th-TH').replace(/\//g, '-')}.csv`;
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showToast(`📥 ส่งออก ${users.length} รายการสำเร็จ`, 'success');
+}
+
+// ==================== //
+// Audit Log Viewer (v9.2)
+// ==================== //
+
+const AUDIT_ACTION_LABELS = {
+    user_approve: 'อนุมัติผู้ใช้',
+    user_reject: 'ปฏิเสธผู้ใช้',
+    user_edit: 'แก้ไขผู้ใช้',
+    user_role_change: 'เปลี่ยนตำแหน่ง',
+    user_transfer: 'ย้ายสาขา',
+    user_deactivate: 'ระงับผู้ใช้',
+    user_reactivate: 'เปิดใช้งานผู้ใช้',
+    user_password_reset: 'Reset Password',
+    user_bulk_approve: 'อนุมัติกลุ่ม',
+    user_bulk_role_change: 'เปลี่ยนตำแหน่งกลุ่ม',
+    user_bulk_deactivate: 'ระงับกลุ่ม',
+    branch_edit: 'แก้ไขสาขา',
+    branch_create: 'สร้างสาขา',
+    branch_toggle: 'เปลี่ยนสถานะสาขา',
+};
+
+async function showAuditLog() {
+    const container = document.getElementById('umAuditContainer');
+    if (!container) return;
+    container.style.display = '';
+
+    // Render audit filter bar + table skeleton
+    const actionOptions = Object.entries(AUDIT_ACTION_LABELS)
+        .map(([val, label]) => `<option value="${val}" ${state.auditFilterAction === val ? 'selected' : ''}>${label}</option>`)
+        .join('');
+
+    container.innerHTML = `
+        <div class="um-audit-filters">
+            <select id="auditActionFilter" class="um-filter-select">
+                <option value="">การกระทำ: ทั้งหมด</option>
+                ${actionOptions}
+            </select>
+            <input type="date" id="auditDateFrom" class="um-filter-select" value="${state.auditFilterDateFrom || ''}" placeholder="จากวันที่">
+            <input type="date" id="auditDateTo" class="um-filter-select" value="${state.auditFilterDateTo || ''}" placeholder="ถึงวันที่">
+        </div>
+        <div class="um-table-wrapper">
+            <table class="user-table" style="font-size:0.85rem;">
+                <thead>
+                    <tr>
+                        <th>เวลา</th>
+                        <th>ผู้กระทำ</th>
+                        <th>การกระทำ</th>
+                        <th>รายละเอียด</th>
+                    </tr>
+                </thead>
+                <tbody id="auditTableBody">
+                    <tr><td colspan="4" style="text-align:center; padding:30px; color:#6b7280;">กำลังโหลด...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="um-pagination-row" id="auditPaginationRow">
+            <div class="um-page-size">
+                แสดง <select id="auditPageSize" class="um-filter-select um-filter-small">
+                    ${[10, 25, 50].map(n => `<option value="${n}" ${state.auditPageSize === n ? 'selected' : ''}>${n}</option>`).join('')}
+                </select> รายการ
+            </div>
+            <div class="um-pagination" id="auditPagination"></div>
+            <div class="um-total-count" id="auditTotalCount"></div>
+        </div>
+    `;
+
+    // Attach filter events
+    document.getElementById('auditActionFilter')?.addEventListener('change', (e) => {
+        state.auditFilterAction = e.target.value || null;
+        state.auditPage = 1;
+        loadAuditLogs();
+    });
+    document.getElementById('auditDateFrom')?.addEventListener('change', (e) => {
+        state.auditFilterDateFrom = e.target.value || null;
+        state.auditPage = 1;
+        loadAuditLogs();
+    });
+    document.getElementById('auditDateTo')?.addEventListener('change', (e) => {
+        state.auditFilterDateTo = e.target.value || null;
+        state.auditPage = 1;
+        loadAuditLogs();
+    });
+    document.getElementById('auditPageSize')?.addEventListener('change', (e) => {
+        state.auditPageSize = parseInt(e.target.value) || 25;
+        state.auditPage = 1;
+        loadAuditLogs();
+    });
+
+    await loadAuditLogs();
+}
+
+async function loadAuditLogs() {
+    try {
+        const result = await window.SupabaseActivityLog.getFiltered({
+            action: state.auditFilterAction || undefined,
+            dateFrom: state.auditFilterDateFrom || undefined,
+            dateTo: state.auditFilterDateTo || undefined,
+            page: state.auditPage,
+            pageSize: state.auditPageSize
+        });
+        state.auditLogs = result.data || [];
+        state.auditTotalCount = result.count || 0;
+    } catch (e) {
+        console.error('Error loading audit logs:', e);
+        state.auditLogs = [];
+        state.auditTotalCount = 0;
+    }
+    renderAuditTable();
+    renderAuditPagination();
+}
+
+function renderAuditTable() {
+    const tbody = document.getElementById('auditTableBody');
+    if (!tbody) return;
+
+    if (state.auditLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px; color:#6b7280;">ไม่มีบันทึกกิจกรรม</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = state.auditLogs.map(log => {
+        const dateStr = log.created_at ? new Date(log.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : '-';
+        const actionLabel = AUDIT_ACTION_LABELS[log.action] || log.action || '-';
+        const userName = sanitizeHTML(log.user_name || '-');
+        const details = log.details || {};
+
+        // Build detail string
+        let detailStr = '';
+        if (details.target_name) detailStr += sanitizeHTML(details.target_name);
+        if (details.old_role && details.new_role) detailStr += `: ${details.old_role} → ${details.new_role}`;
+        if (details.count) detailStr += ` (${details.count} รายการ)`;
+        if (details.target_email) detailStr += ` (${sanitizeHTML(details.target_email)})`;
+        if (details.activated !== undefined) detailStr += details.activated ? ' → เปิดใช้งาน' : ' → ปิดใช้งาน';
+        if (!detailStr) detailStr = '-';
+
+        return `<tr>
+            <td class="um-cell-date">${dateStr}</td>
+            <td>${userName}</td>
+            <td><span class="audit-action-badge">${actionLabel}</span></td>
+            <td style="font-size:0.82rem; color:#4b5563; max-width:300px; overflow:hidden; text-overflow:ellipsis;">${detailStr}</td>
+        </tr>`;
+    }).join('');
+}
+
+function renderAuditPagination() {
+    const container = document.getElementById('auditPagination');
+    const totalEl = document.getElementById('auditTotalCount');
+    if (!container) return;
+
+    const totalPages = Math.ceil(state.auditTotalCount / state.auditPageSize);
+    if (totalEl) totalEl.textContent = `รวม ${state.auditTotalCount} รายการ`;
+
+    if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+    let html = `<button class="btn btn-outline btn-sm" ${state.auditPage <= 1 ? 'disabled' : ''} onclick="goToAuditPage(${state.auditPage - 1})">◀</button>`;
+    const maxShow = 5;
+    let startPage = Math.max(1, state.auditPage - Math.floor(maxShow / 2));
+    let endPage = Math.min(totalPages, startPage + maxShow - 1);
+    if (endPage - startPage < maxShow - 1) startPage = Math.max(1, endPage - maxShow + 1);
+
+    if (startPage > 1) {
+        html += `<button class="btn btn-outline btn-sm" onclick="goToAuditPage(1)">1</button>`;
+        if (startPage > 2) html += `<span class="um-pagination-ellipsis">...</span>`;
+    }
+    for (let i = startPage; i <= endPage; i++) {
+        html += `<button class="btn ${i === state.auditPage ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="goToAuditPage(${i})">${i}</button>`;
+    }
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) html += `<span class="um-pagination-ellipsis">...</span>`;
+        html += `<button class="btn btn-outline btn-sm" onclick="goToAuditPage(${totalPages})">${totalPages}</button>`;
+    }
+    html += `<button class="btn btn-outline btn-sm" ${state.auditPage >= totalPages ? 'disabled' : ''} onclick="goToAuditPage(${state.auditPage + 1})">▶</button>`;
+    container.innerHTML = html;
+}
+
+function goToAuditPage(page) {
+    const totalPages = Math.ceil(state.auditTotalCount / state.auditPageSize);
+    if (page < 1 || page > totalPages) return;
+    state.auditPage = page;
+    loadAuditLogs();
 }
 
 // ==================== //
@@ -369,10 +1031,12 @@ function switchUserTab(tab) {
 async function handleApproveUser(userId) {
     if (!confirm('ต้องการอนุมัติผู้ใช้นี้หรือไม่?')) return;
 
+    const user = await window.AuthSystem.getUserById(userId);
     const result = await window.AuthSystem.approveUser(userId);
     if (result.success) {
         showToast('✅ อนุมัติผู้ใช้แล้ว — อย่าลืมกำหนด Role ให้เหมาะสม', 'success', 5000);
-        await showUserManagement();
+        try { await window.SupabaseActivityLog.add('user_approve', null, { target_user_id: userId, target_name: user?.name || '-' }); } catch (e) { console.warn('Audit log error:', e); }
+        await loadUsers();
     } else {
         alert('เกิดข้อผิดพลาด: ' + result.error);
     }
@@ -381,10 +1045,12 @@ async function handleApproveUser(userId) {
 async function handleRejectUser(userId) {
     if (!confirm('ต้องการปฏิเสธผู้ใช้นี้หรือไม่? ข้อมูลจะถูกลบ')) return;
 
+    const user = await window.AuthSystem.getUserById(userId);
     const result = await window.AuthSystem.rejectUser(userId);
     if (result.success) {
-        alert('ปฏิเสธผู้ใช้เรียบร้อยแล้ว');
-        await showUserManagement();
+        showToast('✅ ปฏิเสธผู้ใช้เรียบร้อยแล้ว', 'success');
+        try { await window.SupabaseActivityLog.add('user_reject', null, { target_user_id: userId, target_name: user?.name || '-' }); } catch (e) { console.warn('Audit log error:', e); }
+        await loadUsers();
     } else {
         alert('เกิดข้อผิดพลาด: ' + result.error);
     }
@@ -568,6 +1234,18 @@ async function showEditUserForm(userId) {
 
         if (result.success) {
             showToast('✅ อัพเดทผู้ใช้สำเร็จ', 'success');
+            // Audit logging for edit actions
+            try {
+                const before = { name: user.name, role: user.branch_role || user.role, branch_id: user.branch_id };
+                const after = { name: updateData.name, role: updateData.branch_role, branch_id: updateData.branch_id || user.branch_id };
+                await window.SupabaseActivityLog.add('user_edit', null, { target_user_id: userId, target_name: user.name, before, after });
+                if (before.role !== after.role) {
+                    await window.SupabaseActivityLog.add('user_role_change', null, { target_user_id: userId, target_name: user.name, old_role: before.role, new_role: after.role });
+                }
+                if (updateData.branch_id && updateData.branch_id !== user.branch_id) {
+                    await window.SupabaseActivityLog.add('user_transfer', null, { target_user_id: userId, target_name: user.name, old_branch: user.branch_id, new_branch: updateData.branch_id });
+                }
+            } catch (e) { console.warn('Audit log error:', e); }
             await showUserManagement();
         } else {
             alert(result.error);
@@ -628,6 +1306,7 @@ async function handleResetPassword(userId) {
 
         if (result.success) {
             alert(`ส่ง email reset password ไปที่ ${email} เรียบร้อยแล้ว\n\nผู้ใช้จะได้รับ link สำหรับตั้งรหัสผ่านใหม่ทาง email`);
+            try { await window.SupabaseActivityLog.add('user_password_reset', null, { target_user_id: userId, target_email: email }); } catch (e) { console.warn('Audit log error:', e); }
         } else {
             alert('เกิดข้อผิดพลาด: ' + result.error);
         }
@@ -682,6 +1361,9 @@ async function showBranchManagement() {
                     <tbody>
                         ${branches.map(b => {
                             const count = userCounts[b.id] || 0;
+                            const maxUsers = b.max_users || 20;
+                            const pct = Math.min(100, Math.round(count / maxUsers * 100));
+                            const barColor = pct >= 90 ? '#dc2626' : (pct >= 70 ? '#f59e0b' : '#22c55e');
                             const features = b.features || {};
                             const featureTags = Object.keys(features).filter(k => features[k]).map(k => `<span class="feature-tag">${k}</span>`).join(' ') || '<span style="color:#999;">-</span>';
                             return `
@@ -689,7 +1371,10 @@ async function showBranchManagement() {
                                 <td style="font-family:monospace; font-size:0.8rem;">${sanitizeHTML(b.code)}</td>
                                 <td>${sanitizeHTML(b.name_th)}</td>
                                 <td style="font-size:0.8rem;">${sanitizeHTML(b.name_en)}</td>
-                                <td style="text-align:center;">${count}</td>
+                                <td>
+                                    <div class="capacity-text">${count} / ${maxUsers}</div>
+                                    <div class="capacity-bar"><div class="capacity-fill" style="width:${pct}%; background:${barColor};"></div></div>
+                                </td>
                                 <td>${featureTags}</td>
                                 <td>${b.is_active ? '<span style="color:green;">เปิดใช้</span>' : '<span style="color:red;">ปิด</span>'}</td>
                                 <td>
@@ -759,9 +1444,16 @@ async function showEditBranchForm(branchId) {
                         <input type="number" id="editBranchCapacity" value="${branch.max_capacity || 160}">
                     </div>
                     <div class="form-group">
+                        <label>จำนวนผู้ใช้สูงสุด</label>
+                        <input type="number" id="editBranchMaxUsers" value="${branch.max_users || 20}" min="1" max="100">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
                         <label>ลำดับแสดง</label>
                         <input type="number" id="editBranchOrder" value="${branch.display_order || 0}">
                     </div>
+                    <div class="form-group"></div>
                 </div>
                 <div style="margin:12px 0; padding:12px; background:#f8fafc; border-radius:8px;">
                     <label style="font-weight:600; margin-bottom:8px; display:block;">Feature Access</label>
@@ -785,20 +1477,23 @@ async function showEditBranchForm(branchId) {
     document.getElementById('editBranchForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
-            await window.SupabaseBranches.update(branchId, {
+            const updateData = {
                 province_code: document.getElementById('editBranchProvince').value,
                 name_th: document.getElementById('editBranchNameTh').value,
                 name_en: document.getElementById('editBranchNameEn').value,
                 address_th: document.getElementById('editBranchAddrTh').value,
                 address_en: document.getElementById('editBranchAddrEn').value,
                 max_capacity: parseInt(document.getElementById('editBranchCapacity').value) || 160,
+                max_users: parseInt(document.getElementById('editBranchMaxUsers').value) || 20,
                 display_order: parseInt(document.getElementById('editBranchOrder').value) || 0,
                 features: {
                     receipt_module: document.getElementById('featureReceipt').checked,
                     card_print_lock: document.getElementById('featureCardPrint').checked
                 }
-            });
+            };
+            await window.SupabaseBranches.update(branchId, updateData);
             showToast('✅ อัพเดทสาขาสำเร็จ', 'success');
+            try { await window.SupabaseActivityLog.add('branch_edit', null, { branch_id: branchId, before: { name_th: branch.name_th }, after: { name_th: updateData.name_th } }); } catch (e) { console.warn('Audit log error:', e); }
             await showBranchManagement();
         } catch (err) {
             alert('เกิดข้อผิดพลาด: ' + err.message);
@@ -847,13 +1542,15 @@ async function showAddBranchForm() {
     document.getElementById('addBranchForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
-            await window.SupabaseBranches.create({
+            const branchData = {
                 code: document.getElementById('addBranchCode').value,
                 province_code: document.getElementById('addBranchProvince').value,
                 name_th: document.getElementById('addBranchNameTh').value,
                 name_en: document.getElementById('addBranchNameEn').value
-            });
+            };
+            await window.SupabaseBranches.create(branchData);
             showToast('✅ สร้างสาขาสำเร็จ', 'success');
+            try { await window.SupabaseActivityLog.add('branch_create', null, { code: branchData.code }); } catch (e) { console.warn('Audit log error:', e); }
             // Refresh branches cache
             state.branches = await window.SupabaseBranches.getAll(true) || [];
             await showBranchManagement();
@@ -878,6 +1575,7 @@ async function toggleBranchStatus(branchId, activate) {
             await window.SupabaseBranches.deactivate(branchId);
         }
         showToast(`✅ ${action}สาขาสำเร็จ`, 'success');
+        try { await window.SupabaseActivityLog.add('branch_toggle', null, { branch_id: branchId, activated: activate }); } catch (e) { console.warn('Audit log error:', e); }
         await showBranchManagement();
     } catch (err) {
         alert('เกิดข้อผิดพลาด: ' + err.message);
@@ -900,3 +1598,16 @@ window.showEditBranchForm = showEditBranchForm;
 window.showAddBranchForm = showAddBranchForm;
 window.toggleBranchStatus = toggleBranchStatus;
 window.copyRegisterLink = copyRegisterLink;
+// v9.2 — Search, Sort, Pagination, Bulk ops
+window.handleSort = handleSort;
+window.goToUmPage = goToUmPage;
+window.toggleSelectAll = toggleSelectAll;
+window.toggleUserSelection = toggleUserSelection;
+window.clearSelection = clearSelection;
+window.bulkApprove = bulkApprove;
+window.bulkRoleChange = bulkRoleChange;
+window.bulkDeactivate = bulkDeactivate;
+window.toggleUserActive = toggleUserActive;
+window.exportUsersCsv = exportUsersCsv;
+window.showAuditLog = showAuditLog;
+window.goToAuditPage = goToAuditPage;

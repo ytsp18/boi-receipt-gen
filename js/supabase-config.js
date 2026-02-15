@@ -436,6 +436,30 @@ const SupabaseActivityLog = {
 
         if (error) throw error;
         return data;
+    },
+
+    // Get filtered logs with pagination (v9.2)
+    async getFiltered(options = {}) {
+        const client = getSupabase();
+        let query = client
+            .from('activity_logs')
+            .select('*', { count: 'exact' });
+
+        if (options.action) query = query.eq('action', options.action);
+        if (options.dateFrom) query = query.gte('created_at', options.dateFrom);
+        if (options.dateTo) query = query.lte('created_at', options.dateTo + 'T23:59:59');
+        if (options.search) query = query.or(`user_name.ilike.%${options.search}%,details.cs.${JSON.stringify({target_name: options.search})}`);
+
+        query = query.order('created_at', { ascending: false });
+
+        if (options.page && options.pageSize) {
+            const from = (options.page - 1) * options.pageSize;
+            query = query.range(from, from + options.pageSize - 1);
+        }
+
+        const { data, count, error } = await query;
+        if (error) throw error;
+        return { data: data || [], count: count || 0 };
     }
 };
 

@@ -291,6 +291,14 @@ async function requireAuth() {
         window.location.href = 'login.html' + getEnvParam();
         return false;
     }
+    // Check if user is deactivated (is_active = false)
+    const session = await getSession();
+    if (session && session.is_active === false) {
+        await logout();
+        alert('บัญชีของคุณถูกระงับ กรุณาติดต่อผู้ดูแลระบบ');
+        window.location.href = 'login.html' + getEnvParam();
+        return false;
+    }
     return true;
 }
 
@@ -310,29 +318,61 @@ async function requirePermission(permission) {
 // User Management Functions (Admin only)
 // ==================== //
 
-async function getUsers(filterBranchId) {
+async function getUsers(options) {
     try {
         const client = getSupabaseClient();
-        if (!client) return [];
+        if (!client) return { data: [], count: 0 };
 
-        // v9.0: JOIN branches to get branch name + code
+        // v9.2: Backward compat — old callers pass string branchId
+        if (typeof options === 'string') {
+            options = { branchId: options };
+        }
+        const opts = options || {};
+
+        // v9.2: SELECT with exact count for pagination
         let query = client
             .from('profiles')
-            .select('*, branches(id, code, name_th)')
-            .order('created_at', { ascending: true });
+            .select('*, branches(id, code, name_th)', { count: 'exact' });
 
-        // v9.0: Filter by branch if specified
-        if (filterBranchId) {
-            query = query.eq('branch_id', filterBranchId);
+        // Filters
+        if (opts.branchId) {
+            query = query.eq('branch_id', opts.branchId);
+        }
+        if (opts.isApproved !== undefined) {
+            query = query.eq('is_approved', opts.isApproved);
+        }
+        if (opts.search) {
+            const s = opts.search.trim();
+            if (s) {
+                query = query.or(`name.ilike.%${s}%,username.ilike.%${s}%`);
+            }
+        }
+        if (opts.roleFilter) {
+            query = query.eq('branch_role', opts.roleFilter);
+        }
+        if (opts.isActive !== undefined) {
+            query = query.eq('is_active', opts.isActive);
         }
 
-        const { data, error } = await query;
+        // Sort
+        const sortMap = { name: 'name', branch: 'branch_id', role: 'branch_role', created_at: 'created_at' };
+        const sortCol = sortMap[opts.sortColumn] || 'name';
+        const ascending = (opts.sortDirection || 'asc') === 'asc';
+        query = query.order(sortCol, { ascending });
+
+        // Pagination (server-side)
+        if (opts.page && opts.pageSize) {
+            const from = (opts.page - 1) * opts.pageSize;
+            query = query.range(from, from + opts.pageSize - 1);
+        }
+
+        const { data, count, error } = await query;
 
         if (error) throw error;
-        return data || [];
+        return { data: data || [], count: count || 0 };
     } catch (e) {
         console.error('Error loading users:', e);
-        return [];
+        return { data: [], count: 0 };
     }
 }
 
@@ -367,6 +407,7 @@ async function updateUser(id, userData) {
         if (userData.branch_role !== undefined) updatePayload.branch_role = userData.branch_role;
         if (userData.branch_id !== undefined) updatePayload.branch_id = userData.branch_id;
         if (userData.is_super_admin !== undefined) updatePayload.is_super_admin = userData.is_super_admin;
+        if (userData.is_active !== undefined) updatePayload.is_active = userData.is_active;
 
         // Sync legacy role from branch_role for backward compat
         if (userData.branch_role) {

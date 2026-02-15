@@ -2428,7 +2428,9 @@ async function loadUserNameCache() {
     if (_userNameCache) return _userNameCache;
     try {
         if (window.AuthSystem && window.AuthSystem.getUsers) {
-            const users = await window.AuthSystem.getUsers();
+            const result = await window.AuthSystem.getUsers();
+            // v9.2: getUsers() now returns { data, count } — extract data array
+            const users = Array.isArray(result) ? result : (result.data || []);
             _userNameCache = {};
             users.forEach(u => {
                 _userNameCache[u.id] = u.name || u.email || u.id;
