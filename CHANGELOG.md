@@ -1,9 +1,19 @@
 # Change Log - Work Permit Receipt System
 
-## [9.2.0] - 2026-02-16 (SIT Testing)
+## [9.2.0] - 2026-02-16 (Production)
 
-> **สถานะ: ✅ SIT Passed (10/10 tests)** — UM Enhancement: Search, Bulk Ops, Audit
-> **Commit:** `c87be36` → `14ac1b5` (4 bug fixes) | **Branch:** `sit`
+> **สถานะ: ✅ Production Deployed** — UM Enhancement + Security Hardening
+> **Commit:** `c87be36` → `21a9f10` (5 bug fixes + security) | **Tag:** `v9.2.0`
+
+### Security Fixes (v9.2.2)
+- **MD-5:** Fix `hasPermission()` not awaited — Promise (truthy) bypassed permission checks
+  - `user-management-app.js:170` — add await
+  - `app-supabase.js:3417` — make `setupUserManagement()` async + await
+- **MD-7/8:** RLS hardening — `is_user_active()` SECURITY DEFINER function
+  - 8 write policies (INSERT/UPDATE/DELETE on receipts, card_print_locks, profiles) now check `is_user_active()`
+  - Deactivated users blocked at database level (not just application layer)
+  - SELECT policies unchanged — deactivated users can still read data
+  - `profiles_insert_own` unchanged — registration flow unaffected
 
 ### Overview
 UM page จากหน้าเต็มที่ v9.1.0 สร้างไว้ → เพิ่ม professional admin features:
