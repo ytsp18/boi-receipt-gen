@@ -148,10 +148,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         DOM.backToLandingBtn.href = 'landing.html' + envParam;
     }
 
-    // Auth check
+    // Auth check (requireAuth checks is_active + redirects deactivated users)
     try {
         if (typeof requireAuth === 'function') {
-            await requireAuth();
+            const authOk = await requireAuth();
+            if (!authOk) return;
         }
 
         const session = typeof getSession === 'function' ? await getSession() : null;

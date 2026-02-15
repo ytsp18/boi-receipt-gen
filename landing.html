@@ -230,11 +230,11 @@
 
             const envParam = typeof getEnvParam === 'function' ? getEnvParam() : '';
 
+            // Use requireAuth() to check is_active + redirect if deactivated
+            const authOk = await window.AuthSystem.requireAuth();
+            if (!authOk) return;
+
             const session = await window.AuthSystem.getSession();
-            if (!session) {
-                window.location.href = 'login.html' + envParam;
-                return;
-            }
 
             // Display user info
             document.getElementById('userName').textContent = session.name || '-';

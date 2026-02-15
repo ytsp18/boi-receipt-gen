@@ -4010,6 +4010,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         console.log('✅ Authenticated as:', session.user.email);
 
+        // Check if user is deactivated (is_active = false)
+        if (window.AuthSystem) {
+            const authOk = await window.AuthSystem.requireAuth();
+            if (!authOk) return;
+        }
+
         // Initialize the app after auth check
         await initializeApp();
     } catch (e) {
