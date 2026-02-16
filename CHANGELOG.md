@@ -1,5 +1,24 @@
 # Change Log - Work Permit Receipt System
 
+## [9.4.0] - 2026-02-16 (SIT only)
+
+> **สถานะ: SIT Deployed** — Inline Event Handler Removal + CSP Hardening
+
+### Security: CSP script-src 'unsafe-inline' Removed
+- **83 inline event handlers converted** to event delegation (`data-action` + dispatcher map)
+  - `js/card-print-app.js` — 11 handlers (onclick, onblur, onkeydown)
+  - `js/app-supabase.js` — 21 handlers (onclick, onchange, onmousedown, onerror)
+  - `js/user-management-app.js` — 47 handlers (onclick, onchange)
+  - `js/landing-app.js` + HTML files — 4 handlers (onclick)
+- **Event delegation pattern:** `initEventDelegation()` per-file with dispatcher map for O(1) lookup
+- **Special handling:** blur/error (capture phase), mousedown (intentional for dropdown), `data-activate` boolean params
+- **CSP updated:** `script-src 'self' https://cdn.jsdelivr.net` (removed `'unsafe-inline'`)
+  - `_headers` (Cloudflare Pages) + 6 HTML meta tags
+  - `style-src 'unsafe-inline'` retained for inline style attributes
+- **Bug fix:** `hideRecentDropdown()` was unreachable from inline handler scope — fixed via delegation
+
+---
+
 ## [9.3.0] - 2026-02-16 (SIT only)
 
 > **สถานะ: SIT Deployed** — Extract Inline Scripts to External JS
