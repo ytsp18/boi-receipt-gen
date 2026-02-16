@@ -828,6 +828,14 @@ async function toggleCardReceived(receiptNo) {
 
         renderRegistryTable();
         updateSummary();
+
+        // Auto-scroll to the toggled row so user can see the status change
+        if (newStatus) {
+            requestAnimationFrame(() => {
+                const row = document.querySelector(`[data-action="toggle-card-received"][data-receipt-no="${receiptNo}"]`);
+                if (row) row.closest('tr')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        }
     } catch (e) {
         console.error('Error toggling received:', e);
         alert('เกิดข้อผิดพลาดในการบันทึกสถานะรับบัตร');
