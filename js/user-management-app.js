@@ -147,11 +147,61 @@ const BRANCH_ROLES = [
     { value: 'other', label: 'อื่นๆ (Other)', perms: 'ดูอย่างเดียว' }
 ];
 
+// === Event Delegation Setup ===
+function initEventDelegation() {
+    const clickActions = {
+        'export-users-csv':     ()   => exportUsersCsv(),
+        'show-add-user-form':   ()   => showAddUserForm(),
+        'switch-tab':           (el) => switchUserTab(el.dataset.tab),
+        'switch-tab-and-show':  (el) => { switchUserTab(el.dataset.tab); showUserManagement(); },
+        'show-branch-mgmt':     ()   => showBranchManagement(),
+        'bulk-approve':         ()   => bulkApprove(),
+        'bulk-role-change':     ()   => bulkRoleChange(),
+        'bulk-deactivate':      ()   => bulkDeactivate(),
+        'clear-selection':      ()   => clearSelection(),
+        'handle-sort':          (el) => handleSort(el.dataset.column),
+        'show-edit-user':       (el) => showEditUserForm(el.dataset.userId),
+        'reset-password':       (el) => handleResetPassword(el.dataset.userId),
+        'toggle-user-active':   (el) => toggleUserActive(el.dataset.userId, el.dataset.activate === 'true'),
+        'approve-user':         (el) => handleApproveUser(el.dataset.userId),
+        'reject-user':          (el) => handleRejectUser(el.dataset.userId),
+        'go-to-um-page':        (el) => goToUmPage(Number(el.dataset.page)),
+        'go-to-audit-page':     (el) => goToAuditPage(Number(el.dataset.page)),
+        'copy-register-link':   ()   => copyRegisterLink(),
+        'show-user-mgmt':       ()   => showUserManagement(),
+        'show-add-branch':      ()   => showAddBranchForm(),
+        'show-edit-branch':     (el) => showEditBranchForm(el.dataset.branchId),
+        'toggle-branch-status': (el) => toggleBranchStatus(el.dataset.branchId, el.dataset.activate === 'true'),
+    };
+
+    const changeActions = {
+        'toggle-select-all':     (el) => toggleSelectAll(el.checked),
+        'toggle-user-selection': (el) => toggleUserSelection(el.dataset.userId, el.checked),
+    };
+
+    document.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-action]');
+        if (!target) return;
+        if (clickActions[target.dataset.action]) {
+            clickActions[target.dataset.action](target, e);
+        }
+    });
+
+    document.addEventListener('change', (e) => {
+        const target = e.target.closest('[data-action]');
+        if (!target) return;
+        if (changeActions[target.dataset.action]) {
+            changeActions[target.dataset.action](target, e);
+        }
+    });
+}
+
 // ==================== //
 // Init
 // ==================== //
 document.addEventListener('DOMContentLoaded', async () => {
     cacheDOMElements();
+    initEventDelegation();
 
     // Preserve env param in back link
     const envParam = typeof getEnvParam === 'function' ? getEnvParam() : '';
@@ -274,23 +324,23 @@ function renderShell() {
                 </div>
                 ${branchFilterHtml}
                 ${roleFilterHtml}
-                <button class="btn btn-outline btn-sm um-toolbar-row" onclick="exportUsersCsv()">📥 ส่งออก CSV</button>
-                <button class="btn btn-success btn-sm" onclick="showAddUserForm()">➕ เพิ่มผู้ใช้</button>
+                <button class="btn btn-outline btn-sm um-toolbar-row" data-action="export-users-csv">📥 ส่งออก CSV</button>
+                <button class="btn btn-success btn-sm" data-action="show-add-user-form">➕ เพิ่มผู้ใช้</button>
             </div>
 
             <!-- Tabs -->
             <div class="um-tabs">
-                <button class="btn ${state.currentTab === 'approved' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tabApproved" onclick="switchUserTab('approved')">
+                <button class="btn ${state.currentTab === 'approved' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tabApproved" data-action="switch-tab" data-tab="approved">
                     ✅ ผู้ใช้งาน (<span id="approvedCount">-</span>)
                 </button>
-                <button class="btn ${state.currentTab === 'pending' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tabPending" onclick="switchUserTab('pending')">
+                <button class="btn ${state.currentTab === 'pending' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tabPending" data-action="switch-tab" data-tab="pending">
                     ⏳ รออนุมัติ (<span id="pendingCount">-</span>)
                 </button>
-                <button class="btn ${state.currentTab === 'audit' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tabAudit" onclick="switchUserTab('audit')">
+                <button class="btn ${state.currentTab === 'audit' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tabAudit" data-action="switch-tab" data-tab="audit">
                     📋 บันทึกกิจกรรม
                 </button>
                 ${state.isSuperAdmin ? `
-                    <button class="btn ${state.currentTab === 'branches' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tabBranches" onclick="showBranchManagement()">
+                    <button class="btn ${state.currentTab === 'branches' ? 'btn-primary' : 'btn-outline'} btn-sm" id="tabBranches" data-action="show-branch-mgmt">
                         🏢 จัดการสาขา
                     </button>
                 ` : ''}
@@ -299,10 +349,10 @@ function renderShell() {
             <!-- Bulk Action Bar (hidden by default) -->
             <div class="um-bulk-bar" id="umBulkBar" style="display:none;">
                 <span>☑ เลือก <b id="umSelectedCount">0</b> รายการ</span>
-                <button class="btn btn-success btn-sm" id="bulkApproveBtn" onclick="bulkApprove()" style="display:none;">✅ อนุมัติทั้งหมด</button>
-                <button class="btn btn-primary btn-sm" id="bulkRoleBtn" onclick="bulkRoleChange()" style="display:none;">🏷️ เปลี่ยนตำแหน่ง</button>
-                <button class="btn btn-warning btn-sm" id="bulkDeactivateBtn" onclick="bulkDeactivate()" style="display:none;">⏸️ ระงับ</button>
-                <button class="btn btn-outline btn-sm" onclick="clearSelection()">✕ ยกเลิก</button>
+                <button class="btn btn-success btn-sm" id="bulkApproveBtn" data-action="bulk-approve" style="display:none;">✅ อนุมัติทั้งหมด</button>
+                <button class="btn btn-primary btn-sm" id="bulkRoleBtn" data-action="bulk-role-change" style="display:none;">🏷️ เปลี่ยนตำแหน่ง</button>
+                <button class="btn btn-warning btn-sm" id="bulkDeactivateBtn" data-action="bulk-deactivate" style="display:none;">⏸️ ระงับ</button>
+                <button class="btn btn-outline btn-sm" data-action="clear-selection">✕ ยกเลิก</button>
             </div>
 
             <!-- Table Container -->
@@ -461,20 +511,20 @@ function renderTableHead() {
 
     if (state.currentTab === 'approved') {
         thead.innerHTML = `<tr>
-            <th class="um-th-check"><input type="checkbox" id="umSelectAll" onchange="toggleSelectAll(this.checked)"></th>
-            <th class="um-sortable-th ${sortCls('name')}" onclick="handleSort('name')">ชื่อ${sortIcon('name')}</th>
-            <th class="um-sortable-th ${sortCls('branch')}" onclick="handleSort('branch')">สาขา${sortIcon('branch')}</th>
-            <th class="um-sortable-th ${sortCls('role')}" onclick="handleSort('role')">ตำแหน่ง${sortIcon('role')}</th>
-            <th class="um-sortable-th ${sortCls('created_at')}" onclick="handleSort('created_at')">วันที่สร้าง${sortIcon('created_at')}</th>
+            <th class="um-th-check"><input type="checkbox" id="umSelectAll" data-action="toggle-select-all"></th>
+            <th class="um-sortable-th ${sortCls('name')}" data-action="handle-sort" data-column="name">ชื่อ${sortIcon('name')}</th>
+            <th class="um-sortable-th ${sortCls('branch')}" data-action="handle-sort" data-column="branch">สาขา${sortIcon('branch')}</th>
+            <th class="um-sortable-th ${sortCls('role')}" data-action="handle-sort" data-column="role">ตำแหน่ง${sortIcon('role')}</th>
+            <th class="um-sortable-th ${sortCls('created_at')}" data-action="handle-sort" data-column="created_at">วันที่สร้าง${sortIcon('created_at')}</th>
             <th>การดำเนินการ</th>
         </tr>`;
     } else if (state.currentTab === 'pending') {
         thead.innerHTML = `<tr>
-            <th class="um-th-check"><input type="checkbox" id="umSelectAll" onchange="toggleSelectAll(this.checked)"></th>
+            <th class="um-th-check"><input type="checkbox" id="umSelectAll" data-action="toggle-select-all"></th>
             <th>อีเมล</th>
             <th>ชื่อ</th>
             <th>สาขาที่เลือก</th>
-            <th class="um-sortable-th ${sortCls('created_at')}" onclick="handleSort('created_at')">วันที่สมัคร${sortIcon('created_at')}</th>
+            <th class="um-sortable-th ${sortCls('created_at')}" data-action="handle-sort" data-column="created_at">วันที่สมัคร${sortIcon('created_at')}</th>
             <th>การดำเนินการ</th>
         </tr>`;
     }
@@ -510,17 +560,17 @@ function renderUserTable() {
             const createdDate = user.created_at ? new Date(user.created_at).toLocaleDateString('th-TH') : '-';
 
             return `<tr class="${rowClass}">
-                <td><input type="checkbox" class="um-user-check" data-user-id="${safeId}" ${checked} onchange="toggleUserSelection('${safeId}', this.checked)"></td>
-                <td><span class="um-user-name" onclick="showEditUserForm('${safeId}')">${safeName}</span>${superBadge}${inactiveBadge}<br><span class="um-user-email">${safeEmail}</span></td>
+                <td><input type="checkbox" class="um-user-check" data-user-id="${safeId}" ${checked} data-action="toggle-user-selection"></td>
+                <td><span class="um-user-name" data-action="show-edit-user" data-user-id="${safeId}">${safeName}</span>${superBadge}${inactiveBadge}<br><span class="um-user-email">${safeEmail}</span></td>
                 <td class="um-cell-branch">${sanitizeHTML(branchName)}<br><span class="um-branch-code">${sanitizeHTML(branchCode)}</span></td>
                 <td><span class="role-badge ${bRole}">${bRoleLabel}</span></td>
                 <td class="um-cell-date">${createdDate}</td>
                 <td class="um-cell-actions">
-                    <button class="btn btn-primary btn-sm" onclick="showEditUserForm('${safeId}')" title="แก้ไข">✏️</button>
-                    <button class="btn btn-warning btn-sm" onclick="handleResetPassword('${safeId}')" title="Reset Password">🔑</button>
+                    <button class="btn btn-primary btn-sm" data-action="show-edit-user" data-user-id="${safeId}" title="แก้ไข">✏️</button>
+                    <button class="btn btn-warning btn-sm" data-action="reset-password" data-user-id="${safeId}" title="Reset Password">🔑</button>
                     ${isInactive
-                        ? `<button class="btn btn-success btn-sm" onclick="toggleUserActive('${safeId}', true)" title="เปิดใช้งาน">▶️</button>`
-                        : `<button class="btn btn-outline-danger btn-sm" onclick="toggleUserActive('${safeId}', false)" title="ระงับ">⏸️</button>`
+                        ? `<button class="btn btn-success btn-sm" data-action="toggle-user-active" data-user-id="${safeId}" data-activate="true" title="เปิดใช้งาน">▶️</button>`
+                        : `<button class="btn btn-outline-danger btn-sm" data-action="toggle-user-active" data-user-id="${safeId}" data-activate="false" title="ระงับ">⏸️</button>`
                     }
                 </td>
             </tr>`;
@@ -535,14 +585,14 @@ function renderUserTable() {
             const checked = state.selectedUserIds.has(user.id) ? 'checked' : '';
 
             return `<tr>
-                <td><input type="checkbox" class="um-user-check" data-user-id="${safeId}" ${checked} onchange="toggleUserSelection('${safeId}', this.checked)"></td>
+                <td><input type="checkbox" class="um-user-check" data-user-id="${safeId}" ${checked} data-action="toggle-user-selection"></td>
                 <td>${safeEmail}</td>
                 <td>${safeName}</td>
                 <td class="um-cell-branch">${sanitizeHTML(branchName)}</td>
                 <td class="um-cell-date">${createdDate}</td>
                 <td class="um-cell-actions">
-                    <button class="btn btn-success btn-sm" onclick="handleApproveUser('${safeId}')" title="อนุมัติ">✅ อนุมัติ</button>
-                    <button class="btn btn-outline-danger btn-sm" onclick="handleRejectUser('${safeId}')" title="ปฏิเสธ">❌ ปฏิเสธ</button>
+                    <button class="btn btn-success btn-sm" data-action="approve-user" data-user-id="${safeId}" title="อนุมัติ">✅ อนุมัติ</button>
+                    <button class="btn btn-outline-danger btn-sm" data-action="reject-user" data-user-id="${safeId}" title="ปฏิเสธ">❌ ปฏิเสธ</button>
                 </td>
             </tr>`;
         }).join('');
@@ -564,7 +614,7 @@ function renderUmPagination() {
 
     let html = '';
     // Prev button
-    html += `<button class="btn btn-outline btn-sm" ${state.currentPage <= 1 ? 'disabled' : ''} onclick="goToUmPage(${state.currentPage - 1})">◀</button>`;
+    html += `<button class="btn btn-outline btn-sm" ${state.currentPage <= 1 ? 'disabled' : ''} data-action="go-to-um-page" data-page="${state.currentPage - 1}">◀</button>`;
 
     // Page numbers with ellipsis
     const maxShow = 5;
@@ -573,21 +623,21 @@ function renderUmPagination() {
     if (endPage - startPage < maxShow - 1) startPage = Math.max(1, endPage - maxShow + 1);
 
     if (startPage > 1) {
-        html += `<button class="btn btn-outline btn-sm" onclick="goToUmPage(1)">1</button>`;
+        html += `<button class="btn btn-outline btn-sm" data-action="go-to-um-page" data-page="1">1</button>`;
         if (startPage > 2) html += `<span class="um-pagination-ellipsis">...</span>`;
     }
 
     for (let i = startPage; i <= endPage; i++) {
-        html += `<button class="btn ${i === state.currentPage ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="goToUmPage(${i})">${i}</button>`;
+        html += `<button class="btn ${i === state.currentPage ? 'btn-primary' : 'btn-outline'} btn-sm" data-action="go-to-um-page" data-page="${i}">${i}</button>`;
     }
 
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) html += `<span class="um-pagination-ellipsis">...</span>`;
-        html += `<button class="btn btn-outline btn-sm" onclick="goToUmPage(${totalPages})">${totalPages}</button>`;
+        html += `<button class="btn btn-outline btn-sm" data-action="go-to-um-page" data-page="${totalPages}">${totalPages}</button>`;
     }
 
     // Next button
-    html += `<button class="btn btn-outline btn-sm" ${state.currentPage >= totalPages ? 'disabled' : ''} onclick="goToUmPage(${state.currentPage + 1})">▶</button>`;
+    html += `<button class="btn btn-outline btn-sm" ${state.currentPage >= totalPages ? 'disabled' : ''} data-action="go-to-um-page" data-page="${state.currentPage + 1}">▶</button>`;
 
     container.innerHTML = html;
 }
@@ -1009,24 +1059,24 @@ function renderAuditPagination() {
 
     if (totalPages <= 1) { container.innerHTML = ''; return; }
 
-    let html = `<button class="btn btn-outline btn-sm" ${state.auditPage <= 1 ? 'disabled' : ''} onclick="goToAuditPage(${state.auditPage - 1})">◀</button>`;
+    let html = `<button class="btn btn-outline btn-sm" ${state.auditPage <= 1 ? 'disabled' : ''} data-action="go-to-audit-page" data-page="${state.auditPage - 1}">◀</button>`;
     const maxShow = 5;
     let startPage = Math.max(1, state.auditPage - Math.floor(maxShow / 2));
     let endPage = Math.min(totalPages, startPage + maxShow - 1);
     if (endPage - startPage < maxShow - 1) startPage = Math.max(1, endPage - maxShow + 1);
 
     if (startPage > 1) {
-        html += `<button class="btn btn-outline btn-sm" onclick="goToAuditPage(1)">1</button>`;
+        html += `<button class="btn btn-outline btn-sm" data-action="go-to-audit-page" data-page="1">1</button>`;
         if (startPage > 2) html += `<span class="um-pagination-ellipsis">...</span>`;
     }
     for (let i = startPage; i <= endPage; i++) {
-        html += `<button class="btn ${i === state.auditPage ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="goToAuditPage(${i})">${i}</button>`;
+        html += `<button class="btn ${i === state.auditPage ? 'btn-primary' : 'btn-outline'} btn-sm" data-action="go-to-audit-page" data-page="${i}">${i}</button>`;
     }
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) html += `<span class="um-pagination-ellipsis">...</span>`;
-        html += `<button class="btn btn-outline btn-sm" onclick="goToAuditPage(${totalPages})">${totalPages}</button>`;
+        html += `<button class="btn btn-outline btn-sm" data-action="go-to-audit-page" data-page="${totalPages}">${totalPages}</button>`;
     }
-    html += `<button class="btn btn-outline btn-sm" ${state.auditPage >= totalPages ? 'disabled' : ''} onclick="goToAuditPage(${state.auditPage + 1})">▶</button>`;
+    html += `<button class="btn btn-outline btn-sm" ${state.auditPage >= totalPages ? 'disabled' : ''} data-action="go-to-audit-page" data-page="${state.auditPage + 1}">▶</button>`;
     container.innerHTML = html;
 }
 
@@ -1096,12 +1146,12 @@ function showAddUserForm() {
                 <div style="display:flex; gap:8px; margin-top:8px;">
                     <input type="text" id="registerLinkInput" value="${window.location.origin}/${loginUrl}#register" readonly
                         style="flex:1; padding:6px 10px; border:1px solid #d1d5db; border-radius:4px; font-size:0.8rem; background:#fff;">
-                    <button type="button" class="btn btn-primary btn-sm" onclick="copyRegisterLink()" id="copyLinkBtn">📋 คัดลอก</button>
+                    <button type="button" class="btn btn-primary btn-sm" data-action="copy-register-link" id="copyLinkBtn">📋 คัดลอก</button>
                 </div>
             </div>
 
             <div class="form-actions">
-                <button type="button" class="btn btn-secondary" onclick="showUserManagement()">← กลับ</button>
+                <button type="button" class="btn btn-secondary" data-action="show-user-mgmt">← กลับ</button>
             </div>
         </div>
     `;
@@ -1192,7 +1242,7 @@ async function showEditUserForm(userId) {
                 </div>
                 ${superAdminHtml}
                 <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="showUserManagement()">ยกเลิก</button>
+                    <button type="button" class="btn btn-secondary" data-action="show-user-mgmt">ยกเลิก</button>
                     <button type="submit" class="btn btn-primary">💾 อัพเดท</button>
                 </div>
             </form>
@@ -1343,10 +1393,10 @@ async function showBranchManagement() {
         <div class="um-section">
             <!-- Tabs -->
             <div class="um-tabs">
-                <button class="btn btn-outline btn-sm" id="tabApproved" onclick="switchUserTab('approved'); showUserManagement();">
+                <button class="btn btn-outline btn-sm" id="tabApproved" data-action="switch-tab-and-show" data-tab="approved">
                     ✅ ผู้ใช้งาน
                 </button>
-                <button class="btn btn-outline btn-sm" id="tabPending" onclick="switchUserTab('pending'); showUserManagement();">
+                <button class="btn btn-outline btn-sm" id="tabPending" data-action="switch-tab-and-show" data-tab="pending">
                     ⏳ รออนุมัติ
                 </button>
                 <button class="btn btn-primary btn-sm" id="tabBranches">
@@ -1355,7 +1405,7 @@ async function showBranchManagement() {
             </div>
 
             <div class="um-toolbar">
-                <button class="btn btn-success btn-sm" onclick="showAddBranchForm()">➕ เพิ่มสาขาใหม่</button>
+                <button class="btn btn-success btn-sm" data-action="show-add-branch">➕ เพิ่มสาขาใหม่</button>
             </div>
 
             <div class="um-table-wrapper">
@@ -1391,10 +1441,10 @@ async function showBranchManagement() {
                                 <td>${featureTags}</td>
                                 <td>${b.is_active ? '<span style="color:green;">เปิดใช้</span>' : '<span style="color:red;">ปิด</span>'}</td>
                                 <td>
-                                    <button class="btn btn-primary btn-sm" onclick="showEditBranchForm('${escapeHtmlAttribute(b.id)}')" title="แก้ไข">✏️</button>
+                                    <button class="btn btn-primary btn-sm" data-action="show-edit-branch" data-branch-id="${escapeHtmlAttribute(b.id)}" title="แก้ไข">✏️</button>
                                     ${b.is_active ?
-                                        `<button class="btn btn-outline-danger btn-sm" onclick="toggleBranchStatus('${escapeHtmlAttribute(b.id)}', false)" title="ปิดใช้งาน">⏸️</button>` :
-                                        `<button class="btn btn-success btn-sm" onclick="toggleBranchStatus('${escapeHtmlAttribute(b.id)}', true)" title="เปิดใช้งาน">▶️</button>`
+                                        `<button class="btn btn-outline-danger btn-sm" data-action="toggle-branch-status" data-branch-id="${escapeHtmlAttribute(b.id)}" data-activate="false" title="ปิดใช้งาน">⏸️</button>` :
+                                        `<button class="btn btn-success btn-sm" data-action="toggle-branch-status" data-branch-id="${escapeHtmlAttribute(b.id)}" data-activate="true" title="เปิดใช้งาน">▶️</button>`
                                     }
                                 </td>
                             </tr>`;
@@ -1480,7 +1530,7 @@ async function showEditBranchForm(branchId) {
                     </label>
                 </div>
                 <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="showBranchManagement()">ยกเลิก</button>
+                    <button type="button" class="btn btn-secondary" data-action="show-branch-mgmt">ยกเลิก</button>
                     <button type="submit" class="btn btn-primary">💾 อัพเดท</button>
                 </div>
             </form>
@@ -1545,7 +1595,7 @@ async function showAddBranchForm() {
                     </div>
                 </div>
                 <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="showBranchManagement()">ยกเลิก</button>
+                    <button type="button" class="btn btn-secondary" data-action="show-branch-mgmt">ยกเลิก</button>
                     <button type="submit" class="btn btn-success">➕ สร้างสาขา</button>
                 </div>
             </form>
