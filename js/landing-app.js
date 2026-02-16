@@ -110,7 +110,13 @@
     }).join('');
 })();
 
-// Must be global for onclick="handleLogout()" in landing.html
+// Event delegation
+document.addEventListener('click', (e) => {
+    const target = e.target.closest('[data-action]');
+    if (!target) return;
+    if (target.dataset.action === 'logout') handleLogout();
+});
+
 async function handleLogout() {
     if (window.AuthSystem) {
         await window.AuthSystem.logout();
