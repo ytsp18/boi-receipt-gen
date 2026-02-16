@@ -60,8 +60,46 @@ function cacheDOMElements() {
 // ==================== //
 // Init
 // ==================== //
+// === Event Delegation Setup ===
+function initEventDelegation() {
+    const clickActions = {
+        'show-image-preview':       (el) => showImagePreview(el.dataset.imageUrl),
+        'trigger-image-upload':     (el) => triggerImageUpload(el.dataset.lockId),
+        'save-sn':                  (el) => saveSN(el.dataset.lockId),
+        'cancel-sn-edit':           ()   => cancelSNEdit(),
+        'start-sn-edit':            (el) => startSNEdit(el.dataset.lockId),
+        'delete-lock':              (el) => deleteLock(el.dataset.lockId, el.dataset.appointmentId),
+        'create-receipt-from-lock': (el) => createReceiptFromLock(el.dataset.lockId),
+        'start-inline-edit':        (el) => startInlineEdit(el.dataset.lockId, el.dataset.field, el),
+        'close-modal':              (el) => el.classList.remove('show'),
+    };
+
+    document.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-action]');
+        if (!target) return;
+        if (clickActions[target.dataset.action]) {
+            clickActions[target.dataset.action](target, e);
+        }
+    });
+
+    // blur does not bubble — must use capture phase
+    document.addEventListener('blur', (e) => {
+        if (e.target.dataset && e.target.dataset.action === 'inline-edit-input') {
+            saveInlineEdit(e.target.dataset.lockId, e.target.dataset.field, e.target.value);
+        }
+    }, true);
+
+    document.addEventListener('keydown', (e) => {
+        if (e.target.dataset && e.target.dataset.action === 'inline-edit-input') {
+            if (e.key === 'Enter') e.target.blur();
+            if (e.key === 'Escape') cancelInlineEdit();
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     cacheDOMElements();
+    initEventDelegation();
 
     // Preserve env param in back links
     const envParam = typeof getEnvParam === 'function' ? getEnvParam() : '';
@@ -333,9 +371,9 @@ function renderLocksTable() {
         // Card image column
         let imageCell;
         if (lock.card_image_url) {
-            imageCell = `<td><img class="card-thumb" src="${escapeHtmlAttribute(lock.card_image_url)}" onclick="showImagePreview('${escapeHtmlAttribute(lock.card_image_url)}')" title="คลิกเพื่อดูขนาดเต็ม"></td>`;
+            imageCell = `<td><img class="card-thumb" src="${escapeHtmlAttribute(lock.card_image_url)}" data-action="show-image-preview" data-image-url="${escapeHtmlAttribute(lock.card_image_url)}" title="คลิกเพื่อดูขนาดเต็ม"></td>`;
         } else if (canEdit) {
-            imageCell = `<td><button class="btn-upload-img" onclick="triggerImageUpload('${safeLockId}')">📷 แนบรูป</button></td>`;
+            imageCell = `<td><button class="btn-upload-img" data-action="trigger-image-upload" data-lock-id="${safeLockId}">📷 แนบรูป</button></td>`;
         } else {
             imageCell = `<td><span style="color:#9ca3af;font-size:0.72rem;">-</span></td>`;
         }
@@ -349,8 +387,8 @@ function renderLocksTable() {
             snSpoiledCell = `<td>
                 <div class="sn-form-inline">
                     <input type="text" id="snSpoiledEdit_${safeLockId}" value="${escapeHtmlAttribute(lock.sn_spoiled || '')}" placeholder="S/N เสีย" style="width:80px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:0.8rem;">
-                    <button class="btn-sn-save" onclick="saveSN('${safeLockId}')">บันทึก</button>
-                    <button class="btn-sn-add" onclick="cancelSNEdit()">ยกเลิก</button>
+                    <button class="btn-sn-save" data-action="save-sn" data-lock-id="${safeLockId}">บันทึก</button>
+                    <button class="btn-sn-add" data-action="cancel-sn-edit">ยกเลิก</button>
                 </div>
             </td>`;
             actionCell = '<td></td>';
@@ -360,14 +398,14 @@ function renderLocksTable() {
 
             const actions = [];
             if (canEdit && lock.status === 'locked') {
-                actions.push(`<button class="btn-sn-add" onclick="startSNEdit('${safeLockId}')">+ S/N</button>`);
+                actions.push(`<button class="btn-sn-add" data-action="start-sn-edit" data-lock-id="${safeLockId}">+ S/N</button>`);
             }
             if (canEdit && lock.status === 'printed') {
-                actions.push(`<button class="btn-sn-add" onclick="startSNEdit('${safeLockId}')">แก้ S/N</button>`);
+                actions.push(`<button class="btn-sn-add" data-action="start-sn-edit" data-lock-id="${safeLockId}">แก้ S/N</button>`);
             }
             // Admin can delete (unlock)
             if (state.currentUser?.role === 'admin') {
-                actions.push(`<button class="btn-delete" onclick="deleteLock('${safeLockId}', '${safeAppointmentId}')">ลบ</button>`);
+                actions.push(`<button class="btn-delete" data-action="delete-lock" data-lock-id="${safeLockId}" data-appointment-id="${safeAppointmentId}">ลบ</button>`);
             }
             actionCell = `<td>${actions.join(' ')}</td>`;
         }
@@ -377,7 +415,7 @@ function renderLocksTable() {
         if (lock.status === 'completed') {
             receiptCell = `<td><span class="receipt-badge">✅ สร้างแล้ว</span></td>`;
         } else if (lock.sn_good && lock.card_image_url && canEdit) {
-            receiptCell = `<td><button class="btn-create-receipt" onclick="createReceiptFromLock('${safeLockId}')">📄 สร้างใบรับ</button></td>`;
+            receiptCell = `<td><button class="btn-create-receipt" data-action="create-receipt-from-lock" data-lock-id="${safeLockId}">📄 สร้างใบรับ</button></td>`;
         } else if (canEdit) {
             const hints = [];
             if (!lock.sn_good) hints.push('รอ SN');
@@ -391,7 +429,7 @@ function renderLocksTable() {
         const editableCell = (field, value) => {
             const display = escapeHtml(value || '-');
             if (canEdit && lock.status !== 'completed') {
-                return `<td><span class="inline-editable" onclick="startInlineEdit('${safeLockId}','${field}', this)" title="คลิกเพื่อแก้ไข">${display}<span class="edit-hint"> ✏️</span></span></td>`;
+                return `<td><span class="inline-editable" data-action="start-inline-edit" data-lock-id="${safeLockId}" data-field="${field}" title="คลิกเพื่อแก้ไข">${display}<span class="edit-hint"> ✏️</span></span></td>`;
             }
             return `<td>${display}</td>`;
         };
@@ -971,8 +1009,7 @@ function startInlineEdit(lockId, field, spanEl) {
     const td = spanEl.closest('td');
 
     td.innerHTML = `<input type="text" class="inline-edit-input" value="${escapeHtmlAttribute(currentValue)}" placeholder="${escapeHtmlAttribute(placeholder)}"
-        onblur="saveInlineEdit('${escapeHtmlAttribute(lockId)}','${escapeHtmlAttribute(field)}', this.value)"
-        onkeydown="if(event.key==='Enter'){this.blur();}if(event.key==='Escape'){cancelInlineEdit();}"
+        data-action="inline-edit-input" data-lock-id="${escapeHtmlAttribute(lockId)}" data-field="${escapeHtmlAttribute(field)}"
         >`;
     const input = td.querySelector('input');
     input.focus();
