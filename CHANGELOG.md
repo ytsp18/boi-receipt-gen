@@ -1,10 +1,10 @@
 # Change Log - Work Permit Receipt System
 
-## [9.4.0] - 2026-02-16 (SIT only)
+## [9.4.1] - 2026-02-16 (Production + SIT)
 
-> **สถานะ: SIT Deployed** — Inline Event Handler Removal + CSP Hardening
+> **สถานะ: ✅ Production Deployed** — CSP Hardening + Bug Fixes + UX Enhancement
 
-### Security: CSP script-src 'unsafe-inline' Removed
+### Security: CSP script-src 'unsafe-inline' Removed (v9.4.0)
 - **83 inline event handlers converted** to event delegation (`data-action` + dispatcher map)
   - `js/card-print-app.js` — 11 handlers (onclick, onblur, onkeydown)
   - `js/app-supabase.js` — 21 handlers (onclick, onchange, onmousedown, onerror)
@@ -17,11 +17,21 @@
   - `style-src 'unsafe-inline'` retained for inline style attributes
 - **Bug fix:** `hideRecentDropdown()` was unreachable from inline handler scope — fixed via delegation
 
+### Bug Fix: Delete Button Hidden (v9.0 Regression)
+- **Root cause:** `state.currentUserRole === 'admin'` always false since v9.0 changed to branch roles (head/deputy/officer)
+- **Fix:** Changed to `state.isSuperAdmin || ['admin', 'head', 'deputy'].includes(state.currentUserRole)` in both visibility check and guard function
+- **Scope:** head/deputy can delete documents; only admin/super admin can manage users
+
+### UX Enhancement: Auto-scroll on Card Received
+- **When checkbox "รับบัตรแล้ว" is ticked**, page auto-scrolls to the toggled row
+- Uses `requestAnimationFrame` + `scrollIntoView({ behavior: 'smooth', block: 'center' })`
+- Only scrolls on `newStatus === true` (receive), not on un-receive
+
 ---
 
-## [9.3.0] - 2026-02-16 (SIT only)
+## [9.3.0] - 2026-02-16 (Production + SIT)
 
-> **สถานะ: SIT Deployed** — Extract Inline Scripts to External JS
+> **สถานะ: ✅ Production Deployed** — Extract Inline Scripts to External JS
 
 ### Inline Script Extraction
 - **12 inline `<script>` blocks removed** from 6 HTML files (~529 lines)
