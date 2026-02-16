@@ -2274,9 +2274,10 @@ async function saveData() {
 // ==================== //
 
 async function deleteRecord(receiptNo) {
-    // Only admin can delete
-    if (state.currentUserRole !== 'admin') {
-        alert('คุณไม่มีสิทธิ์ลบรายการ เฉพาะ Admin เท่านั้น');
+    // Only admin/head/super admin can delete
+    const canDelete = state.isSuperAdmin || ['admin', 'head', 'deputy'].includes(state.currentUserRole);
+    if (!canDelete) {
+        alert('คุณไม่มีสิทธิ์ลบรายการ เฉพาะ Admin/หัวหน้า/รองหัวหน้า เท่านั้น');
         return;
     }
 
@@ -2860,7 +2861,7 @@ function renderRegistryTable() {
                     <button class="btn btn-primary btn-sm" data-action="select-row" data-receipt-no="${safeReceiptNoAttr}" title="แก้ไข">
                         ✏️
                     </button>
-                    ${state.currentUserRole === 'admin' ? `<button class="btn btn-outline-danger btn-sm" data-action="delete-record" data-receipt-no="${safeReceiptNoAttr}" title="ลบ">
+                    ${(state.isSuperAdmin || ['admin', 'head', 'deputy'].includes(state.currentUserRole)) ? `<button class="btn btn-outline-danger btn-sm" data-action="delete-record" data-receipt-no="${safeReceiptNoAttr}" title="ลบ">
                         🗑️
                     </button>` : ''}
                 </td>
