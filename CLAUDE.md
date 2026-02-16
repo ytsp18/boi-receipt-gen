@@ -100,9 +100,40 @@ const elements = { table: document.getElementById('...'), ... };
 - v5.1 → v6.0 → v6.0.2 → v6.2 → v6.3 → v7.0 → v7.1 → v8.0 → v8.1 → v8.4 → v8.5 → v9.0
 - Rollback: `rollback-v9.0-to-v8.6.2.sql` (16 steps, in transaction)
 
-## Related Documentation
-- `SPRINT-PLAN.md` — current sprint priorities
-- `DEVELOPMENT_ROADMAP.md` — long-term roadmap
-- `CHANGELOG.md` — version history
-- `USER_MANUAL.md` — user documentation
-- `MEMORY.md` — at `.claude/projects/.../memory/MEMORY.md` (Claude-specific context)
+## Project Documentation & Update Rules
+
+| ไฟล์ | หน้าที่ | อัพเดทเมื่อไหร่ |
+|------|---------|-----------------|
+| `CHANGELOG.md` | Version history | ทุกครั้งที่ deploy code/SQL ขึ้น SIT หรือ Production |
+| `MEMORY.md` | Claude session context | เมื่อมี learning ใหม่, migration ใหม่, หรือ version เปลี่ยน |
+| `SPRINT-PLAN.md` | วางแผน sprint ชั่วคราว | **เฉพาะเมื่อเริ่ม sprint/feature ใหม่** ที่ต้องวางแผนหลายขั้นตอน — ห้ามอัพเดททุก deploy |
+| `DECISION-LOG.md` | Architecture decisions | เมื่อตัดสินใจเรื่อง architecture ที่สำคัญ |
+| `PATTERNS.md` | Coding patterns reference | เมื่อมี pattern ใหม่ที่ใช้ซ้ำใน project |
+| `USER_MANUAL.md` | User documentation | เมื่อ UI/flow เปลี่ยนที่กระทบผู้ใช้ |
+| `DEVELOPMENT_ROADMAP.md` | Long-term roadmap | เมื่อมี feature/direction ใหม่ระดับ project |
+
+### Update Triggers
+
+**Deploy แล้ว (code หรือ SQL):**
+→ อัพเดท `CHANGELOG.md` + `MEMORY.md` (version, migrations, learnings)
+
+**เรียนรู้สิ่งใหม่ (bug fix, workaround, pattern):**
+→ อัพเดท `MEMORY.md` (Important Learnings section)
+
+**เริ่ม feature ใหม่ที่ซับซ้อน:**
+→ สร้าง/อัพเดท `SPRINT-PLAN.md` เป็น sprint plan ชั่วคราว
+
+**ตัดสินใจ architecture:**
+→ อัพเดท `DECISION-LOG.md`
+
+**ไม่ deploy ไม่มีอะไรเปลี่ยน:**
+→ ไม่ต้องอัพเดทอะไร — ห้ามอัพเดทเพื่อ "ให้ดูครบ"
+
+### File Locations
+- `CHANGELOG.md` — project root
+- `SPRINT-PLAN.md` — project root
+- `DECISION-LOG.md` — project root
+- `PATTERNS.md` — project root
+- `USER_MANUAL.md` — project root
+- `DEVELOPMENT_ROADMAP.md` — project root
+- `MEMORY.md` — `.claude/projects/.../memory/MEMORY.md` (Claude-specific, ไม่อยู่ใน git)

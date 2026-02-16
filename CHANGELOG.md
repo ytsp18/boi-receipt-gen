@@ -16,10 +16,17 @@
 - **`window.SUPABASE_LOGIN_ENV` removed** (was unused)
 - Cache bumped to `?v=9.3.0`
 
-### Smoke Test
-- All 4 new JS files: HTTP 200
-- All 6 HTML pages: HTTP 200, zero inline `<script>` tags
-- SIT database: verified accessible
+### Smoke Test (Chrome MCP — 10 tests ผ่านครบ)
+- **T1 Login:** ✅ login สำเร็จ, supabase-config.js init, redirect to landing
+- **T2 Registration Modal:** ✅ 61 branches loaded, password strength indicator working
+- **T4 Landing:** ✅ 3 module cards, user info correct, SIT badge, [SIT] title prefix
+- **T5 Receipt (index.html):** ✅ form + data loaded, SIT ENV + v9.3.0 badges
+- **T6 Card Print:** ✅ data table + Realtime working, SIT ENV badge
+- **T7 User Management:** ✅ search/sort/tabs working, 2 users listed
+- **T8 Reset Password:** ✅ form validation, back link preserves `?env=sit`, supabase-config.js + auth.js + reset-password-app.js loaded (304)
+- **T9 Console Check:** ✅ **0 JS errors on all 6 pages**
+- **T10 Network Check:** ✅ All 4 new JS files load 200/304 — `supabase-init-retry.js`, `login-register.js`, `landing-app.js`, `reset-password-app.js`
+- **All critical globals verified:** supabaseClient, SUPABASE_ENV.isSIT, AuthSystem on every page
 
 ### Not Changed
 - CSP `'unsafe-inline'` still present — requires Phase 2 (inline event handler removal, ~76 onclick= in JS)

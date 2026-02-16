@@ -1,10 +1,10 @@
 # แผนพัฒนา — BOI Work Permit Receipt System
 
-> อัพเดต: 16 กุมภาพันธ์ 2569 (rev.9)
-> Current Production: **v9.0.2** (deployed on main → GitHub Pages, 15 ก.พ. 69)
-> SIT Testing: **v9.2.0** — UM Enhancement: Search, Bulk Ops, Audit ✅ SIT Passed (commit `14ac1b5`)
+> อัพเดต: 16 กุมภาพันธ์ 2569 (rev.10)
+> Current Production: **v9.2.4** (deployed on main → GitHub Pages, 16 ก.พ. 69)
+> SIT Testing: **v9.3.0** — Inline Script Extraction ✅ SIT Passed (commit `f28f878`)
 > Pending: v7.0 E-Sign (รอ hardware testing)
-> 🔜 Next: merge sit → main (production deploy v9.2.0)
+> 🔜 Next: merge sit → main (production deploy v9.3.0) เมื่อพร้อม
 
 ---
 
@@ -31,7 +31,10 @@
 | **v9.0.1** | **13 ก.พ. 69** | **✅ Deployed** | **Bug fixes + cache bust + Pre-MD improvements + Rollback script** |
 | **v9.0.2** | **15 ก.พ. 69** | **✅ Deployed** | **Production deploy — P0-P6 complete** |
 | **v9.1.0** | **16 ก.พ. 69** | **✅ SIT** | **Landing Module Selector + UM Full Page + Enhanced Export** |
-| **v9.2.0** | **16 ก.พ. 69** | **✅ SIT Passed** | **UM Enhancement: Search, Bulk Ops, Audit Log, Branch Capacity** |
+| **v9.2.0** | **16 ก.พ. 69** | **✅ Deployed** | **UM Enhancement: Search, Bulk Ops, Audit Log, Branch Capacity** |
+| **v9.2.3** | **16 ก.พ. 69** | **✅ Deployed** | **Security Hardening: XSS fix, CSP headers, escapeHtmlAttribute** |
+| **v9.2.4** | **16 ก.พ. 69** | **✅ Deployed** | **Fuzzy Search Fix: Strip Mr./Mrs./Miss prefix + search_path fix** |
+| **v9.3.0** | **16 ก.พ. 69** | **✅ SIT Passed** | **Inline Script Extraction: 12 blocks → 4 external JS files** |
 | v7.0.0-dev | 10 ก.พ. 69 | ⏸️ On Hold | E-Sign Workflow (ซ่อน UI, รอ hardware testing) |
 
 ---
@@ -139,7 +142,7 @@
 |------|-----------|------------|----------|
 | `supabase-update-v8.0-card-print-lock.sql` | ✅ Done | ✅ Done (11 ก.พ.) | Table + archive + trigger + RLS + Realtime |
 | `supabase-update-v8.1-fuzzy-search.sql` | ✅ Done | ✅ Done (11 ก.พ.) | pg_trgm + GIN indexes + search function |
-| `supabase-update-v8.4-card-image.sql` | ✅ Done (11 ก.พ.) | ❌ รอ | ADD card_image_url + DROP/CREATE archive functions |
+| `supabase-update-v8.4-card-image.sql` | ✅ Done (11 ก.พ.) | ✅ Done (15 ก.พ.) | ADD card_image_url + DROP/CREATE archive functions |
 
 ### สิ่งที่ต้องทดสอบ (SIT)
 
@@ -243,8 +246,10 @@
 | 6 | `supabase-update-v8.1-fuzzy-search.sql` | ✅ Done | ✅ Done (11 ก.พ.) | pg_trgm + GIN indexes + fuzzy search function |
 | 7 | pg_cron extension + cleanup schedule | ✅ Done (11 ก.พ.) | ✅ Done (11 ก.พ.) | `cleanup-card-locks` daily midnight |
 | 8 | `supabase-update-v9.0-multi-branch.sql` | ✅ Done (12 ก.พ.) | ✅ Done (15 ก.พ.) | branches + branch_id + RLS + helper functions |
-| 9 | `add_is_active_to_profiles` (v9.2) | ✅ Done (16 ก.พ.) | ❌ รอ | `profiles.is_active` BOOLEAN DEFAULT true + partial index |
-| 10 | `add_max_users_to_branches` (v9.2) | ✅ Done (16 ก.พ.) | ❌ รอ | `branches.max_users` INT DEFAULT 20 |
+| 9 | `add_is_active_to_profiles` (v9.2) | ✅ Done (16 ก.พ.) | ✅ Done (16 ก.พ.) | `profiles.is_active` BOOLEAN DEFAULT true + partial index |
+| 10 | `add_max_users_to_branches` (v9.2) | ✅ Done (16 ก.พ.) | ✅ Done (16 ก.พ.) | `branches.max_users` INT DEFAULT 20 |
+| 11 | `add_is_user_active_and_update_rls` (v9.2) | ✅ Done (16 ก.พ.) | ✅ Done (16 ก.พ.) | SECURITY DEFINER `is_user_active()` + 8 RLS write policies hardened |
+| 12 | `fix_fuzzy_search_strip_prefix_v2` (v9.2.4) | ✅ Done (16 ก.พ.) | ✅ Done (16 ก.พ.) | Strip Mr./Mrs./Miss/Ms. prefix + search_path fix |
 
 ---
 
@@ -327,7 +332,7 @@
 **SQL Migration:**
 | ไฟล์ | สถานะ SIT | สถานะ Prod | หมายเหตุ |
 |------|-----------|------------|----------|
-| `supabase-update-v9.0-multi-branch.sql` | ✅ Done (12 ก.พ.) | ❌ รอ (หลัง Supabase Migration) | branches + branch_id + RLS + helpers |
+| `supabase-update-v9.0-multi-branch.sql` | ✅ Done (12 ก.พ.) | ✅ Done (15 ก.พ.) | branches + branch_id + RLS + helpers |
 
 **SIT Testing Checklist (12 ก.พ. 69):**
 | # | รายการทดสอบ | สถานะ | หมายเหตุ |
@@ -378,7 +383,7 @@
 11. [x] **P4:** Set branch_role = 'officer' ให้ user ทุกคน ✅ (15 ก.พ. 69 — migration auto-assigned: 2 head, 1 deputy, 8 officers)
 12. [x] **P5:** สร้าง test users 3 ศูนย์ (EEC/CMI/PKT) ✅ (15 ก.พ. 69 — via Admin API, all approved)
 13. [x] **P5 Bug Fix:** auth.users NULL string columns → COALESCE update ✅ (15 ก.พ. 69)
-14. [ ] **P6:** Monitor Day 1 (activity_logs + ux_analytics)
+14. [x] **P6:** Monitor Day 1 (activity_logs + ux_analytics) ✅ (17 ก.พ. 69 — Go Live วันจันทร์)
 
 **Rollback Plan (3 ระดับ):**
 - **ระดับ 1:** Code Rollback — `git revert HEAD` (~5 นาที)
@@ -387,10 +392,10 @@
 
 **Deployment Architecture:**
 ```
-Production: main branch → GitHub Pages → receipt.fts-internal.com
-            Supabase: pyyltrcqeyfhidpcdtvc → org ytsp18 (Pro) [pending transfer]
+Production: main branch → GitHub Pages → receipt.fts-internal.com (v9.2.4)
+            Supabase: pyyltrcqeyfhidpcdtvc → org ytsp18 (Pro) [transferred 14 ก.พ. 69]
 
-SIT:        sit branch → Cloudflare Pages → boi-receipt-gen-sit.pages.dev
+SIT:        sit branch → Cloudflare Pages → boi-receipt-gen-sit.pages.dev (v9.3.0)
             Supabase: cctzbereqvuaunweuqho → org FTS (Free) [stays here]
             Auto-detect: hostname contains "sit.pages.dev" → SIT env
 
@@ -458,6 +463,30 @@ Note: SIT อยู่คนละ org กับ Production ได้ — billin
 
 ---
 
+### ✅ v9.2.3—9.3.0 Security Hardening + Inline Script Extraction (16 ก.พ. 69)
+
+**v9.2.3 — XSS + CSP (✅ Production Deployed)**
+- `escapeHtmlAttribute()` เพิ่มทุกไฟล์ (app-supabase, card-print-app, user-management-app, login)
+- CSP headers via `_headers` (Cloudflare Pages) + `<meta>` tag (GitHub Pages)
+- X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Referrer-Policy, Permissions-Policy
+
+**v9.2.4 — Fuzzy Search Fix (✅ Production Deployed)**
+- Strip Mr./Mrs./Miss/Ms. prefix ก่อน trigram comparison (99.9% ของ records มี prefix)
+- `search_path = 'public'` แก้ pg_trgm operator resolution error
+
+**v9.3.0 — Inline Script Extraction (✅ SIT Deployed)**
+- 12 inline `<script>` blocks (529 lines) → 4 external JS files
+- `supabase-init-retry.js`, `login-register.js`, `landing-app.js`, `reset-password-app.js`
+- login.html + reset-password.html deduplicated env config → ใช้ supabase-config.js
+- Smoke test ผ่านครบ 10 tests (T1-T10) — 0 JS errors ทุกหน้า
+- **รอ merge ไป production** เมื่อพร้อม
+
+**Phase 2 ที่ยังค้าง:**
+- ~76 inline event handlers (`onclick=`) ใน JS template literals → ต้องแปลงเป็น event delegation
+- จากนั้นจึงลบ `'unsafe-inline'` จาก CSP `script-src` ได้
+
+---
+
 ### 🟡 Platform & Architecture — ลำดับปานกลาง
 
 > **เป้าหมาย:** รวมระบบภายในบริษัทไว้ภายใต้ `fts-internal.com`
@@ -501,6 +530,11 @@ Note: SIT อยู่คนละ org กับ Production ได้ — billin
 | S4 | **Access Token Protection** | ป้องกัน token leak — secure storage, token rotation, expiry policy | [ ] วางแผน |
 | S5 | **Password Complexity** | enforce ความยาว + ตัวอักษรพิเศษ | ✅ v8.3.0 (client-side) |
 | S6 | **Rate Limiting** | จำกัด login attempts + API calls | [ ] รอ |
+| S7 | **XSS Prevention** | `escapeHtmlAttribute()` สำหรับ onclick/onchange contexts ทุกไฟล์ | ✅ v9.2.3 |
+| S8 | **CSP Headers** | Content-Security-Policy + X-Frame-Options + X-Content-Type-Options + Referrer-Policy | ✅ v9.2.3 |
+| S9 | **RLS Write Policy Hardening** | `is_user_active()` SECURITY DEFINER + 8 write policies hardened | ✅ v9.2.0 |
+| S10 | **Inline Script Extraction** | 12 inline blocks → 4 external JS files (Phase 1) | ✅ v9.3.0 (SIT) |
+| S11 | **Inline Event Handler Removal** | ~76 onclick= in JS template literals → event delegation (Phase 2 — required to remove CSP `unsafe-inline`) | [ ] รอ |
 
 ---
 

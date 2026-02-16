@@ -1,9 +1,26 @@
 # Sprint Plan — BOI Work Permit Receipt System
 
-> อัพเดต: 16 กุมภาพันธ์ 2569 (v9.2.3 — Security Hardening ✅)
+> อัพเดต: 16 กุมภาพันธ์ 2569 (v9.2.4 — Fuzzy Search Fix + Smoke Test ✅)
 > Branch: `main` → GitHub Pages auto-deploy
 > Production URL: `receipt.fts-internal.com`
-> Version: v9.2.3 (Production + SIT)
+> Version: v9.2.4 (Production + SIT)
+
+---
+
+## 🔍 v9.2.4 — Fuzzy Search Fix + Smoke Test
+
+> **เป้าหมาย:** แก้ fuzzy search ที่หาไม่เจอเพราะ prefix Mr./Mrs./Miss + smoke test v9.2.3
+> **สถานะ:** ✅ Production Deployed 16 ก.พ. 69 (SQL migration only, ไม่มี code change)
+
+### Completed
+| # | งาน | สถานะ |
+|---|------|-------|
+| F1 | Fuzzy search: strip prefix Mr./Mrs./Miss/Ms. ก่อน compare | ✅ |
+| F2 | Strip prefix จาก search query ด้วย | ✅ |
+| F3 | Fix search_path '' → 'public' (pg_trgm operator) | ✅ |
+| F4 | Smoke test SIT: 5 pages, 0 CSP errors | ✅ |
+| F5 | Smoke test Production: 4 pages, 0 CSP errors | ✅ |
+| F6 | Verify Cloudflare _headers: 5 security headers | ✅ |
 
 ---
 
