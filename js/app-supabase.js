@@ -706,25 +706,25 @@ function renderActivityPagination(totalRecords, totalPages) {
     const endPage = Math.min(totalPages, state.activityPage + 2);
 
     if (startPage > 1) {
-        pagesHTML += `<button class="pagination-btn" onclick="goToActivityPage(1)">1</button>`;
+        pagesHTML += `<button class="pagination-btn" data-action="go-to-activity-page" data-page="1">1</button>`;
         if (startPage > 2) pagesHTML += `<span class="pagination-ellipsis">...</span>`;
     }
 
     for (let i = startPage; i <= endPage; i++) {
-        pagesHTML += `<button class="pagination-btn ${i === state.activityPage ? 'active' : ''}" onclick="goToActivityPage(${i})">${i}</button>`;
+        pagesHTML += `<button class="pagination-btn ${i === state.activityPage ? 'active' : ''}" data-action="go-to-activity-page" data-page="${i}">${i}</button>`;
     }
 
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) pagesHTML += `<span class="pagination-ellipsis">...</span>`;
-        pagesHTML += `<button class="pagination-btn" onclick="goToActivityPage(${totalPages})">${totalPages}</button>`;
+        pagesHTML += `<button class="pagination-btn" data-action="go-to-activity-page" data-page="${totalPages}">${totalPages}</button>`;
     }
 
     container.innerHTML = `
         <div class="pagination-info">แสดง ${startRecord}-${endRecord} จาก ${totalRecords} รายการ</div>
         <div class="pagination-controls">
-            <button class="pagination-btn" onclick="goToActivityPage(${state.activityPage - 1})" ${state.activityPage <= 1 ? 'disabled' : ''}>&#8592; ก่อนหน้า</button>
+            <button class="pagination-btn" data-action="go-to-activity-page" data-page="${state.activityPage - 1}" ${state.activityPage <= 1 ? 'disabled' : ''}>&#8592; ก่อนหน้า</button>
             ${pagesHTML}
-            <button class="pagination-btn" onclick="goToActivityPage(${state.activityPage + 1})" ${state.activityPage >= totalPages ? 'disabled' : ''}>ถัดไป &#8594;</button>
+            <button class="pagination-btn" data-action="go-to-activity-page" data-page="${state.activityPage + 1}" ${state.activityPage >= totalPages ? 'disabled' : ''}>ถัดไป &#8594;</button>
         </div>
     `;
 }
@@ -2806,13 +2806,13 @@ function renderRegistryTable() {
 
         const receivedCheckbox = `<input type="checkbox" class="received-checkbox"
             ${received ? 'checked' : ''}
-            onchange="toggleCardReceived('${safeReceiptNoAttr}')"
+            data-action="toggle-card-received" data-receipt-no="${safeReceiptNoAttr}"
             title="${received ? 'คลิกเพื่อยกเลิก' : 'คลิกเพื่อยืนยันรับบัตร'}">`;
         const receivedTime = received && receivedInfo ? `<span class="received-time">${formatTime(receivedInfo.receivedAt)}</span>` : '';
         const receivedStatusText = received ? '🎫 รับแล้ว' : '📦 รอรับ';
         const receivedStatusClass = received ? 'status-received' : 'status-waiting';
         const imageCell = row.cardImage
-            ? `<img src="${row.cardImage}" class="image-indicator" loading="lazy" onclick="viewImage('${safeReceiptNoAttr}')" title="คลิกเพื่อดูรูป">`
+            ? `<img src="${row.cardImage}" class="image-indicator" loading="lazy" data-action="view-image" data-receipt-no="${safeReceiptNoAttr}" title="คลิกเพื่อดูรูป">`
             : '<span class="no-image">ไม่มีรูป</span>';
 
         let rowClass = '';
@@ -2824,7 +2824,7 @@ function renderRegistryTable() {
 
         const batchCheckbox = `<input type="checkbox" class="batch-checkbox"
             ${isSelected ? 'checked' : ''}
-            onchange="toggleSelectItem('${safeReceiptNoAttr}')"
+            data-action="toggle-select-item" data-receipt-no="${safeReceiptNoAttr}"
             title="เลือกเพื่อพิมพ์หลายใบ">`;
 
         // Sanitize all user data before rendering
@@ -2854,13 +2854,13 @@ function renderRegistryTable() {
                     </div>
                 </td>
                 <td class="action-buttons">
-                    <button class="btn btn-success btn-sm" onclick="printFromTable('${safeReceiptNoAttr}')" title="พิมพ์ใบรับ">
+                    <button class="btn btn-success btn-sm" data-action="print-from-table" data-receipt-no="${safeReceiptNoAttr}" title="พิมพ์ใบรับ">
                         🖨️
                     </button>
-                    <button class="btn btn-primary btn-sm" onclick="selectRow('${safeReceiptNoAttr}')" title="แก้ไข">
+                    <button class="btn btn-primary btn-sm" data-action="select-row" data-receipt-no="${safeReceiptNoAttr}" title="แก้ไข">
                         ✏️
                     </button>
-                    ${state.currentUserRole === 'admin' ? `<button class="btn btn-outline-danger btn-sm" onclick="deleteRecord('${safeReceiptNoAttr}')" title="ลบ">
+                    ${state.currentUserRole === 'admin' ? `<button class="btn btn-outline-danger btn-sm" data-action="delete-record" data-receipt-no="${safeReceiptNoAttr}" title="ลบ">
                         🗑️
                     </button>` : ''}
                 </td>
@@ -2894,25 +2894,25 @@ function renderPagination(totalRecords, totalPages) {
     const endPage = Math.min(totalPages, state.currentPage + 2);
 
     if (startPage > 1) {
-        pagesHTML += `<button class="pagination-btn" onclick="goToPage(1)">1</button>`;
+        pagesHTML += `<button class="pagination-btn" data-action="go-to-page" data-page="1">1</button>`;
         if (startPage > 2) pagesHTML += `<span class="pagination-ellipsis">...</span>`;
     }
 
     for (let i = startPage; i <= endPage; i++) {
-        pagesHTML += `<button class="pagination-btn ${i === state.currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+        pagesHTML += `<button class="pagination-btn ${i === state.currentPage ? 'active' : ''}" data-action="go-to-page" data-page="${i}">${i}</button>`;
     }
 
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) pagesHTML += `<span class="pagination-ellipsis">...</span>`;
-        pagesHTML += `<button class="pagination-btn" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+        pagesHTML += `<button class="pagination-btn" data-action="go-to-page" data-page="${totalPages}">${totalPages}</button>`;
     }
 
     container.innerHTML = `
         <div class="pagination-info">แสดง ${startRecord}-${endRecord} จาก ${totalRecords} รายการ</div>
         <div class="pagination-controls">
-            <button class="pagination-btn" onclick="goToPage(${state.currentPage - 1})" ${state.currentPage <= 1 ? 'disabled' : ''}>&#8592; ก่อนหน้า</button>
+            <button class="pagination-btn" data-action="go-to-page" data-page="${state.currentPage - 1}" ${state.currentPage <= 1 ? 'disabled' : ''}>&#8592; ก่อนหน้า</button>
             ${pagesHTML}
-            <button class="pagination-btn" onclick="goToPage(${state.currentPage + 1})" ${state.currentPage >= totalPages ? 'disabled' : ''}>ถัดไป &#8594;</button>
+            <button class="pagination-btn" data-action="go-to-page" data-page="${state.currentPage + 1}" ${state.currentPage >= totalPages ? 'disabled' : ''}>ถัดไป &#8594;</button>
         </div>
     `;
 }
@@ -3272,11 +3272,11 @@ function setupEventListeners() {
         recentDropdown.innerHTML = `
             <div class="recent-header">
                 <span>ใบรับล่าสุด</span>
-                <button onclick="RecentReceipts.clear(); hideRecentDropdown();">ล้าง</button>
+                <button data-action="clear-recent">ล้าง</button>
             </div>
             ${recent.map((r, i) => `
                 <div class="recent-item" data-index="${i}" data-receipt="${r.receiptNo}"
-                     onmousedown="selectRecentReceipt('${r.receiptNo}')">
+                     data-action="select-recent">
                     <span class="recent-name">${r.name}</span>
                     <span class="recent-no">${r.receiptNo}</span>
                 </div>
@@ -3718,7 +3718,7 @@ function renderPendingResults(data) {
         const safeId = sanitizeHTML(row.id.replace(/'/g, "\\'"));
         const safePhotoUrl = row.apiPhotoUrl && /^https?:\/\//i.test(row.apiPhotoUrl) ? sanitizeHTML(row.apiPhotoUrl) : '';
         const photoHtml = safePhotoUrl
-            ? `<img src="${safePhotoUrl}" alt="photo" class="pending-photo-thumb" onerror="this.style.display='none'">`
+            ? `<img src="${safePhotoUrl}" alt="photo" class="pending-photo-thumb" data-action="hide-on-error">`
             : '<span class="text-secondary">-</span>';
         const dateStr = row.createdAt ? new Date(row.createdAt).toLocaleDateString('th-TH') : '-';
 
@@ -3731,7 +3731,7 @@ function renderPendingResults(data) {
                 <td>${photoHtml}</td>
                 <td>${dateStr}</td>
                 <td>
-                    <button type="button" class="btn btn-success btn-sm btn-select" onclick="selectPendingReceipt('${safeId}')">
+                    <button type="button" class="btn btn-success btn-sm btn-select" data-action="select-pending" data-pending-id="${safeId}">
                         ✓ เลือก
                     </button>
                 </td>
@@ -3984,11 +3984,67 @@ window.selectPendingReceipt = selectPendingReceipt;
 window.openPendingModal = openPendingModal;
 window.closePendingModal = closePendingModal;
 
+// === Event Delegation Setup ===
+function initEventDelegation() {
+    const clickActions = {
+        'go-to-page':          (el) => goToPage(Number(el.dataset.page)),
+        'go-to-activity-page': (el) => goToActivityPage(Number(el.dataset.page)),
+        'select-row':          (el) => selectRow(el.dataset.receiptNo),
+        'print-from-table':    (el) => printFromTable(el.dataset.receiptNo),
+        'delete-record':       (el) => deleteRecord(el.dataset.receiptNo),
+        'view-image':          (el) => viewImage(el.dataset.receiptNo),
+        'select-pending':      (el) => selectPendingReceipt(el.dataset.pendingId),
+        'clear-recent':        ()   => {
+            RecentReceipts.clear();
+            const dd = document.getElementById('recentReceiptsDropdown');
+            if (dd) dd.style.display = 'none';
+        },
+        'dropdown-toggle':     (el) => el.parentElement.classList.toggle('open'),
+    };
+
+    const changeActions = {
+        'toggle-card-received': (el) => toggleCardReceived(el.dataset.receiptNo),
+        'toggle-select-item':   (el) => toggleSelectItem(el.dataset.receiptNo),
+    };
+
+    document.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-action]');
+        if (!target) return;
+        if (clickActions[target.dataset.action]) {
+            clickActions[target.dataset.action](target, e);
+        }
+    });
+
+    document.addEventListener('change', (e) => {
+        const target = e.target.closest('[data-action]');
+        if (!target) return;
+        if (changeActions[target.dataset.action]) {
+            changeActions[target.dataset.action](target, e);
+        }
+    });
+
+    document.addEventListener('mousedown', (e) => {
+        const target = e.target.closest('[data-action]');
+        if (!target) return;
+        if (target.dataset.action === 'select-recent') {
+            selectRecentReceipt(target.dataset.receipt);
+        }
+    });
+
+    // error events don't bubble — must use capture phase
+    document.addEventListener('error', (e) => {
+        if (e.target.matches && e.target.matches('[data-action="hide-on-error"]')) {
+            e.target.style.display = 'none';
+        }
+    }, true);
+}
+
 // ==================== //
 // Initialization (Supabase)
 // ==================== //
 
 document.addEventListener('DOMContentLoaded', async () => {
+    initEventDelegation();
     console.log('Work Permit Receipt System v8.1.0 (Supabase) initialized');
 
     // Check Supabase authentication
