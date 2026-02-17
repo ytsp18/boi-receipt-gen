@@ -57,7 +57,8 @@ function validateInput(input, type = 'text') {
         case 'date':
             return /^\d{4}-\d{2}-\d{2}$/.test(str);
         case 'receiptNo':
-            return /^[0-9\-]+$/.test(str) && str.length <= 20;
+            // Support both old format (20260217-001) and new branch-prefix format (BKK001-20260217-001)
+            return /^[A-Z0-9\-]+$/.test(str) && str.length <= 30;
         default:
             return true;
     }
