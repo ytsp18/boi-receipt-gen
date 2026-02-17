@@ -1,10 +1,10 @@
 # แผนพัฒนา — BOI Work Permit Receipt System
 
-> อัพเดต: 16 กุมภาพันธ์ 2569 (rev.10)
-> Current Production: **v9.2.4** (deployed on main → GitHub Pages, 16 ก.พ. 69)
-> SIT Testing: **v9.3.0** — Inline Script Extraction ✅ SIT Passed (commit `f28f878`)
-> Pending: v7.0 E-Sign (รอ hardware testing)
-> 🔜 Next: merge sit → main (production deploy v9.3.0) เมื่อพร้อม
+> อัพเดต: 17 กุมภาพันธ์ 2569 (rev.11)
+> Current Production: **v9.4.1** (deployed on main → GitHub Pages, 16 ก.พ. 69)
+> SIT Testing: **v9.4.2** — Branch-Prefixed Receipt Number ✅ SIT Passed
+> Pending: v9.4.2 Production deploy (คืนนี้) + v7.0 E-Sign (รอ hardware testing)
+> 🔜 Next: deploy v9.4.2 to Production (SQL migration + merge sit → main)
 
 ---
 
@@ -34,7 +34,9 @@
 | **v9.2.0** | **16 ก.พ. 69** | **✅ Deployed** | **UM Enhancement: Search, Bulk Ops, Audit Log, Branch Capacity** |
 | **v9.2.3** | **16 ก.พ. 69** | **✅ Deployed** | **Security Hardening: XSS fix, CSP headers, escapeHtmlAttribute** |
 | **v9.2.4** | **16 ก.พ. 69** | **✅ Deployed** | **Fuzzy Search Fix: Strip Mr./Mrs./Miss prefix + search_path fix** |
-| **v9.3.0** | **16 ก.พ. 69** | **✅ SIT Passed** | **Inline Script Extraction: 12 blocks → 4 external JS files** |
+| **v9.3.0** | **16 ก.พ. 69** | **✅ Deployed** | **Inline Script Extraction: 12 blocks → 4 external JS files** |
+| **v9.4.1** | **16 ก.พ. 69** | **✅ Deployed** | **CSP Hardening: 83 inline handlers → event delegation, delete fix, auto-scroll** |
+| **v9.4.2** | **17 ก.พ. 69** | **✅ SIT Passed** | **Branch-Prefixed Receipt No: BKK001-20260217-001 format** |
 | v7.0.0-dev | 10 ก.พ. 69 | ⏸️ On Hold | E-Sign Workflow (ซ่อน UI, รอ hardware testing) |
 
 ---
@@ -250,6 +252,7 @@
 | 10 | `add_max_users_to_branches` (v9.2) | ✅ Done (16 ก.พ.) | ✅ Done (16 ก.พ.) | `branches.max_users` INT DEFAULT 20 |
 | 11 | `add_is_user_active_and_update_rls` (v9.2) | ✅ Done (16 ก.พ.) | ✅ Done (16 ก.พ.) | SECURITY DEFINER `is_user_active()` + 8 RLS write policies hardened |
 | 12 | `fix_fuzzy_search_strip_prefix_v2` (v9.2.4) | ✅ Done (16 ก.พ.) | ✅ Done (16 ก.พ.) | Strip Mr./Mrs./Miss/Ms. prefix + search_path fix |
+| 13 | `receipt_no_branch_prefix` (v9.4.2) | ✅ Done (17 ก.พ.) | ⏳ คืนนี้ | receipt_prefix column + RPC get_next_receipt_no() |
 
 ---
 
@@ -409,7 +412,7 @@ Note: SIT อยู่คนละ org กับ Production ได้ — billin
 |---|--------|--------|----------|
 | B10 | v7.0 E-Sign Workflow | ⏸️ On Hold | รอ hardware testing (RAPOO C280) |
 | B11 | WAC-0503 Hardware Signature Pad | ⏸️ On Hold | รอ SDK + license จาก WAC InfoTech |
-| B12 | VP API Integration | ❌ Blocked | รอ production credentials จากทีม SWD/VP |
+| B12 | VP API Integration | ⏳ รอหยิบทำ | Credentials อยู่ใน Google Sheet — รอจัดลำดับ |
 
 ---
 
@@ -481,9 +484,9 @@ Note: SIT อยู่คนละ org กับ Production ได้ — billin
 - Smoke test ผ่านครบ 10 tests (T1-T10) — 0 JS errors ทุกหน้า
 - **รอ merge ไป production** เมื่อพร้อม
 
-**Phase 2 ที่ยังค้าง:**
-- ~76 inline event handlers (`onclick=`) ใน JS template literals → ต้องแปลงเป็น event delegation
-- จากนั้นจึงลบ `'unsafe-inline'` จาก CSP `script-src` ได้
+**Phase 2 ✅ เสร็จแล้ว (v9.4.1):**
+- 83 inline event handlers (`onclick=`) → event delegation (`data-action` + dispatcher map)
+- CSP `'unsafe-inline'` removed from `script-src` ✅
 
 ---
 
@@ -534,7 +537,7 @@ Note: SIT อยู่คนละ org กับ Production ได้ — billin
 | S8 | **CSP Headers** | Content-Security-Policy + X-Frame-Options + X-Content-Type-Options + Referrer-Policy | ✅ v9.2.3 |
 | S9 | **RLS Write Policy Hardening** | `is_user_active()` SECURITY DEFINER + 8 write policies hardened | ✅ v9.2.0 |
 | S10 | **Inline Script Extraction** | 12 inline blocks → 4 external JS files (Phase 1) | ✅ v9.3.0 (SIT) |
-| S11 | **Inline Event Handler Removal** | ~76 onclick= in JS template literals → event delegation (Phase 2 — required to remove CSP `unsafe-inline`) | [ ] รอ |
+| ~~S11~~ | ~~**Inline Event Handler Removal**~~ | ~~83 onclick= in JS template literals → event delegation~~ | ✅ **v9.4.1** — CSP `unsafe-inline` removed |
 
 ---
 
