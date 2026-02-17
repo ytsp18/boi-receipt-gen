@@ -669,45 +669,58 @@ async function checkDuplicateNameFromSupabase(foreignerName, receiptDate, exclud
 // Get Next Receipt Number
 // ==================== //
 
-// v9.0: scope by branch_id to prevent collision across branches
+// v9.4.2: Use SECURITY DEFINER RPC to get branch-prefixed receipt_no
+// Format: BKK001-20260217-001 (prefix-date-sequence per branch)
+// Fixes: duplicate key violation when multiple branches create receipts on same day
 async function getNextReceiptNoFromSupabase() {
     try {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = (today.getMonth() + 1).toString().padStart(2, '0');
-        const day = today.getDate().toString().padStart(2, '0');
-        const datePrefix = `${year}${month}${day}`;
-
-        let query = window.supabaseClient
-            .from('receipts')
-            .select('receipt_no')
-            .like('receipt_no', `${datePrefix}-%`)
-            .order('receipt_no', { ascending: false })
-            .limit(1);
-
-        // v9.0: scope to current branch
         const branchId = getCurrentBranchId();
-        if (branchId) {
-            query = query.eq('branch_id', branchId);
-        }
+        if (!branchId) throw new Error('No branch_id available');
 
-        const { data, error } = await query;
+        const { data, error } = await window.supabaseClient
+            .rpc('get_next_receipt_no', { p_branch_id: branchId });
 
         if (error) throw error;
 
-        let nextNumber = 1;
-        if (data && data.length > 0) {
-            const lastNo = data[0].receipt_no;
-            const lastNumber = parseInt(lastNo.split('-')[1]);
-            nextNumber = lastNumber + 1;
-        }
-
-        return `${datePrefix}-${nextNumber.toString().padStart(3, '0')}`;
+        return data; // e.g. "BKK001-20260217-001"
     } catch (e) {
-        console.error('Error getting next receipt no:', e);
-        // Fallback to date-based number
-        const today = new Date();
-        return `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}-001`;
+        console.error('Error getting next receipt no via RPC:', e);
+        // Fallback: try to get branch prefix from loaded branch info, then query
+        try {
+            const today = new Date();
+            const datePrefix = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
+            const branchId = getCurrentBranchId();
+
+            // Try to get receipt_prefix from branch info (loaded at init)
+            let branchPrefix = '';
+            if (branchId && window.SupabaseBranches) {
+                try {
+                    const branch = await window.SupabaseBranches.getById(branchId);
+                    branchPrefix = branch?.receipt_prefix || '';
+                } catch (_) { /* ignore */ }
+            }
+
+            const fullPrefix = branchPrefix ? `${branchPrefix}-${datePrefix}` : datePrefix;
+
+            let query = window.supabaseClient
+                .from('receipts')
+                .select('receipt_no')
+                .like('receipt_no', `${fullPrefix}-%`)
+                .order('receipt_no', { ascending: false })
+                .limit(1);
+            if (branchId) query = query.eq('branch_id', branchId);
+            const { data } = await query;
+            let nextNumber = 1;
+            if (data && data.length > 0) {
+                const parts = data[0].receipt_no.split('-');
+                nextNumber = parseInt(parts[parts.length - 1]) + 1;
+            }
+            return `${fullPrefix}-${nextNumber.toString().padStart(3, '0')}`;
+        } catch (fallbackError) {
+            console.error('Fallback also failed:', fallbackError);
+            const today = new Date();
+            return `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}-001`;
+        }
     }
 }
 

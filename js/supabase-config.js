@@ -256,32 +256,19 @@ const SupabaseReceipts = {
         });
     },
 
-    // Get next receipt number for today
-    async getNextReceiptNo() {
+    // v9.4.2: Get next receipt number using SECURITY DEFINER RPC (branch-prefixed)
+    // Format: BKK001-20260217-001
+    async getNextReceiptNo(branchId) {
         const client = getSupabase();
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = (today.getMonth() + 1).toString().padStart(2, '0');
-        const day = today.getDate().toString().padStart(2, '0');
-        const datePrefix = `${year}${month}${day}`;
+        if (!branchId) branchId = window._currentBranchId;
+        if (!branchId) throw new Error('No branch_id available for receipt number generation');
 
         const { data, error } = await client
-            .from('receipts')
-            .select('receipt_no')
-            .like('receipt_no', `${datePrefix}-%`)
-            .order('receipt_no', { ascending: false })
-            .limit(1);
+            .rpc('get_next_receipt_no', { p_branch_id: branchId });
 
         if (error) throw error;
 
-        let nextNumber = 1;
-        if (data && data.length > 0) {
-            const lastNo = data[0].receipt_no;
-            const lastNumber = parseInt(lastNo.split('-')[1]);
-            nextNumber = lastNumber + 1;
-        }
-
-        return `${datePrefix}-${nextNumber.toString().padStart(3, '0')}`;
+        return data; // e.g. "BKK001-20260217-001"
     },
 
     // Search receipts

@@ -512,30 +512,36 @@ function compressImage(base64) {
 }
 
 function generateNextReceiptNo(currentData) {
-    // Format: YYYYMMDD-001
+    // v9.4.2: Format: PREFIX-YYYYMMDD-001 (e.g. BKK001-20260217-001)
+    // Fallback: YYYYMMDD-001 if no branch prefix available
     const today = new Date();
     const year = today.getFullYear();
     const month = (today.getMonth() + 1).toString().padStart(2, '0');
     const day = today.getDate().toString().padStart(2, '0');
     const datePrefix = `${year}${month}${day}`;
+    const branchPrefix = state.currentBranch?.receipt_prefix || '';
+
+    // Full prefix: "BKK001-20260217" or just "20260217" if no branch prefix
+    const fullPrefix = branchPrefix ? `${branchPrefix}-${datePrefix}` : datePrefix;
 
     if (!currentData || currentData.length === 0) {
-        return `${datePrefix}-001`;
+        return `${fullPrefix}-001`;
     }
 
-    // Find receipts with same date prefix and get max number
+    // Find receipts matching this branch+date prefix and get max sequence
     const todayReceipts = currentData
         .map(row => row.receiptNo)
-        .filter(no => no && no.startsWith(datePrefix))
+        .filter(no => no && no.startsWith(fullPrefix))
         .map(no => {
             const parts = no.split('-');
-            return parts.length === 2 ? parseInt(parts[1]) || 0 : 0;
+            // Last part is always the sequence number
+            return parseInt(parts[parts.length - 1]) || 0;
         })
         .sort((a, b) => b - a);
 
     const lastNo = todayReceipts.length > 0 ? todayReceipts[0] : 0;
     const nextNo = (lastNo + 1).toString().padStart(3, '0');
-    return `${datePrefix}-${nextNo}`;
+    return `${fullPrefix}-${nextNo}`;
 }
 
 function formatTime(isoString) {
