@@ -1,5 +1,63 @@
 # Change Log - Work Permit Receipt System
 
+## [9.4.2] - 2026-02-17 (SIT ✅ — Production pending)
+
+> **สถานะ: SIT ทดสอบผ่าน** — Branch-Prefixed Receipt Number + Bug Fixes
+
+### Critical Bug Fix: Receipt No Duplicate Key Violation
+
+**ปัญหา:** เมื่อสาขาอื่น (EEC) สร้างใบรับพร้อมกับ BKK → เกิด `duplicate key value violates unique constraint "receipts_receipt_no_key"` เพราะ:
+1. `getNextReceiptNoFromSupabase()` query เฉพาะ receipts ของสาขาตัวเอง (branch_id filter)
+2. RLS SELECT policy ก็ scope ตาม branch_id → มองไม่เห็น receipt สาขาอื่น
+3. UNIQUE constraint `receipts_receipt_no_key` เป็น global → สาขาต่าง generate เลขซ้ำกันได้
+
+**แก้ไข:**
+- เพิ่ม `receipt_prefix` column บน `branches` table (BKK001, CBI001, CMI001, PKT001)
+- สร้าง RPC `get_next_receipt_no(UUID)` SECURITY DEFINER — bypass RLS query ทุกสาขา
+- Format ใหม่: `BKK001-20260217-001` (branch prefix + date + sequence)
+- Receipt เก่า format เดิม (`20260217-xxx`) ยังใช้งานได้ปกติ
+
+### Bug Fix: Receipt No Validation Regex
+
+- `validateInput('receiptNo')` เดิมรับแค่ `[0-9-]` → แก้เป็น `[A-Z0-9-]` รองรับ branch prefix
+- เพิ่ม max length จาก 20 → 30 chars
+
+### UX Fix: Doc No. Font Size
+
+- ลด `.footer-doc` font-size จาก `1rem` → `0.8rem` เพราะเลขรับยาวขึ้นจาก prefix
+
+### SQL Migration (SIT only)
+
+- `supabase-update-v9.4.2-receipt-no-fix.sql`
+  - `ALTER TABLE branches ADD COLUMN receipt_prefix TEXT`
+  - `UPDATE branches SET receipt_prefix = 'BKK001'/'CBI001'/'CMI001'/'PKT001'`
+  - `CREATE FUNCTION get_next_receipt_no(UUID)` SECURITY DEFINER
+  - `GRANT EXECUTE TO authenticated`
+
+### SIT Test Results — 17 ก.พ. 69 ✅
+
+| # | Test | Status |
+|---|------|--------|
+| T1-T3 | Format + Save + Sequence (BKK) | ✅ |
+| T4 | Backward compat receipt เก่า | ✅ |
+| T5-T6 | Cross-branch BKK vs CMI ไม่ชน | ✅ |
+| T7 | Cross-user ในสาขาเดียวกัน sequence ต่อ | ✅ |
+| T8 | Edit receipt เก่า format ไม่เปลี่ยน | ✅ |
+| U5 | บันทึกผ่าน UI สำเร็จ | ✅ |
+| U6 | ตารางแสดง BKK001-20260217-001 ถูกต้อง | ✅ |
+| U7 | CMI prefix = CMI001-20260217-001 | ✅ |
+
+### Files Changed
+
+- `js/supabase-adapter.js` — `getNextReceiptNoFromSupabase()` rewritten to use RPC
+- `js/supabase-config.js` — `SupabaseReceipts.getNextReceiptNo()` updated
+- `js/app-supabase.js` — `generateNextReceiptNo()` + `validateInput('receiptNo')` updated
+- `css/style.css` — `.footer-doc` font-size reduced
+- All 6 HTML files — cache bumped `?v=9.4.2`
+- `supabase-update-v9.4.2-receipt-no-fix.sql` — SQL migration file
+
+---
+
 ## [9.4.1] - 2026-02-16 (Production + SIT)
 
 > **สถานะ: ✅ Production Deployed** — CSP Hardening + Bug Fixes + UX Enhancement
