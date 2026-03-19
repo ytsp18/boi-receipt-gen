@@ -119,26 +119,41 @@ async function loadMonthlyDataFromSupabase(month, year, branchId = null) {
         // v9.0: Apply branch filter
         const effectiveBranchId = branchId || getCurrentBranchId();
 
-        // Select columns needed for monthly report (v9.1: +card_printer_name, printed_at, received_at, created_by)
-        let query = window.supabaseClient
-            .from('receipts')
-            .select('receipt_no, receipt_date, foreigner_name, sn_number, request_no, appointment_no, is_printed, is_received, card_printer_name, printed_at, received_at, created_by')
-            .gte('receipt_date', startDate)
-            .lte('receipt_date', endDate)
-            .order('receipt_date', { ascending: true })
-            .order('created_at', { ascending: false });
+        // Paginated fetch — Supabase default limit is 1000 rows per request
+        const PAGE_SIZE = 1000;
+        let allRecords = [];
+        let from = 0;
+        let hasMore = true;
 
-        if (effectiveBranchId) {
-            query = query.eq('branch_id', effectiveBranchId);
+        while (hasMore) {
+            let query = window.supabaseClient
+                .from('receipts')
+                .select('receipt_no, receipt_date, foreigner_name, sn_number, request_no, appointment_no, is_printed, is_received, card_printer_name, printed_at, received_at, created_by')
+                .gte('receipt_date', startDate)
+                .lte('receipt_date', endDate)
+                .order('receipt_date', { ascending: true })
+                .order('created_at', { ascending: false })
+                .range(from, from + PAGE_SIZE - 1);
+
+            if (effectiveBranchId) {
+                query = query.eq('branch_id', effectiveBranchId);
+            }
+
+            const { data: records, error } = await query;
+
+            if (error) throw error;
+
+            const batch = records || [];
+            allRecords = allRecords.concat(batch);
+
+            // If we got fewer than PAGE_SIZE, we've reached the end
+            hasMore = batch.length === PAGE_SIZE;
+            from += PAGE_SIZE;
         }
 
-        const { data: records, error } = await query;
+        console.log(`📊 Loaded ${allRecords.length} records for ${month}/${year} (${Math.ceil(allRecords.length / PAGE_SIZE)} batches)`);
 
-        if (error) throw error;
-
-        console.log(`📊 Loaded ${(records || []).length} records for ${month}/${year}`);
-
-        return (records || []).map(row => ({
+        return allRecords.map(row => ({
             receiptNo: row.receipt_no,
             date: formatThaiDateFromISO(row.receipt_date),
             name: row.foreigner_name,
